@@ -1,30 +1,45 @@
 use nalgebra::{Point3, Scalar};
-use num_traits::Float;
-use super::{traits::{TopologyEntity, Vertex, TopologyFlags}, flags};
+use num_traits::{Float, PrimInt};
+use super::{traits::{TopologyPrimitive, Vertex, TopologyFlags}, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
-struct DefaultVertex<TScalarType: Float + Scalar> {
-    corner_index: usize,
+struct DefaultVertex<TVertexIndexType, TCornerIndexType, TScalarType> 
+where 
+    TVertexIndexType: PrimInt, 
+    TCornerIndexType: PrimInt, 
+    TScalarType: Float + Scalar 
+{
+    corner_index: TCornerIndexType,
     position: Point3<TScalarType>,
 
     flags: flags::TopologyFlags,
-    index: usize
+    index: TVertexIndexType
 }
 
-impl<TScalarType: Float + Scalar> Default for DefaultVertex<TScalarType> {
+impl<TVertexIndexType, TCornerIndexType, TScalarType> Default for DefaultVertex<TVertexIndexType, TCornerIndexType, TScalarType>
+where 
+    TVertexIndexType: PrimInt, 
+    TCornerIndexType: PrimInt, 
+    TScalarType: Float + Scalar  
+{
     fn default() -> Self {
         return Self {
-            index: usize::max_value(), 
-            corner_index: usize::max_value(), 
+            index: TVertexIndexType::max_value(), 
+            corner_index: TCornerIndexType::max_value(), 
             position: Default::default(), 
             flags: Default::default() 
         };
     }
 }
 
-impl<TScalarType: Float + Scalar> TopologyFlags for DefaultVertex<TScalarType> {
+impl<TVertexIndexType, TCornerIndexType, TScalarType> TopologyFlags for DefaultVertex<TVertexIndexType, TCornerIndexType, TScalarType>
+where 
+    TVertexIndexType: PrimInt, 
+    TCornerIndexType: PrimInt, 
+    TScalarType: Float + Scalar  
+{
     #[inline]
     fn get_flags_mut(&mut self) -> &mut flags::TopologyFlags {
         return &mut self.flags;
@@ -36,20 +51,33 @@ impl<TScalarType: Float + Scalar> TopologyFlags for DefaultVertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Float + Scalar> TopologyEntity for DefaultVertex<TScalarType> {
+impl<TVertexIndexType, TCornerIndexType, TScalarType> TopologyPrimitive for DefaultVertex<TVertexIndexType, TCornerIndexType, TScalarType>
+where 
+    TVertexIndexType: PrimInt, 
+    TCornerIndexType: PrimInt, 
+    TScalarType: Float + Scalar  
+{
+    type IndexType = TVertexIndexType;
+
     #[inline]
-    fn get_index(&self) -> usize {
+    fn get_index(&self) -> Self::IndexType {
         return self.index;
     }
 
-    fn set_index(&mut self, index: usize) -> &mut Self {
+    fn set_index(&mut self, index: Self::IndexType) -> &mut Self {
         self.index = index;
         return self;
     }
 }
 
-impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
+impl<TVertexIndexType, TCornerIndexType, TScalarType> Vertex for DefaultVertex<TVertexIndexType, TCornerIndexType, TScalarType>
+where 
+    TVertexIndexType: PrimInt, 
+    TCornerIndexType: PrimInt, 
+    TScalarType: Float + Scalar  
+{
     type ScalarType = TScalarType;
+    type CornerIndexType = TCornerIndexType;
 
     #[inline]
     fn get_position(&self) -> &Point3<Self::ScalarType> {
@@ -63,12 +91,12 @@ impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
     }
 
     #[inline]
-    fn get_corner_index(&self) -> usize {
+    fn get_corner_index(&self) -> Self::CornerIndexType {
         return self.corner_index;
     }
 
     #[inline]
-    fn set_corner_index(&mut self, index: usize) -> &mut Self {
+    fn set_corner_index(&mut self, index: Self::CornerIndexType) -> &mut Self {
         self.corner_index = index;
         return self;
     }
