@@ -1,1 +1,2 @@
-mod connectivity;
+mod corner_table;
+mod traits;
