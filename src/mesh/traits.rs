@@ -1,5 +1,8 @@
-use nalgebra::{Scalar, Point3, UnitVector3};
+use nalgebra::{Point3, UnitVector3, Scalar, ClosedAdd, ClosedSub, ClosedMul, ComplexField};
 use num_traits::Float;
+
+pub trait Floating: Scalar + Float + ClosedAdd + ClosedSub + ClosedMul + ComplexField {}
+impl<T> Floating for T where T: Scalar + Float + ClosedAdd + ClosedSub + ClosedMul + ComplexField {}
 
 pub trait Edge {
     type VertexDescriptor;
@@ -9,7 +12,7 @@ pub trait Edge {
 }
 
 pub trait Vertex {
-    type ScalarType: Float + Scalar;
+    type ScalarType: Floating;
 
     fn get_position(&self) -> &Point3<Self::ScalarType>;
     fn set_position(&mut self, point: Point3<Self::ScalarType>) -> &mut Self;
@@ -19,7 +22,7 @@ pub trait Vertex {
 /// Triangular mesh
 /// 
 pub trait Mesh<'a> {
-    type ScalarType: Float + Scalar;
+    type ScalarType: Floating;
 
     type EdgeDescriptor: 'a;
     type VertexDescriptor: 'a;
@@ -40,7 +43,7 @@ pub trait Mesh<'a> {
     fn edges(&'a self) -> Self::EdgesIter;
 
     /// Returns positions of face vertices in ccw order
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (&Point3<Self::ScalarType>, &Point3<Self::ScalarType>, &Point3<Self::ScalarType>);
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Returns face normal
     fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
 }

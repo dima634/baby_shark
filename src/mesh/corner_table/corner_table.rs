@@ -1,8 +1,8 @@
 use std::{collections::HashMap};
-use nalgebra::Point3;
+use nalgebra::{Point3, UnitVector3};
 use crate::mesh::traits::Mesh;
 use self::helpers::Edge;
-use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter}};
+use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker}};
 
 
 pub struct CornerTable<TCorner: Corner, TVertex: Vertex> {
@@ -149,12 +149,21 @@ where
         todo!()
     }
 
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (&Point3<Self::ScalarType>, &Point3<Self::ScalarType>, &Point3<Self::ScalarType>) {
-        todo!()
+    #[inline]
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+        let mut walker = CornerWalker::from_corner(self, face);
+
+        return (
+            *walker.get_vertex().get_position(),
+            *walker.next().get_vertex().get_position(),
+            *walker.next().get_vertex().get_position()
+        );
     }
 
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> nalgebra::UnitVector3<Self::ScalarType> {
-        todo!()
+    #[inline]
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
+        let (p1, p2, p3) = self.face_positions(face);
+        return UnitVector3::new_normalize((p2 - p1).cross(&(p3 - p1)));
     }
 }
 

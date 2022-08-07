@@ -1,24 +1,23 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use num_traits::Float;
-use nalgebra::{Scalar, Point3};
-use crate::algo::float_hash::{combine_hash, hash_float};
+use nalgebra::Point3;
+use crate::{algo::float_hash::{combine_hash, hash_float}, mesh::traits::Floating};
 
 ///
 /// Hashable type for nalgebra Point3
 /// 
-struct HashablePoint<TScalar: Scalar>(Point3<TScalar>);
+struct HashablePoint<TScalar: Floating>(Point3<TScalar>);
 
-impl<TScalar: Scalar> PartialEq for HashablePoint<TScalar> {
+impl<TScalar: Floating> PartialEq for HashablePoint<TScalar> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return self.0 == other.0;
     }
 }
 
-impl<'a, TScalar: Scalar> Eq for HashablePoint<TScalar> {}
+impl<'a, TScalar: Floating> Eq for HashablePoint<TScalar> {}
 
-impl<TScalar: Float + Scalar> Hash for HashablePoint<TScalar> {
+impl<TScalar: Floating> Hash for HashablePoint<TScalar> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let mut hash = hash_float(self.0[0]);
         hash = combine_hash(hash, hash_float(self.0[1]));
@@ -33,11 +32,11 @@ impl<TScalar: Float + Scalar> Hash for HashablePoint<TScalar> {
 ///
 /// Stores 3d point -> index map
 /// 
-pub struct PointIndexMap<TScalar: Scalar + Float> {
+pub struct PointIndexMap<TScalar: Floating> {
     map: HashMap<HashablePoint<TScalar>, usize>
 }
 
-impl<TScalar: Scalar + Float> PointIndexMap<TScalar> {
+impl<TScalar: Floating> PointIndexMap<TScalar> {
     pub fn new() -> Self {
         return Self {
             map: HashMap::new()

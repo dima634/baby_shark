@@ -13,12 +13,14 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
         }; 
     }
 
+    /// Moves to next corner
     #[inline]
     pub fn next(&mut self) -> &mut Self {
         self.corner = self.table.get_corner(self.corner.get_next_corner_index()).unwrap();
         return self;
     }
     
+    /// Moves to opposite corner if exist, otherwise corner stays still
     #[inline]
     pub fn opposite(&mut self) -> &mut Self {
         if let Some(opposite) = self.corner.get_opposite_corner_index() {
@@ -31,9 +33,81 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
         return self;
     }
 
+    /// Moves to previous corner. Shorthand for next().next()
     #[inline]
     pub fn previous(&mut self) -> &mut Self {
         return self.next().next();
+    }
+
+    /// Moves to right corner
+    #[inline]
+    pub fn right(&mut self) -> &mut Self {
+        return self.next().opposite();
+    }
+
+    /// Moves to left corner
+    #[inline]
+    pub fn left(&mut self) -> &mut Self {
+        return self.previous().opposite();
+    }
+
+    /// Swings to right around corner vertex
+    #[inline]
+    pub fn swing_right(&mut self) -> &mut Self {
+        return self.previous().opposite().previous();
+    }
+
+    /// Swings to left around corner vertex
+    #[inline]
+    pub fn swing_left(&mut self) -> &mut Self {
+        return self.next().opposite().next();
+    }
+
+    /// Returns `true` if it is possible to [`Self::swing_right()`] (corner is not on the border), `false` otherwise
+    #[inline]
+    pub fn can_swing_right(&self) -> bool {
+        return self.get_previous_corner().get_opposite_corner_index().is_some();
+    }
+
+    /// Returns `true` if it is possible to [`Self::swing_left()`] (corner is not on the border), `false` otherwise
+    #[inline]
+    pub fn can_swing_left(&self) -> bool {
+        return self.get_next_corner().get_opposite_corner_index().is_some();
+    }
+
+    /// Returns next corner
+    #[inline]
+    pub fn get_next_corner(&self) -> &TCorner {
+        return self.table.get_corner(self.corner.get_next_corner_index()).unwrap(); 
+    }
+
+    /// Returns previous corner
+    #[inline]
+    pub fn get_previous_corner(&self) -> &TCorner {
+        return self.table.get_corner(self.get_next_corner().get_next_corner_index()).unwrap(); 
+    }
+
+    /// Returns opposite corner
+    #[inline]
+    pub fn get_opposite_corner(&self) -> Option<&TCorner> {
+        if let Some(opposite) = self.corner.get_opposite_corner_index() {
+            return Some(self.table.get_corner(opposite).unwrap());
+        }
+        else {
+            return None;
+        }
+    }
+
+    /// Returns current corner
+    #[inline]
+    pub fn get_corner(&self) -> &TCorner {
+        return self.corner;
+    }
+
+    /// Returns vertex of current corner
+    #[inline]
+    pub fn get_vertex(&self) -> &TVertex {
+        return self.table.get_vertex(self.corner.get_vertex_index()).unwrap();
     }
 }
 
