@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use super::traits::TopologyPrimitive;
 
 bitflags! {
     pub struct TopologyFlags: u8 {
@@ -16,10 +15,10 @@ impl Default for TopologyFlags {
     }
 }
 
-pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
-    where TEntity: TopologyPrimitive + 'a, TEntitiesIter: Iterator<Item = &'a mut TEntity> 
-{
-    for entity in iter {
-        entity.set_visited(false);
-    }
-}
+// pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
+//     where TEntity: TopologyPrimitive + 'a, TEntitiesIter: Iterator<Item = &'a mut TEntity> 
+// {
+//     for entity in iter {
+//         entity.set_visited(false);
+//     }
+// }

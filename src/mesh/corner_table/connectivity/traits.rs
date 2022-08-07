@@ -1,6 +1,4 @@
-use nalgebra::{Point3, Scalar};
-use num_traits::Float;
-
+use crate::mesh;
 use super::flags;
 
 pub trait TopologyFlags {
@@ -35,12 +33,7 @@ pub trait TopologyPrimitive: Default + TopologyFlags {
     fn set_index(&mut self, index: usize) -> &mut Self;
 }
 
-pub trait Vertex: TopologyPrimitive {
-    type ScalarType: Float + Scalar;
-
-    fn get_position(&self) -> &Point3<Self::ScalarType>;
-    fn set_position(&mut self, point: Point3<Self::ScalarType>) -> &mut Self;
-
+pub trait Vertex: TopologyPrimitive + mesh::traits::Vertex {
     fn get_corner_index(&self) -> usize;
     fn set_corner_index(&mut self, index: usize) -> &mut Self;
 }
@@ -49,17 +42,11 @@ pub trait Corner: TopologyPrimitive {
     fn get_next_corner_index(&self) -> usize;
     fn set_next_corner_index(&mut self, index: usize) -> &Self;
 
-    fn get_opposite_corner_index(&self) -> usize;
+    fn get_opposite_corner_index(&self) -> Option<usize>;
     fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self;
 
     fn get_face_index(&self) -> usize;
-    fn set_face_index(&mut self, index: usize) -> &mut Self;
 
     fn get_vertex_index(&self) -> usize;
     fn set_vertex_index(&mut self, index: usize) -> &mut Self;
-}
-
-pub trait Face: TopologyPrimitive {
-    fn get_corner_index(&self) -> usize;
-    fn set_corner_index(&mut self, index: usize) -> &mut Self;
 }

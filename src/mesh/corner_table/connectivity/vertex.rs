@@ -1,16 +1,29 @@
 use nalgebra::{Point3, Scalar};
 use num_traits::Float;
+use crate::mesh;
 use super::{traits::{TopologyPrimitive, Vertex, TopologyFlags}, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
-struct DefaultVertex<TScalarType: Float + Scalar > {
+#[derive(PartialEq, Eq, Debug)]
+pub struct DefaultVertex<TScalarType: Float + Scalar> {
     corner_index: usize,
     position: Point3<TScalarType>,
 
     flags: flags::TopologyFlags,
     index: usize
+}
+
+impl<TScalarType: Float + Scalar> DefaultVertex<TScalarType> {
+    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::TopologyFlags, index: usize) -> Self { 
+        return Self { 
+            corner_index, 
+            position, 
+            flags, 
+            index 
+        };
+    }
 }
 
 impl<TScalarType: Float + Scalar> Default for DefaultVertex<TScalarType> {
@@ -48,7 +61,7 @@ impl<TScalarType: Float + Scalar> TopologyPrimitive for DefaultVertex<TScalarTyp
     }
 }
 
-impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
+impl<TScalarType: Float + Scalar> mesh::traits::Vertex for DefaultVertex<TScalarType> {
     type ScalarType = TScalarType;
 
     #[inline]
@@ -61,7 +74,9 @@ impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
         self.position = point;
         return self;
     }
+}
 
+impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
     #[inline]
     fn get_corner_index(&self) ->  usize {
         return self.corner_index;
@@ -74,3 +89,6 @@ impl<TScalarType: Float + Scalar> Vertex for DefaultVertex<TScalarType> {
     }
 }
 
+/// Aliases
+pub type VertexF = DefaultVertex<f32>;
+pub type VertexD = DefaultVertex<f64>;

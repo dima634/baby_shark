@@ -1,16 +1,48 @@
+use nalgebra::{Scalar, Point3, UnitVector3};
+use num_traits::Float;
 
-pub trait Mesh {
-    type EdgeDescriptor;
+pub trait Edge {
     type VertexDescriptor;
-    type FaceDescriptor;
 
-    type FacesIter: Iterator<Item = Self::FaceDescriptor>;
-    type VerticesIter: Iterator<Item = Self::VertexDescriptor>;
-    type EdgesIter: Iterator<Item = Self::EdgeDescriptor>;
+    fn start(&self) -> Self::VertexDescriptor;
+    fn end(&self) -> Self::VertexDescriptor;
+}
 
-    fn faces(&self) -> Self::FacesIter;
-    fn vertices(&self) -> Self::VerticesIter;
-    fn edges(&self) -> Self::EdgesIter;
+pub trait Vertex {
+    type ScalarType: Float + Scalar;
+
+    fn get_position(&self) -> &Point3<Self::ScalarType>;
+    fn set_position(&mut self, point: Point3<Self::ScalarType>) -> &mut Self;
+}
+
+///
+/// Triangular mesh
+/// 
+pub trait Mesh<'a> {
+    type ScalarType: Float + Scalar;
+
+    type EdgeDescriptor: 'a;
+    type VertexDescriptor: 'a;
+    type FaceDescriptor: 'a;
+
+    type FacesIter: Iterator<Item = &'a Self::FaceDescriptor>;
+    type VerticesIter: Iterator<Item = &'a Self::VertexDescriptor>;
+    type EdgesIter: Iterator<Item = &'a Self::EdgeDescriptor>;
+
+    /// Creates mesh from vertices and face indices
+    fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self;
+
+    /// Iterator over mesh faces
+    fn faces(&'a self) -> Self::FacesIter;
+    /// Iterator over mesh vertices
+    fn vertices(&'a self) -> Self::VerticesIter;
+    /// Iterator over mesh edges
+    fn edges(&'a self) -> Self::EdgesIter;
+
+    /// Returns positions of face vertices in ccw order
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> (&Point3<Self::ScalarType>, &Point3<Self::ScalarType>, &Point3<Self::ScalarType>);
+    /// Returns face normal
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
 }
 
 // pub trait EditableMesh {  

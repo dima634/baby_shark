@@ -1,2 +1,2 @@
-mod corner_table;
-mod traits;
+pub mod corner_table;
+pub mod traits;

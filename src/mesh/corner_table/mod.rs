@@ -1,3 +1,5 @@
+pub mod corner_table;
+pub mod prelude;
+pub mod traversal;
 mod connectivity;
-mod traits;
-mod corner_table;
+mod test_helpers;
