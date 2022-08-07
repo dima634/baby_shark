@@ -1,8 +1,8 @@
-use nalgebra::{Point3, UnitVector3, Scalar, ClosedAdd, ClosedSub, ClosedMul, ComplexField};
+use nalgebra::{Point3, UnitVector3, RealField};
 use num_traits::Float;
 
-pub trait Floating: Scalar + Float + ClosedAdd + ClosedSub + ClosedMul + ComplexField {}
-impl<T> Floating for T where T: Scalar + Float + ClosedAdd + ClosedSub + ClosedMul + ComplexField {}
+pub trait Floating: RealField + Float {}
+impl<T> Floating for T where T: RealField + Float {}
 
 pub trait Edge {
     type VertexDescriptor;

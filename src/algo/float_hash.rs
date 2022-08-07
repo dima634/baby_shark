@@ -1,12 +1,14 @@
 use num_traits::Float;
 
+use crate::mesh::traits::Floating;
+
 #[inline]
-pub fn hash_float<TFloat: Float>(float: TFloat) -> i32 {
+pub fn hash_float<TFloat: Floating>(float: TFloat) -> i32 {
     if float == TFloat::zero() {
         return 0;
     }
 
-    return (float * TFloat::from(73856093).unwrap()).floor().to_i32().unwrap();
+    return Float::floor(float * TFloat::from(73856093).unwrap()).to_i32().unwrap();
 }
 
 #[inline]
