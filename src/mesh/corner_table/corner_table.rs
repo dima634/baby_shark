@@ -38,7 +38,8 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
         return self.corners.get_mut(corner_index);
     }
 
-    fn create_corner(&mut self) -> &mut TCorner {
+    /// Create new isolated corner. Returns corner an its index
+    pub fn create_corner(&mut self) -> &mut TCorner {
         let idx = self.corners.len();
         let mut corner = TCorner::default();
         corner.set_index(idx);
@@ -46,12 +47,38 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
         return self.corners.get_mut(idx).unwrap();
     }
 
-    fn create_vertex(&mut self) -> &mut TVertex {
+    /// Create new isolated vertex. Returns vertex an its index
+    pub fn create_vertex(&mut self) -> &mut TVertex {
         let idx = self.vertices.len();
         let mut vertex = TVertex::default();
         vertex.set_index(idx);
         self.vertices.push(vertex);
         return self.vertices.get_mut(idx).unwrap();
+    }
+
+    /// Creates isolated face from existing vertices vertices
+    pub fn create_face_from_vertices(&mut self, v1: usize, v2: usize, v3: usize) {
+        let c1_idx = self.corners.len();
+        let c2_idx = c1_idx + 1;
+        let c3_idx = c1_idx + 2;
+
+        let c1 = self.create_corner();
+        c1.set_vertex_index(v1);
+        c1.set_next_corner_index(c2_idx);
+
+        let c2 = self.create_corner();
+        c2.set_vertex_index(v2);
+        c2.set_next_corner_index(c3_idx);
+
+        let c3 = self.create_corner();
+        c3.set_vertex_index(v3);
+        c3.set_next_corner_index(c1_idx);
+    }
+
+    /// Makes give corners opposite to each other
+    pub fn set_opposite_relationship(&mut self, corner1_index: usize, corner2_index: usize) {
+        self.get_corner_mut(corner1_index).unwrap().set_opposite_corner_index(corner2_index);
+        self.get_corner_mut(corner2_index).unwrap().set_opposite_corner_index(corner1_index);
     }
 
     fn corner_from(
@@ -149,7 +176,7 @@ where
 
     #[inline]
     fn face_positions(&self, face: Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
-        let mut walker = CornerWalker::from_corner(self, self.get_corner(face).unwrap());
+        let mut walker = CornerWalker::from_corner(self, face);
 
         return (
             *walker.get_vertex().get_position(),
@@ -193,7 +220,7 @@ pub(super) mod helpers {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::corner_table::{test_helpers::create_unit_square_mesh, connectivity::{vertex::VertexF, corner::DefaultCorner}};
+    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals}, connectivity::{vertex::VertexF, corner::DefaultCorner}};
 
     #[test]
     fn from_vertices_and_indices() {
@@ -216,15 +243,6 @@ mod tests {
             DefaultCorner::new(3, None,    0, 5, Default::default())
         ];
 
-        assert_eq!(expected_corners.len(), mesh.corners.len());
-        assert_eq!(expected_vertices.len(), mesh.vertices.len());
-
-        for i in 0..expected_corners.len() {
-            assert_eq!(expected_corners[i], mesh.corners[i]);
-        }
-
-        for i in 0..expected_vertices.len() {
-            assert_eq!(expected_vertices[i], mesh.vertices[i]);
-        }
+        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
     }
 }

@@ -7,29 +7,36 @@ use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}}}
 /// 
 pub struct CornerWalker<'a, TCorner: Corner, TVertex: Vertex> {
     table: &'a CornerTable<TCorner, TVertex>,
-    corner: &'a TCorner
+    corner_index: usize
 }
 
 impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
-    pub fn from_corner(table: &'a CornerTable<TCorner, TVertex>, corner: &'a TCorner) -> Self { 
+    pub fn from_corner(table: &'a CornerTable<TCorner, TVertex>, corner_index: usize) -> Self { 
         return Self {
             table, 
-            corner 
+            corner_index
         }; 
+    }
+
+    /// Jumps to given corner
+    #[inline]
+    pub fn set_current_corner(&mut self, corner_index: usize) -> &mut Self {
+        self.corner_index = corner_index;
+        return self;
     }
 
     /// Moves to next corner
     #[inline]
     pub fn next(&mut self) -> &mut Self {
-        self.corner = self.table.get_corner(self.corner.get_next_corner_index()).unwrap();
+        self.corner_index = self.get_corner().get_next_corner_index();
         return self;
     }
     
     /// Moves to opposite corner if exist, otherwise corner stays still
     #[inline]
     pub fn opposite(&mut self) -> &mut Self {
-        if let Some(opposite) = self.corner.get_opposite_corner_index() {
-            self.corner = self.table.get_corner(opposite).unwrap();
+        if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
+            self.corner_index = opposite;
         }
         else {
             debug_assert!(false, "Moving to not existing corner");
@@ -83,19 +90,25 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
     /// Returns next corner
     #[inline]
     pub fn get_next_corner(&self) -> &TCorner {
-        return self.table.get_corner(self.corner.get_next_corner_index()).unwrap(); 
+        return self.table.get_corner(self.get_corner().get_next_corner_index()).unwrap(); 
+    }
+
+    /// Returns previous corner index
+    #[inline]
+    pub fn get_previous_corner_index(&self) -> usize {
+        return self.get_next_corner().get_next_corner_index(); 
     }
 
     /// Returns previous corner
     #[inline]
     pub fn get_previous_corner(&self) -> &TCorner {
-        return self.table.get_corner(self.get_next_corner().get_next_corner_index()).unwrap(); 
+        return self.table.get_corner(self.get_previous_corner_index()).unwrap(); 
     }
 
     /// Returns opposite corner
     #[inline]
     pub fn get_opposite_corner(&self) -> Option<&TCorner> {
-        if let Some(opposite) = self.corner.get_opposite_corner_index() {
+        if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
             return Some(self.table.get_corner(opposite).unwrap());
         }
         else {
@@ -106,13 +119,19 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
     /// Returns current corner
     #[inline]
     pub fn get_corner(&self) -> &TCorner {
-        return self.corner;
+        return self.table.get_corner(self.corner_index).unwrap();
+    }
+
+    /// Returns current corner index
+    #[inline]
+    pub fn get_corner_index(&self) -> usize {
+        return self.corner_index;
     }
 
     /// Returns vertex of current corner
     #[inline]
     pub fn get_vertex(&self) -> &TVertex {
-        return self.table.get_vertex(self.corner.get_vertex_index()).unwrap();
+        return self.table.get_vertex(self.get_corner().get_vertex_index()).unwrap();
     }
 }
 

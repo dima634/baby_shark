@@ -48,12 +48,16 @@ pub trait Mesh<'a> {
     fn face_normal(&self, face: Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
 }
 
-// pub trait EditableMesh {  
-//     type EdgeDescriptor;
-//     type VertexDescriptor;
+///
+/// Triangular mesh that supports editing operations
+/// 
+pub trait EditableMesh<'a>: Mesh<'a> {
+    fn collapse_edge(&mut self, edge: Self::EdgeDescriptor);
+    fn is_edge_collapse_safe(&mut self, edge: Self::EdgeDescriptor) -> bool;
 
-//     fn collapse_edge(&mut self, edge: Self::EdgeDescriptor) -> Result<(), ()>;
-//     fn split_edge(&mut self, edge: Self::EdgeDescriptor) -> Result<(), ()>;
-//     fn flip_edge(&mut self, edge: Self::EdgeDescriptor) -> Result<(), ()>;
-//     fn shift_vertex(&mut self, vertex: Self::VertexDescriptor) -> Result<(), ()>;
-// }
+    fn flip_edge(&mut self, edge: Self::EdgeDescriptor);
+    fn is_edge_flip_safe(&mut self, edge: Self::EdgeDescriptor) -> bool;
+
+    fn split_edge(&mut self, edge: Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
+    fn shift_vertex(&mut self, vertex: Self::VertexDescriptor, to: &Point3<Self::ScalarType>);
+}
