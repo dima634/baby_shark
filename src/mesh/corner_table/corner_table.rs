@@ -10,11 +10,7 @@ pub struct CornerTable<TCorner: Corner, TVertex: Vertex> {
     pub(super) corners: Vec<TCorner>
 }
 
-impl<TCorner, TVertex> CornerTable<TCorner, TVertex> 
-where 
-    TCorner: Corner,
-    TVertex: Vertex 
-{
+impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     pub fn new<>() -> Self {
         return Self {
             corners: Vec::new(),
@@ -103,9 +99,9 @@ where
 {
     type ScalarType = TVertex::ScalarType;
 
-    type EdgeDescriptor = TCorner;
-    type VertexDescriptor = TVertex;
-    type FaceDescriptor = TCorner;
+    type EdgeDescriptor = usize;
+    type VertexDescriptor = usize;
+    type FaceDescriptor = usize;
 
     type FacesIter = CornerTableFacesIter<'a, TCorner, TVertex>;
     type VerticesIter = CornerTableVerticesIter<'a, TCorner, TVertex>;
@@ -141,17 +137,19 @@ where
         return Self::FacesIter::new(self);
     }
 
+    #[inline]
     fn vertices(&'a self) -> Self::VerticesIter {
-        todo!()
-    }
-
-    fn edges(&'a self) -> Self::EdgesIter {
-        todo!()
+        return Self::VerticesIter::new(self);
     }
 
     #[inline]
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
-        let mut walker = CornerWalker::from_corner(self, face);
+    fn edges(&'a self) -> Self::EdgesIter {
+        return Self::EdgesIter::new(self);
+    }
+
+    #[inline]
+    fn face_positions(&self, face: Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+        let mut walker = CornerWalker::from_corner(self, self.get_corner(face).unwrap());
 
         return (
             *walker.get_vertex().get_position(),
@@ -161,7 +159,7 @@ where
     }
 
     #[inline]
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
+    fn face_normal(&self, face: Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
         let (p1, p2, p3) = self.face_positions(face);
         return UnitVector3::new_normalize((p2 - p1).cross(&(p3 - p1)));
     }

@@ -1,5 +1,10 @@
-use super::{corner_table::CornerTable, connectivity::traits::{Corner, Vertex}};
+use std::collections::HashSet;
 
+use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}}};
+
+///
+/// Can be used to traverse corner table topology
+/// 
 pub struct CornerWalker<'a, TCorner: Corner, TVertex: Vertex> {
     table: &'a CornerTable<TCorner, TVertex>,
     corner: &'a TCorner
@@ -129,39 +134,127 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableFacesIter<'a, TCorner, TVe
 }
 
 impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableFacesIter<'a, TCorner, TVertex> {
-    type Item = &'a TCorner;
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let next = self.table.get_corner(self.corner_index);
-            self.corner_index += 3;
+        let next_index = self.corner_index;
+        self.corner_index += 3;
 
-            if !(next.is_some() && next.unwrap().is_deleted()) {
-                return next;
-            }
+        match self.table.get_corner(next_index) {
+            Some(next) => {
+                // Skip deleted
+                if next.is_deleted() {
+                    return self.next();
+                }
+
+                return Some(next_index);
+            },
+            None => return None,
         }
     }
 }
 
+///
+/// Iterator over vertices of mesh
+/// 
 pub struct CornerTableVerticesIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>
+    table: &'a CornerTable<TCorner, TVertex>,
+    vertex_index: usize
+}
+
+impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableVerticesIter<'a, TCorner, TVertex> {
+    pub fn new(table: &'a CornerTable<TCorner, TVertex>) -> Self {
+        return Self { 
+            table,
+            vertex_index: 0
+        };
+    }
 }
 
 impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableVerticesIter<'a, TCorner, TVertex> {
-    type Item = &'a TVertex;
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        let next_index = self.vertex_index;
+        self.vertex_index += 1;
+
+        match self.table.get_vertex(next_index) {
+            Some(next) => {
+                // Skip deleted
+                if next.is_deleted() {
+                    return self.next();
+                }
+
+                return Some(next_index);
+            },
+            None => return None,
+        }
     }
 }
+
+///
+/// Iterator over edges of mesh. Edge is returned as corner opposite to it. Uses `is_visited` flag
+/// 
 pub struct CornerTableEdgesIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>
+    table: &'a CornerTable<TCorner, TVertex>,
+    corner_index: usize,
+    visited: HashSet<usize>
+}
+
+impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableEdgesIter<'a, TCorner, TVertex> {
+    pub fn new(table: &'a CornerTable<TCorner, TVertex>) -> Self {
+        return Self {
+            table,
+            corner_index: 0,
+            visited: HashSet::with_capacity(table.corners.len())
+        };
+    }
 }
 
 impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a, TCorner, TVertex> {
-    type Item = &'a TCorner;
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        let next_index = self.corner_index;
+        self.corner_index += 1;
+
+        match self.table.get_corner(next_index) {
+            Some(next) => {
+                // Skip deleted and visited edges
+                if self.visited.contains(&next_index) || next.is_deleted() {
+                    return self.next();
+                }
+
+                // Visit current
+                self.visited.insert(next_index);
+
+                // Visit opposite, it is referencing same edge as current
+                if let Some(opposite) = next.get_opposite_corner_index() {
+                    self.visited.insert(opposite);
+                }
+
+                return Some(next_index);
+            },
+            None => return None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mesh::{corner_table::test_helpers::create_unit_square_mesh, traits::Mesh};
+
+    #[test]
+    fn edges_iterator() {
+        let mesh = create_unit_square_mesh();
+        let expected_edges: Vec<usize> = vec![0, 1, 2, 3, 5];
+
+        assert_eq!(expected_edges.len(), mesh.edges().count());
+        
+        let pairs = mesh.edges().zip(expected_edges.iter());
+
+        for pair in pairs {
+            assert_eq!(pair.0, *pair.1);
+        }
     }
 }

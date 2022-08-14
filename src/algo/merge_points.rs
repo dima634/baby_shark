@@ -1,7 +1,7 @@
 use nalgebra::{Point3, Scalar};
 use crate::{data_structures::vertex_index_map::PointIndexMap, mesh::traits::Floating};
 
-pub struct MergedVertices<TScalar: Scalar> {
+pub struct IndexedVertices<TScalar: Scalar> {
     /// Unique points
     pub points: Vec<Point3<TScalar>>,
     /// Vertex indices
@@ -11,7 +11,7 @@ pub struct MergedVertices<TScalar: Scalar> {
 ///
 /// Merges exactly coincident points
 /// 
-pub fn merge_points<TScalar: Floating>(vertices: &Vec<Point3<TScalar>>) -> MergedVertices<TScalar>
+pub fn merge_points<TScalar: Floating>(vertices: &Vec<Point3<TScalar>>) -> IndexedVertices<TScalar>
 {
     let mut vertex_index_map = PointIndexMap::<TScalar>::with_capacity(vertices.len());
 
@@ -33,7 +33,7 @@ pub fn merge_points<TScalar: Floating>(vertices: &Vec<Point3<TScalar>>) -> Merge
         }
     }
 
-    return MergedVertices {
+    return IndexedVertices {
         indices,
         points: merged_vertices
     };

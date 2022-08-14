@@ -1,5 +1,7 @@
 use bitflags::bitflags;
 
+use super::traits::TopologyPrimitive;
+
 bitflags! {
     pub struct TopologyFlags: u8 {
         const IS_DELETED = 0b00000001;
@@ -15,10 +17,14 @@ impl Default for TopologyFlags {
     }
 }
 
-// pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
-//     where TEntity: TopologyPrimitive + 'a, TEntitiesIter: Iterator<Item = &'a mut TEntity> 
-// {
-//     for entity in iter {
-//         entity.set_visited(false);
-//     }
-// }
+///
+/// Sets visited flag to `false`
+/// 
+#[inline]
+pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
+    where TEntity: TopologyPrimitive + 'a, TEntitiesIter: Iterator<Item = &'a mut TEntity> 
+{
+    for entity in iter {
+        entity.set_visited(false);
+    }
+}

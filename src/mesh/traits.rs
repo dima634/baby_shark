@@ -24,13 +24,13 @@ pub trait Vertex {
 pub trait Mesh<'a> {
     type ScalarType: Floating;
 
-    type EdgeDescriptor: 'a;
-    type VertexDescriptor: 'a;
-    type FaceDescriptor: 'a;
+    type EdgeDescriptor: Clone + Copy;
+    type VertexDescriptor: Clone + Copy;
+    type FaceDescriptor: Clone + Copy;
 
-    type FacesIter: Iterator<Item = &'a Self::FaceDescriptor>;
-    type VerticesIter: Iterator<Item = &'a Self::VertexDescriptor>;
-    type EdgesIter: Iterator<Item = &'a Self::EdgeDescriptor>;
+    type FacesIter: Iterator<Item = Self::FaceDescriptor>;
+    type VerticesIter: Iterator<Item = Self::VertexDescriptor>;
+    type EdgesIter: Iterator<Item = Self::EdgeDescriptor>;
 
     /// Creates mesh from vertices and face indices
     fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self;
@@ -43,9 +43,9 @@ pub trait Mesh<'a> {
     fn edges(&'a self) -> Self::EdgesIter;
 
     /// Returns positions of face vertices in ccw order
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
+    fn face_positions(&self, face: Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Returns face normal
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
+    fn face_normal(&self, face: Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
 }
 
 // pub trait EditableMesh {  
