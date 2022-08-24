@@ -1,4 +1,4 @@
-use crate::mesh::traits::good_mesh;
+use crate::mesh::traits::mesh_stats;
 use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}, flags::clear_visited}};
 
 ///
@@ -93,6 +93,42 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
     #[inline]
     pub fn can_swing_left(&self) -> bool {
         return self.get_next_corner().get_opposite_corner_index().is_some();
+    }
+
+    /// 
+    /// Trying to swing left and returns `true` if operation succeeded, `false otherwise`.
+    /// In the case when it is not possible to swing left walker stays at starting position.
+    /// 
+    #[inline]
+    pub fn swing_left_or_stay(&mut self) -> bool {
+        self.next();
+
+        if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
+            self.set_current_corner(opposite);
+            self.next();
+            return true;
+        } else {
+            self.previous();
+            return false;
+        }
+    }
+
+    /// 
+    /// Trying to swing right and returns `true` if operation succeeded, `false otherwise`.
+    /// In the case when it is not possible to swing right walker stays at starting position.
+    /// 
+    #[inline]
+    pub fn swing_right_or_stay(&mut self) -> bool {
+        self.previous();
+
+        if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
+            self.set_current_corner(opposite);
+            self.previous();
+            return true;
+        } else {
+            self.next();
+            return false;
+        }
     }
 
     /// Returns next corner
@@ -369,7 +405,8 @@ macro_rules! corners_around_vertex {
             $corner = walker.get_corner_index();
             $expression;
 
-            if !walker.can_swing_left() || walker.swing_left().get_corner_index() == start_index {
+            let moved_left = walker.swing_left_or_stay();
+            if !moved_left || walker.get_corner_index() == start_index {
                 break;
             }
         }
@@ -380,7 +417,8 @@ macro_rules! corners_around_vertex {
                 $corner = walker.get_corner_index();
                 $expression;
     
-                if !walker.can_swing_right() || walker.swing_right().get_corner_index() == start_index {
+                let moved_right = walker.swing_right_or_stay();
+                if !moved_right || walker.get_corner_index() == start_index {
                     break;
                 }
             }
@@ -393,7 +431,7 @@ macro_rules! corners_around_vertex {
 /// 
 #[inline]
 pub fn corners_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
-    let mut corners: Vec<usize> = Vec::with_capacity(good_mesh::INTERIOR_VERTEX_VALENCE);
+    let mut corners: Vec<usize> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
     let mut corner_index;
 
     corners_around_vertex!(corner_table, vertex_index, corner_index, corners.push(corner_index));

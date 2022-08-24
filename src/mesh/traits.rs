@@ -68,7 +68,10 @@ pub trait EditableMesh: Mesh {
 }
 
 /// Contains constants which defines what is good mesh
-pub mod good_mesh {
-    pub const INTERIOR_VERTEX_VALENCE: usize = 6;
-    pub const BOUNDARY_VERTEX_VALENCE: usize = 4;
+pub mod mesh_stats {
+    pub const IDEAL_INTERIOR_VERTEX_VALENCE: usize = 6;
+    pub const IDEAL_BOUNDARY_VERTEX_VALENCE: usize = 4;
+
+    /// Constant used to preallocate memory for some algorithms, it is not limiting anything
+    pub const MAX_VERTEX_VALENCE: usize = 10;
 }
