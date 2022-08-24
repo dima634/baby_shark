@@ -1,7 +1,5 @@
-use std::collections::HashSet;
-
 use crate::mesh::traits::good_mesh;
-use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}}};
+use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}, flags::clear_visited}};
 
 ///
 /// Can be used to traverse corner table topology
@@ -226,16 +224,15 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableVerticesIter<
 /// 
 pub struct CornerTableEdgesIter<'a, TCorner: Corner, TVertex: Vertex> {
     table: &'a CornerTable<TCorner, TVertex>,
-    corner_index: usize,
-    visited: HashSet<usize>
+    corner_index: usize
 }
 
 impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableEdgesIter<'a, TCorner, TVertex> {
     pub fn new(table: &'a CornerTable<TCorner, TVertex>) -> Self {
+        clear_visited(table.corners.iter());
         return Self {
             table,
-            corner_index: 0,
-            visited: HashSet::with_capacity(table.corners.len())
+            corner_index: 0
         };
     }
 }
@@ -250,16 +247,16 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a,
         match self.table.get_corner(next_index) {
             Some(next) => {
                 // Skip deleted and visited edges
-                if self.visited.contains(&next_index) || next.is_deleted() {
+                if next.is_visited() || next.is_deleted() {
                     return self.next();
                 }
 
                 // Visit current
-                self.visited.insert(next_index);
+                next.set_visited(true);
 
                 // Visit opposite, it is referencing same edge as current
-                if let Some(opposite) = next.get_opposite_corner_index() {
-                    self.visited.insert(opposite);
+                if let Some(opposite_index) = next.get_opposite_corner_index() {
+                    self.table.get_corner(opposite_index).unwrap().set_visited(true);
                 }
 
                 return Some(next_index);
@@ -273,7 +270,6 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a,
 /// Iterator over corners around vertex
 /// 
 pub struct CornersAroundVertexIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>,
     started_at_corner: usize,
     done: bool,
     swing_left: bool,
@@ -286,8 +282,7 @@ pub type VC<'a, TCorner, TVertex> = CornersAroundVertexIter<'a, TCorner, TVertex
 impl<'a, TCorner: Corner, TVertex: Vertex> CornersAroundVertexIter<'a, TCorner, TVertex> {
     pub fn new(table: &'a CornerTable<TCorner, TVertex>, vertex_index: usize) -> Self { 
         let corner_index = table.get_vertex(vertex_index).unwrap().get_corner_index();
-        return Self { 
-            table, 
+        return Self {
             started_at_corner: corner_index,
             done: false,
             swing_left: true,
@@ -353,7 +348,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornersAroundVertexIter<
 /// * code to execute for each corner (corner index is written to 3rd arg)
 /// 
 /// ## Example
-/// ```
+/// ```ignore
 /// let mesh = create_unit_cross_square_mesh();
 /// let mut corners: Vec<usize> = Vec::new();
 /// let mut corner_index;

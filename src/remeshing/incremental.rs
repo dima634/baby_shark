@@ -52,7 +52,7 @@ impl<TMesh: EditableMesh> IncrementalRemesher<TMesh> {
             if edge_length > max_edge_length {
                 let (v1, v2) = mesh.edge_positions(&edge);
                 let split_at = v1 + (v2 - v1).scale(cast(0.5).unwrap());
-                mesh.split_edge(edge, &split_at);
+                mesh.split_edge(&edge, &split_at);
             }
         }
     }

@@ -1,51 +1,53 @@
+use std::cell::UnsafeCell;
+
 use crate::mesh;
 use super::flags;
 
-pub trait TopologyFlags {
+pub trait Flags {
     #[inline]
     fn is_deleted(&self) -> bool {
-        return self.get_flags().contains(flags::TopologyFlags::IS_DELETED);
+        unsafe {
+            return (*self.get_flags().get()).contains(flags::Flags::IS_DELETED);
+        }
     }
 
     #[inline]
-    fn set_deleted(&mut self, deleted: bool) -> &mut Self {
-        self.get_flags_mut().set(flags::TopologyFlags::IS_DELETED, deleted);
-        return self;
+    fn set_deleted(& self, deleted: bool) -> &Self {
+        unsafe {
+            (*self.get_flags().get()).set(flags::Flags::IS_DELETED, deleted);
+            return self;
+        }
     }
 
     #[inline]
     fn is_visited(&self) -> bool {
-        return self.get_flags().contains(flags::TopologyFlags::IS_VISITED);
+        unsafe {
+            return (*self.get_flags().get()).contains(flags::Flags::IS_VISITED);
+        }
     }
 
     #[inline]
-    fn set_visited(&mut self, visited: bool) -> &mut Self {
-        self.get_flags_mut().set(flags::TopologyFlags::IS_VISITED, visited);
-        return self;
+    fn set_visited(&self, visited: bool) -> &Self {
+        unsafe {
+            (*self.get_flags().get()).set(flags::Flags::IS_VISITED, visited);
+            return self;
+        }
     }
 
-    fn get_flags_mut(&mut self) -> &mut flags::TopologyFlags;
-    fn get_flags(&self) -> &flags::TopologyFlags;
+    fn get_flags(&self) -> &UnsafeCell<flags::Flags>;
 }
 
-pub trait TopologyPrimitive: Default + TopologyFlags {
-    fn get_index(&self) -> usize;
-    fn set_index(&mut self, index: usize) -> &mut Self;
-}
-
-pub trait Vertex: TopologyPrimitive + mesh::traits::Vertex {
+pub trait Vertex: Default + Flags + mesh::traits::Vertex {
     fn get_corner_index(&self) -> usize;
     fn set_corner_index(&mut self, index: usize) -> &mut Self;
 }
 
-pub trait Corner: TopologyPrimitive {
+pub trait Corner: Default + Flags {
     fn get_next_corner_index(&self) -> usize;
     fn set_next_corner_index(&mut self, index: usize) -> &Self;
 
     fn get_opposite_corner_index(&self) -> Option<usize>;
     fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self;
-
-    fn get_face_index(&self) -> usize;
 
     fn get_vertex_index(&self) -> usize;
     fn set_vertex_index(&mut self, index: usize) -> &mut Self;

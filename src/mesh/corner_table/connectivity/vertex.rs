@@ -1,26 +1,29 @@
+use std::cell::UnsafeCell;
 use nalgebra::Point3;
 use tabled::Tabled;
 use crate::mesh::{self, traits::Floating};
-use super::{traits::{TopologyPrimitive, Vertex, TopologyFlags}, flags};
+use crate::helpers::display::display_unsafecell;
+use super::{traits::{Vertex, Flags}, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
-#[derive(PartialEq, Eq, Debug, Tabled)]
+#[derive(Debug, Tabled)]
 pub struct DefaultVertex<TScalarType: Floating> {
     corner_index: usize,
     position: Point3<TScalarType>,
 
-    flags: flags::TopologyFlags,
+    #[tabled(display_with = "display_unsafecell")]
+    flags: UnsafeCell<flags::Flags>,
     index: usize
 }
 
 impl<TScalarType: Floating> DefaultVertex<TScalarType> {
-    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::TopologyFlags, index: usize) -> Self { 
+    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags, index: usize) -> Self { 
         return Self { 
             corner_index, 
             position, 
-            flags, 
+            flags: UnsafeCell::new(flags), 
             index 
         };
     }
@@ -37,27 +40,10 @@ impl<TScalarType: Floating> Default for DefaultVertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> TopologyFlags for DefaultVertex<TScalarType> {
+impl<TScalarType: Floating> Flags for DefaultVertex<TScalarType> {
     #[inline]
-    fn get_flags_mut(&mut self) -> &mut flags::TopologyFlags {
-        return &mut self.flags;
-    }
-
-    #[inline]
-    fn get_flags(&self) -> &flags::TopologyFlags {
+    fn get_flags(&self) -> &UnsafeCell<flags::Flags> {
         return &self.flags;
-    }
-}
-
-impl<TScalarType: Floating> TopologyPrimitive for DefaultVertex<TScalarType> {
-    #[inline]
-    fn get_index(&self) ->  usize {
-        return self.index;
-    }
-
-    fn set_index(&mut self, index:  usize) -> &mut Self {
-        self.index = index;
-        return self;
     }
 }
 
@@ -88,6 +74,23 @@ impl<TScalarType: Floating> Vertex for DefaultVertex<TScalarType> {
         return self;
     }
 }
+
+impl<TScalarType: Floating> PartialEq for DefaultVertex<TScalarType> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let flags_equal: bool;
+        unsafe {
+            flags_equal = (*self.flags.get()) == (*other.flags.get());
+        }
+
+        return 
+            self.corner_index  == other.corner_index && 
+            self.position      == other.position &&
+            self.index         == other.index &&
+            flags_equal;
+    }
+}
+impl<TScalarType: Floating> Eq for DefaultVertex<TScalarType> {}
 
 /// Aliases
 pub type VertexF = DefaultVertex<f32>;

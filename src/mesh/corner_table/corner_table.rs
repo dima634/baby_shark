@@ -39,21 +39,19 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
         return self.corners.get_mut(corner_index);
     }
 
-    /// Create new isolated corner. Returns corner an its index
+    /// Create new isolated corner
+    #[inline]
     pub fn create_corner(&mut self) -> &mut TCorner {
         let idx = self.corners.len();
-        let mut corner = TCorner::default();
-        corner.set_index(idx);
-        self.corners.push(corner);
+        self.corners.push(TCorner::default());
         return self.corners.get_mut(idx).unwrap();
     }
 
-    /// Create new isolated vertex. Returns vertex an its index
+    /// Create new isolated vertex
+    #[inline]
     pub fn create_vertex(&mut self) -> &mut TVertex {
         let idx = self.vertices.len();
-        let mut vertex = TVertex::default();
-        vertex.set_index(idx);
-        self.vertices.push(vertex);
+        self.vertices.push(Default::default());
         return self.vertices.get_mut(idx).unwrap();
     }
 
@@ -90,8 +88,8 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
         vertex_index: usize,
         next_index: usize
     ) {
+        let corner_index = self.corners.len();
         let corner = self.create_corner();
-        let corner_index = corner.get_index();
         corner.set_vertex_index(vertex_index);
         corner.set_next_corner_index(next_index);
 
@@ -106,13 +104,12 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
 
         if opposite_corner_index.is_some() {
             // Set opposite for corners
-            let corner_index = corner.get_index();
             corner.set_opposite_corner_index(*opposite_corner_index.unwrap());
             let opposite_corner = self.corners.get_mut(*opposite_corner_index.unwrap()).unwrap();
             opposite_corner.set_opposite_corner_index(corner_index);
         } else {
             // Save edge and it`s opposite corner
-            edge_opposite_corner_map.insert(*opposite_edge, corner.get_index());
+            edge_opposite_corner_map.insert(*opposite_edge, corner_index);
         }
 
         // Set corner index for vertex
@@ -210,11 +207,11 @@ impl<TCorner: Corner + Tabled, TVertex: Vertex + Tabled> Display for CornerTable
         let vertices = Table::new(self.vertices.iter());
         let corners = Table::new(self.corners.iter());
 
-        println!("### VERTICES ###");
-        println!("{}", vertices);
-        println!();
-        println!("### CORNERS ###");
-        println!("{}", corners);
+        writeln!(f, "### VERTICES ###")?;
+        writeln!(f, "{}", vertices)?;
+        writeln!(f)?;
+        writeln!(f, "### CORNERS ###")?;
+        writeln!(f,"{}", corners)?;
 
         return Ok(());
     }

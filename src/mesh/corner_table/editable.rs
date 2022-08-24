@@ -153,7 +153,7 @@ mod tests {
         let expected_vertices = vec![
             VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default(), 0), // 0
             VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default(), 1), // 1
-            VertexF::new(3, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default(), 2), // 2
+            VertexF::new(2, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default(), 2), // 2
             VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default(), 3), // 3
             VertexF::new(7, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default(), 4)  // 4
         ];

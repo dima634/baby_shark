@@ -1,11 +1,13 @@
+use std::cell::UnsafeCell;
+
 use tabled::Tabled;
-use crate::helpers::display::display_option;
-use super::{traits::{TopologyFlags, TopologyPrimitive, Corner}, flags};
+use crate::helpers::display::{display_option, display_unsafecell};
+use super::{traits::{Flags, Corner}, flags};
 
 ///
 /// Default implementation for Corner trait
 /// 
-#[derive(PartialEq, Eq, Debug, Tabled)]
+#[derive(Debug, Tabled)]
 pub struct DefaultCorner {
     next_corner_index: usize,
     #[tabled(display_with = "display_option")]
@@ -13,7 +15,8 @@ pub struct DefaultCorner {
     vertex_index: usize,
 
     index: usize,
-    flags: flags::TopologyFlags
+    #[tabled(display_with = "display_unsafecell")]
+    flags: UnsafeCell<flags::Flags>
 }
 
 impl DefaultCorner {
@@ -22,14 +25,14 @@ impl DefaultCorner {
         opposite_corner_index: Option<usize>,
         vertex_index: usize, 
         index: usize, 
-        flags: flags::TopologyFlags
+        flags: flags::Flags
     ) -> Self { 
         return Self { 
             next_corner_index, 
             opposite_corner_index, 
             vertex_index, 
             index, 
-            flags 
+            flags: UnsafeCell::new(flags) 
         };
     }
 }
@@ -46,28 +49,10 @@ impl Default for DefaultCorner {
     }
 }
 
-impl TopologyFlags for DefaultCorner {
+impl Flags for DefaultCorner {
     #[inline]
-    fn get_flags_mut(&mut self) -> &mut super::flags::TopologyFlags {
-        return &mut self.flags;
-    }
-
-    #[inline]
-    fn get_flags(&self) -> &super::flags::TopologyFlags {
+    fn get_flags(&self) -> &UnsafeCell<super::flags::Flags> {
         return &self.flags;
-    }
-}
-
-impl TopologyPrimitive for DefaultCorner {
-    #[inline]
-    fn get_index(&self) ->  usize {
-        return self.index;
-    }
-
-    #[inline]
-    fn set_index(&mut self, index:  usize) -> &mut Self {
-        self.index = index;
-        return self;
     }
 }
 
@@ -95,11 +80,6 @@ impl Corner for DefaultCorner {
     }
 
     #[inline]
-    fn get_face_index(&self) -> usize {
-        return self.get_index() / 3;
-    }
-
-    #[inline]
     fn get_vertex_index(&self) -> usize {
         return self.vertex_index;
     }
@@ -110,3 +90,21 @@ impl Corner for DefaultCorner {
         return self;
     }
 }
+
+impl PartialEq for DefaultCorner {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let flags_equal: bool;
+        unsafe {
+            flags_equal = (*self.flags.get()) == (*other.flags.get());
+        }
+
+        return 
+            self.next_corner_index     == other.next_corner_index &&   
+            self.opposite_corner_index == other.opposite_corner_index &&
+            self.vertex_index          == other.vertex_index &&   
+            self.index                 == other.index &&    
+            flags_equal;
+    }
+}
+impl Eq for DefaultCorner {}
