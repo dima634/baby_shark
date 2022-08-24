@@ -252,20 +252,20 @@ mod tests {
         let mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default(), 0),
-            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default(), 1),
-            VertexF::new(3, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default(), 2),
-            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default(), 3)
+            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()),
+            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()),
+            VertexF::new(3, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()),
+            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default())
         ];
 
         let expected_corners = vec![
-            DefaultCorner::new(1, None,    0, 0, Default::default()),
-            DefaultCorner::new(2, Some(4), 1, 1, Default::default()),
-            DefaultCorner::new(0, None,    2, 2, Default::default()),
+            DefaultCorner::new(1, None,    0, Default::default()),
+            DefaultCorner::new(2, Some(4), 1, Default::default()),
+            DefaultCorner::new(0, None,    2, Default::default()),
 
-            DefaultCorner::new(4, None,    2, 3, Default::default()),
-            DefaultCorner::new(5, Some(1), 3, 4, Default::default()),
-            DefaultCorner::new(3, None,    0, 5, Default::default())
+            DefaultCorner::new(4, None,    2, Default::default()),
+            DefaultCorner::new(5, Some(1), 3, Default::default()),
+            DefaultCorner::new(3, None,    0, Default::default())
         ];
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);

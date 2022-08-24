@@ -14,17 +14,15 @@ pub struct DefaultVertex<TScalarType: Floating> {
     position: Point3<TScalarType>,
 
     #[tabled(display_with = "display_unsafecell")]
-    flags: UnsafeCell<flags::Flags>,
-    index: usize
+    flags: UnsafeCell<flags::Flags>
 }
 
 impl<TScalarType: Floating> DefaultVertex<TScalarType> {
-    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags, index: usize) -> Self { 
+    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags) -> Self { 
         return Self { 
             corner_index, 
             position, 
-            flags: UnsafeCell::new(flags), 
-            index 
+            flags: UnsafeCell::new(flags)
         };
     }
 }
@@ -32,7 +30,6 @@ impl<TScalarType: Floating> DefaultVertex<TScalarType> {
 impl<TScalarType: Floating> Default for DefaultVertex<TScalarType> {
     fn default() -> Self {
         return Self {
-            index: usize::max_value(), 
             corner_index: usize::max_value(), 
             position: Default::default(), 
             flags: Default::default() 
@@ -86,7 +83,6 @@ impl<TScalarType: Floating> PartialEq for DefaultVertex<TScalarType> {
         return 
             self.corner_index  == other.corner_index && 
             self.position      == other.position &&
-            self.index         == other.index &&
             flags_equal;
     }
 }

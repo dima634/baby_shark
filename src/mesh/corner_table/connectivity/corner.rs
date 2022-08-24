@@ -14,7 +14,6 @@ pub struct DefaultCorner {
     opposite_corner_index: Option<usize>,
     vertex_index: usize,
 
-    index: usize,
     #[tabled(display_with = "display_unsafecell")]
     flags: UnsafeCell<flags::Flags>
 }
@@ -23,15 +22,13 @@ impl DefaultCorner {
     pub fn new(
         next_corner_index: usize, 
         opposite_corner_index: Option<usize>,
-        vertex_index: usize, 
-        index: usize, 
+        vertex_index: usize,
         flags: flags::Flags
     ) -> Self { 
         return Self { 
             next_corner_index, 
             opposite_corner_index, 
             vertex_index, 
-            index, 
             flags: UnsafeCell::new(flags) 
         };
     }
@@ -42,8 +39,7 @@ impl Default for DefaultCorner {
         return Self { 
             next_corner_index:      usize::max_value(), 
             opposite_corner_index:  None,
-            vertex_index:           usize::max_value(), 
-            index:                  usize::max_value(), 
+            vertex_index:           usize::max_value(),
             flags:                  Default::default() 
         };
     }
@@ -102,8 +98,7 @@ impl PartialEq for DefaultCorner {
         return 
             self.next_corner_index     == other.next_corner_index &&   
             self.opposite_corner_index == other.opposite_corner_index &&
-            self.vertex_index          == other.vertex_index &&   
-            self.index                 == other.index &&    
+            self.vertex_index          == other.vertex_index && 
             flags_equal;
     }
 }
