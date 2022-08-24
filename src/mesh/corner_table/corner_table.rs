@@ -1,5 +1,6 @@
-use std::{collections::HashMap};
+use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, UnitVector3};
+use tabled::{Table, Tabled};
 use crate::mesh::traits::Mesh;
 use self::helpers::Edge;
 use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker}};
@@ -76,6 +77,7 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 
     /// Makes give corners opposite to each other
+    #[inline]
     pub fn set_opposite_relationship(&mut self, corner1_index: usize, corner2_index: usize) {
         self.get_corner_mut(corner1_index).unwrap().set_opposite_corner_index(corner2_index);
         self.get_corner_mut(corner2_index).unwrap().set_opposite_corner_index(corner1_index);
@@ -119,20 +121,16 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 }
 
-impl<'a, TCorner, TVertex> Mesh<'a> for CornerTable<TCorner, TVertex> 
-where 
-    TCorner: Corner + 'a,
-    TVertex: Vertex + 'a
-{
+impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
     type ScalarType = TVertex::ScalarType;
 
     type EdgeDescriptor = usize;
     type VertexDescriptor = usize;
     type FaceDescriptor = usize;
 
-    type FacesIter = CornerTableFacesIter<'a, TCorner, TVertex>;
-    type VerticesIter = CornerTableVerticesIter<'a, TCorner, TVertex>;
-    type EdgesIter = CornerTableEdgesIter<'a, TCorner, TVertex>;
+    type FacesIter<'iter> = CornerTableFacesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
+    type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
+    type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
 
     fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self {
         assert!(faces.len() % 3 == 0, "Invalid number of face indices: {}", faces.len());
@@ -160,23 +158,23 @@ where
     }
 
     #[inline]
-    fn faces(&'a self) -> Self::FacesIter {
+    fn faces<'a>(&'a self) -> Self::FacesIter<'a> {
         return Self::FacesIter::new(self);
     }
 
     #[inline]
-    fn vertices(&'a self) -> Self::VerticesIter {
+    fn vertices<'a>(&'a self) -> Self::VerticesIter<'a> {
         return Self::VerticesIter::new(self);
     }
 
     #[inline]
-    fn edges(&'a self) -> Self::EdgesIter {
+    fn edges<'a>(&'a self) -> Self::EdgesIter<'a> {
         return Self::EdgesIter::new(self);
     }
 
     #[inline]
-    fn face_positions(&self, face: Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
-        let mut walker = CornerWalker::from_corner(self, face);
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+        let mut walker = CornerWalker::from_corner(self, *face);
 
         return (
             *walker.get_vertex().get_position(),
@@ -186,9 +184,39 @@ where
     }
 
     #[inline]
-    fn face_normal(&self, face: Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
         let (p1, p2, p3) = self.face_positions(face);
         return UnitVector3::new_normalize((p2 - p1).cross(&(p3 - p1)));
+    }
+
+    #[inline]
+    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+        let mut walker = CornerWalker::from_corner(self, *edge);
+        return (
+            *walker.next().get_vertex().get_position(),
+            *walker.next().get_vertex().get_position()
+        );
+    }
+
+    #[inline]
+    fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
+        let (v1, v2) = self.edge_positions(edge);
+        return (v1 - v2).norm();
+    }
+}
+
+impl<TCorner: Corner + Tabled, TVertex: Vertex + Tabled> Display for CornerTable<TCorner, TVertex> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let vertices = Table::new(self.vertices.iter());
+        let corners = Table::new(self.corners.iter());
+
+        println!("### VERTICES ###");
+        println!("{}", vertices);
+        println!();
+        println!("### CORNERS ###");
+        println!("{}", corners);
+
+        return Ok(());
     }
 }
 

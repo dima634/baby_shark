@@ -31,9 +31,9 @@ impl StlReader {
     }
 
     /// Reads mesh from file
-    pub fn read_stl_from_file<'a, TMesh>(&mut self, filepath: &Path) -> std::io::Result<TMesh> 
+    pub fn read_stl_from_file<TMesh>(&mut self, filepath: &Path) -> std::io::Result<TMesh> 
     where 
-        TMesh: Mesh<'a>,
+        TMesh: Mesh,
         TMesh::ScalarType: SupersetOf<f32>
     {
         let file = OpenOptions::new().read(true).open(filepath)?;
@@ -43,10 +43,10 @@ impl StlReader {
     }
 
     /// Reads mesh from buffer
-    pub fn read_stl<'a, TBuffer, TMesh>(&mut self, reader: &mut BufReader<TBuffer>) -> std::io::Result<TMesh> 
+    pub fn read_stl<TBuffer, TMesh>(&mut self, reader: &mut BufReader<TBuffer>) -> std::io::Result<TMesh> 
     where 
         TBuffer: Read, 
-        TMesh: Mesh<'a>,
+        TMesh: Mesh,
         TMesh::ScalarType: SupersetOf<f32>
     {
         self.vertices.clear();
@@ -117,9 +117,9 @@ impl StlWriter {
         return StlWriter {};
     }
 
-    pub fn write_stl_to_file<'a, TMesh>(&self, mesh: &'a TMesh, path: &Path) -> io::Result<()> 
+    pub fn write_stl_to_file<TMesh>(&self, mesh: &TMesh, path: &Path) -> io::Result<()> 
     where 
-        TMesh: Mesh<'a>,
+        TMesh: Mesh,
         TMesh::ScalarType: SubsetOf<f32>
     {
         let file = OpenOptions::new()
@@ -133,10 +133,10 @@ impl StlWriter {
         return self.write_stl(mesh, &mut writer);
     }
     
-    pub fn write_stl<'a, TBuffer, TMesh>(&self, mesh: &'a TMesh, writer: &mut BufWriter<TBuffer>) -> io::Result<()> 
+    pub fn write_stl<TBuffer, TMesh>(&self, mesh: &TMesh, writer: &mut BufWriter<TBuffer>) -> io::Result<()> 
     where 
         TBuffer: Write, 
-        TMesh: Mesh<'a>,
+        TMesh: Mesh,
         TMesh::ScalarType: SubsetOf<f32>
     {
         let header = [0u8; STL_HEADER_SIZE];
@@ -150,8 +150,8 @@ impl StlWriter {
         writer.write(&(faces_count as u32).to_le_bytes())?;
     
         for face in mesh.faces() {
-            let (v1, v2, v3) = mesh.face_positions(face);
-            let normal = mesh.face_normal(face);
+            let (v1, v2, v3) = mesh.face_positions(&face);
+            let normal = mesh.face_normal(&face);
             self.write_face(writer, &v1.cast(), &v2.cast(), &v3.cast(), &normal.cast())?;
         }
 

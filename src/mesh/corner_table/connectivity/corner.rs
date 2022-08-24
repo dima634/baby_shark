@@ -1,11 +1,14 @@
+use tabled::Tabled;
+use crate::helpers::display::display_option;
 use super::{traits::{TopologyFlags, TopologyPrimitive, Corner}, flags};
 
 ///
 /// Default implementation for Corner trait
 /// 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Tabled)]
 pub struct DefaultCorner {
     next_corner_index: usize,
+    #[tabled(display_with = "display_option")]
     opposite_corner_index: Option<usize>,
     vertex_index: usize,
 

@@ -1,5 +1,5 @@
+use std::fmt::Display;
 use bitflags::bitflags;
-
 use super::traits::TopologyPrimitive;
 
 bitflags! {
@@ -26,5 +26,11 @@ pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter)
 {
     for entity in iter {
         entity.set_visited(false);
+    }
+}
+
+impl Display for TopologyFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{:#010b}", self.bits)
     }
 }

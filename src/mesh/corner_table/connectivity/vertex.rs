@@ -1,11 +1,12 @@
 use nalgebra::Point3;
+use tabled::Tabled;
 use crate::mesh::{self, traits::Floating};
 use super::{traits::{TopologyPrimitive, Vertex, TopologyFlags}, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Tabled)]
 pub struct DefaultVertex<TScalarType: Floating> {
     corner_index: usize,
     position: Point3<TScalarType>,
