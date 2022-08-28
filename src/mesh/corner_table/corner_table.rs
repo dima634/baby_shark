@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fmt::Display};
-use nalgebra::{Point3, UnitVector3};
+use std::{collections::HashMap, fmt::Display, vec::IntoIter};
+use nalgebra::{Point3, Vector3};
 use tabled::{Table, Tabled};
-use crate::mesh::traits::Mesh;
+use crate::{mesh::traits::{Mesh, TopologicalMesh}, faces_around_vertex};
 use self::helpers::Edge;
-use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker}};
+use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, vertices_around_vertex, faces_around_vertex}};
 
 
 pub struct CornerTable<TCorner: Corner, TVertex: Vertex> {
@@ -181,9 +181,9 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
     }
 
     #[inline]
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType> {
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
         let (p1, p2, p3) = self.face_positions(face);
-        return UnitVector3::new_normalize((p2 - p1).cross(&(p3 - p1)));
+        return (p2 - p1).cross(&(p3 - p1)).normalize();
     }
 
     #[inline]
@@ -199,6 +199,34 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
     fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
         let (v1, v2) = self.edge_positions(edge);
         return (v1 - v2).norm();
+    }
+
+    #[inline]
+    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType> {
+        return self.vertices[*vertex].get_position();
+    }
+
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType> {
+        let mut sum = Vector3::zeros();
+        let mut face_index;
+        faces_around_vertex!(&self, *vertex, face_index, sum += self.face_normal(&face_index));
+
+        return sum.normalize();
+    }
+}
+
+impl<TCorner: Corner, TVertex: Vertex> TopologicalMesh for CornerTable<TCorner, TVertex> {
+    type VV<'iter> = IntoIter<usize> where TVertex: 'iter, TCorner: 'iter;
+    type VF<'iter> = IntoIter<usize> where TVertex: 'iter, TCorner: 'iter;
+
+    #[inline]
+    fn vertices_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VV<'a> {
+        return vertices_around_vertex(self, *vertex).into_iter();
+    }
+
+    #[inline]
+    fn faces_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VF<'a> {
+        return faces_around_vertex(self, *vertex).into_iter();
     }
 }
 

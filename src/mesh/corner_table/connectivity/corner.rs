@@ -90,16 +90,10 @@ impl Corner for DefaultCorner {
 impl PartialEq for DefaultCorner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        let flags_equal: bool;
-        unsafe {
-            flags_equal = (*self.flags.get()) == (*other.flags.get());
-        }
-
         return 
             self.next_corner_index     == other.next_corner_index &&   
             self.opposite_corner_index == other.opposite_corner_index &&
-            self.vertex_index          == other.vertex_index && 
-            flags_equal;
+            self.vertex_index          == other.vertex_index;
     }
 }
 impl Eq for DefaultCorner {}

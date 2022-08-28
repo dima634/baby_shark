@@ -75,15 +75,9 @@ impl<TScalarType: Floating> Vertex for DefaultVertex<TScalarType> {
 impl<TScalarType: Floating> PartialEq for DefaultVertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        let flags_equal: bool;
-        unsafe {
-            flags_equal = (*self.flags.get()) == (*other.flags.get());
-        }
-
         return 
             self.corner_index  == other.corner_index && 
-            self.position      == other.position &&
-            flags_equal;
+            self.position      == other.position;
     }
 }
 impl<TScalarType: Floating> Eq for DefaultVertex<TScalarType> {}

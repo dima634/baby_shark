@@ -1,4 +1,4 @@
-use nalgebra::{Point3, UnitVector3, RealField};
+use nalgebra::{Point3, RealField, Vector3};
 use num_traits::Float;
 
 pub trait Floating: RealField + Float {}
@@ -45,12 +45,32 @@ pub trait Mesh {
     /// Returns positions of face vertices in ccw order
     fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Returns face normal
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> UnitVector3<Self::ScalarType>;
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType>;
 
     /// Returns edge length
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Returns edge length
     fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType;
+
+    /// Returns vertex position
+    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
+    /// Returns vertex normal (average of one-ring face normals)
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType>;
+}
+
+///
+/// Triangular mesh that supports topological queries
+/// 
+pub trait TopologicalMesh: Mesh {
+    /// Iterator over one-ring vertices of target vertex
+    type VV<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
+    /// Iterator over one-ring faces of target vertex
+    type VF<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
+
+    /// Returns iterator over one-ring vertices of target vertex
+    fn vertices_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VV<'a>;
+    /// Returns iterator over one-ring faces of target vertex
+    fn faces_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VF<'a>;
 }
 
 ///
