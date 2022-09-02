@@ -1,4 +1,5 @@
-use crate::mesh::traits::mesh_stats;
+use crate::mesh::traits::mesh_stats::MAX_VERTEX_VALENCE;
+
 use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}, flags::clear_visited}};
 
 ///
@@ -200,17 +201,16 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableFacesIter<'a,
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next_index = self.corner_index;
-        self.corner_index += 3;
+        while let Some(next) = self.table.get_corner(self.corner_index) && next.is_deleted(){
+            self.corner_index += 3;
+        }
 
-        match self.table.get_corner(next_index) {
-            Some(next) => {
-                // Skip deleted
-                if next.is_deleted() {
-                    return self.next();
-                }
-
-                return Some(next_index);
+        match self.table.get_corner(self.corner_index) {
+            Some(_) => {
+                let current = self.corner_index;
+                self.corner_index += 3;
+    
+                return Some(current);
             },
             None => return None,
         }
@@ -277,16 +277,12 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a,
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next_index = self.corner_index;
-        self.corner_index += 1;
+        while let Some(n) = self.table.get_corner(self.corner_index) && (n.is_visited() || n.is_deleted()){
+            self.corner_index += 1;
+        }
 
-        match self.table.get_corner(next_index) {
+        match self.table.get_corner(self.corner_index) {
             Some(next) => {
-                // Skip deleted and visited edges
-                if next.is_visited() || next.is_deleted() {
-                    return self.next();
-                }
-
                 // Visit current
                 next.set_visited(true);
 
@@ -295,251 +291,155 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a,
                     self.table.get_corner(opposite_index).unwrap().set_visited(true);
                 }
 
-                return Some(next_index);
+                // Move to next
+                let current = self.corner_index;
+                self.corner_index += 1;
+
+                return Some(current);
             },
             None => return None,
         }
     }
 }
 
-///
-/// Iterates over corner of given vertex with given index
-/// 
-/// ## Arguments
-/// * reference to corner table
-/// * vertex index
-/// * variable to write corner index
-/// * code to execute for each corner (corner index is written to 3rd arg)
-/// 
-/// ## Example
-/// ```ignore
-/// let mesh = create_unit_cross_square_mesh();
-/// let mut corners: Vec<usize> = Vec::new();
-/// let mut corner_index;
-/// corners_around_vertex!(&mesh, 0, corner_index, corners.push(corner_index));
-/// ```
-/// 
-#[macro_export]
-macro_rules! corners_around_vertex {
-    ($table:expr, $vertex:expr, $corner:expr, $expression:expr) => {
-        #[allow(unused_imports)]
-        use crate::mesh::corner_table::connectivity::traits::{Vertex, Corner};
-        use crate::mesh::corner_table::traversal::CornerWalker;
+/// Iterates over corners that are adjacent to given vertex
+pub fn corners_around_vertex<TCorner, TVertex, TFunc>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) 
+where 
+    TCorner: Corner, 
+    TVertex: Vertex, 
+    TFunc: FnMut(&usize) -> () 
+{
+    let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
+    walker.previous();
+    let started_at = walker.get_corner_index();
+    let mut border_reached = false;
 
-        let mut walker = CornerWalker::from_vertex($table, $vertex);
+    loop {
+        visit(&walker.get_corner().get_next_corner_index());
+
         walker.previous();
-        let started_at = walker.get_corner_index();
-        let mut border_reached = false;
+        
+        if walker.get_corner().get_opposite_corner_index().is_none() {
+            border_reached = true;
+            break;
+        }
+
+        walker.opposite();
+
+        if started_at == walker.get_corner_index() {
+            break;
+        }
+    }
+
+    walker.set_current_corner(started_at);
+
+    if border_reached && walker.get_corner().get_opposite_corner_index().is_some() {
+        walker.opposite();
 
         loop {
-            $corner = walker.get_corner().get_next_corner_index();
-            $expression;
+            visit(&walker.get_next_corner().get_next_corner_index());
 
-            walker.previous();
-            
-            if walker.get_corner().get_opposite_corner_index().is_none() {
-                border_reached = true;
-                break;
-            }
-
-            walker.opposite();
-
-            if started_at == walker.get_corner_index() {
-                break;
-            }
-        }
-
-        walker.set_current_corner(started_at);
-
-        if border_reached && walker.get_corner().get_opposite_corner_index().is_some() {
-            walker.opposite();
-
-            loop {
-                $corner = walker.get_next_corner().get_next_corner_index();
-                $expression;
-    
-                walker.next();
-
-                if walker.get_corner().get_opposite_corner_index().is_none() {
-                    break;
-                }
-            
-                walker.opposite();
-            }
-        }
-    };
-}
-
-///
-/// Iterates over one ring vertices of given vertex
-/// 
-/// ## Arguments
-/// * reference to corner table
-/// * vertex index
-/// * variable to write corner index
-/// * code to execute for each vertex (vertex index is written to 3rd arg)
-/// 
-/// ## Example
-/// ```ignore
-/// let mesh = create_unit_cross_square_mesh();
-/// let mut vertices: Vec<usize> = Vec::new();
-/// let mut vertex_index;
-/// vertices_around_vertex!(&mesh, 0, vertex_index, vertices.push(vertex_index));
-/// ```
-/// 
-#[macro_export]
-macro_rules! vertices_around_vertex {
-    ($table:expr, $target_vertex:expr, $vertex:expr, $expression:expr) => {
-        #[allow(unused_imports)]
-        use crate::mesh::corner_table::connectivity::traits::Vertex;
-        use crate::mesh::corner_table::traversal::CornerWalker;
-
-        let mut walker = CornerWalker::from_vertex($table, $target_vertex);
-        walker.previous();
-        let started_at = walker.get_corner_index();
-        let mut border_reached = false;
-
-        loop {
-            $vertex = walker.get_corner().get_vertex_index();
-            $expression;
-
-            walker.previous();
+            walker.next();
 
             if walker.get_corner().get_opposite_corner_index().is_none() {
-                border_reached = true;
                 break;
             }
-
+        
             walker.opposite();
-
-            if started_at == walker.get_corner_index() {
-                break;
-            }
         }
-
-        if border_reached {
-            walker.set_current_corner(started_at).previous();
-            loop {
-                $vertex = walker.get_corner().get_vertex_index();
-                $expression;
-    
-                walker.next();
-
-                if walker.get_corner().get_opposite_corner_index().is_none() {
-                    break;
-                }
-            
-                walker.opposite();
-            }
-        }
-    };
+    }
 }
 
-///
-/// Iterates over one ring vertices of given vertex
-/// 
-/// ## Arguments
-/// * reference to corner table
-/// * face index
-/// * variable to write face as index of it`s corner
-/// * code to execute for each face (face is written to 3rd arg)
-/// 
-/// ## Example
-/// ```ignore
-/// let mesh = create_unit_cross_square_mesh();
-/// let mut faces: Vec<usize> = Vec::new();
-/// let mut face_index;
-/// faces_around_vertex!(&mesh, 0, face_index, faces.push(face_index));
-/// ```
-/// 
-#[macro_export]
-macro_rules! faces_around_vertex {
-    ($table:expr, $target_vertex:expr, $face:expr, $expression:expr) => {
-        #[allow(unused_imports)]
-        use crate::mesh::corner_table::connectivity::traits::Vertex;
-        use crate::mesh::corner_table::traversal::CornerWalker;
-
-        let mut walker = CornerWalker::from_vertex($table, $target_vertex);
-        walker.previous();
-        let started_at = walker.get_corner_index();
-        let mut border_reached = false;
-
-        loop {
-            $face = walker.get_corner_index();
-            $expression;
-
-            walker.previous();
-            
-            if walker.get_corner().get_opposite_corner_index().is_none() {
-                border_reached = true;
-                break;
-            }
-
-            walker.opposite();
-
-            if started_at == walker.get_corner_index() {
-                break;
-            }
-        }
-
-        walker.set_current_corner(started_at);
-
-        if border_reached && walker.get_corner().get_opposite_corner_index().is_some() {
-            walker.opposite();
-
-            loop {
-                $face = walker.get_corner_index();
-                $expression;
-    
-                walker.next();
-
-                if walker.get_corner().get_opposite_corner_index().is_none() {
-                    break;
-                }
-            
-                walker.opposite();
-            }
-        }
-    };
-}
-
-///
-/// Shorthand to collect all corners of vertex using [`corners_around_vertex`] macro
-/// 
-#[inline]
-pub fn corners_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
-    let mut corners: Vec<usize> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
-    let mut corner_index;
-
-    corners_around_vertex!(corner_table, vertex_index, corner_index, corners.push(corner_index));
+pub fn collect_corners_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
+    let mut corners = Vec::with_capacity(MAX_VERTEX_VALENCE);
+    corners_around_vertex(corner_table, vertex_index, |corner_index| {
+        corners.push(*corner_index)
+    });
 
     return corners;
 }
 
-///
-/// Shorthand to collect one-ring vertices of vertex using [`vertices_around_vertex`] macro
-/// 
-#[inline]
-pub fn vertices_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
-    let mut vertices: Vec<usize> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
-    let mut neighbor_index;
+/// Iterates over one-ring vertices of vertex
+pub fn vertices_around_vertex<TCorner: Corner, TVertex: Vertex, TFunc: FnMut(&usize) -> ()>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) {
+    let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
+    walker.previous();
+    let started_at = walker.get_corner_index();
+    let mut border_reached = false;
 
-    vertices_around_vertex!(corner_table, vertex_index, neighbor_index, vertices.push(neighbor_index));
+    loop {
+        visit(&walker.get_corner().get_vertex_index());
 
-    return vertices;
+        walker.previous();
+
+        if walker.get_corner().get_opposite_corner_index().is_none() {
+            border_reached = true;
+            break;
+        }
+
+        walker.opposite();
+
+        if started_at == walker.get_corner_index() {
+            break;
+        }
+    }
+
+    if border_reached {
+        walker.set_current_corner(started_at).previous();
+        loop {
+            visit(&walker.get_corner().get_vertex_index());
+
+            walker.next();
+
+            if walker.get_corner().get_opposite_corner_index().is_none() {
+                break;
+            }
+        
+            walker.opposite();
+        }
+    }
 }
 
-///
-/// Shorthand to collect one-ring faces of vertex using [`faces_around_vertex`] macro
-/// 
-#[inline]
-pub fn faces_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
-    let mut faces: Vec<usize> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
-    let mut face_index;
+/// Iterates over one-ring faces of vertex. Face is returned as one of it`s corners.
+pub fn faces_around_vertex<TCorner: Corner, TVertex: Vertex, TFunc: FnMut(&usize) -> ()>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) {
+    let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
+    walker.previous();
+    let started_at = walker.get_corner_index();
+    let mut border_reached = false;
 
-    faces_around_vertex!(corner_table, vertex_index, face_index, faces.push(face_index));
+    loop {
+        visit(&walker.get_corner_index());
 
-    return faces;
+        walker.previous();
+        
+        if walker.get_corner().get_opposite_corner_index().is_none() {
+            border_reached = true;
+            break;
+        }
+
+        walker.opposite();
+
+        if started_at == walker.get_corner_index() {
+            break;
+        }
+    }
+
+    walker.set_current_corner(started_at);
+
+    if border_reached && walker.get_corner().get_opposite_corner_index().is_some() {
+        walker.opposite();
+
+        loop {
+            visit(&walker.get_corner_index());
+
+            walker.next();
+
+            if walker.get_corner().get_opposite_corner_index().is_none() {
+                break;
+            }
+        
+            walker.opposite();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -547,7 +447,7 @@ mod tests {
     use crate::mesh::{
         corner_table::{
             test_helpers::{create_unit_square_mesh, create_unit_cross_square_mesh}, 
-            traversal::{vertices_around_vertex, faces_around_vertex}
+            traversal::{vertices_around_vertex, faces_around_vertex, corners_around_vertex}
         }, 
         traits::Mesh
     };
@@ -573,9 +473,8 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_corners: Vec<usize> = vec![11, 2, 5, 8];
         let mut corners: Vec<usize> = Vec::new();
-        let mut corner_index;
 
-        corners_around_vertex!(&mesh, 4, corner_index, corners.push(corner_index));
+        corners_around_vertex(&mesh, 4, |corner_index| corners.push(*corner_index));
 
         assert_eq!(corners, expected_corners);
     }
@@ -585,9 +484,8 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_corners: Vec<usize> = vec![10, 0];
         let mut corners: Vec<usize> = Vec::new();
-        let mut corner_index;
 
-        corners_around_vertex!(&mesh, 0, corner_index, corners.push(corner_index));
+        corners_around_vertex(&mesh, 0, |corner_index| corners.push(*corner_index));
 
         assert_eq!(corners, expected_corners);
     }
@@ -598,7 +496,8 @@ mod tests {
     fn vertices_around_internal_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
         let expected_vertices: Vec<usize> = vec![0, 1, 2, 3];
-        let vertices: Vec<usize> = vertices_around_vertex(&mesh, 4);
+        let mut vertices: Vec<usize> = Vec::new();
+        vertices_around_vertex(&mesh, 4, |vertex_index| vertices.push(*vertex_index));
     
         assert_eq!(vertices, expected_vertices);
     }
@@ -607,7 +506,8 @@ mod tests {
     fn vertices_around_boundary_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
         let expected_vertices: Vec<usize> = vec![3, 4, 1];
-        let vertices: Vec<usize> = vertices_around_vertex(&mesh, 0);
+        let mut vertices: Vec<usize> = Vec::new();
+        vertices_around_vertex(&mesh, 0, |vertex_index| vertices.push(*vertex_index));
     
         assert_eq!(vertices, expected_vertices);
     }
@@ -618,7 +518,8 @@ mod tests {
     fn faces_around_internal_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
         let expected_faces: Vec<usize> = vec![10, 1, 4, 7];
-        let faces: Vec<usize> = faces_around_vertex(&mesh, 4);
+        let mut faces: Vec<usize> = Vec::new();
+        faces_around_vertex(&mesh, 4, |face_index| faces.push(*face_index));
     
         assert_eq!(faces, expected_faces);
     }
@@ -627,7 +528,8 @@ mod tests {
     fn faces_around_boundary_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
         let expected_faces: Vec<usize> = vec![9, 1];
-        let faces: Vec<usize> = faces_around_vertex(&mesh, 0);
+        let mut faces: Vec<usize> = Vec::new();
+        faces_around_vertex(&mesh, 0, |face_index| faces.push(*face_index));
     
         assert_eq!(faces, expected_faces);
     }

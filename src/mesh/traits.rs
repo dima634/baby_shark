@@ -62,15 +62,10 @@ pub trait Mesh {
 /// Triangular mesh that supports topological queries
 /// 
 pub trait TopologicalMesh: Mesh {
-    /// Iterator over one-ring vertices of target vertex
-    type VV<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
-    /// Iterator over one-ring faces of target vertex
-    type VF<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
-
-    /// Returns iterator over one-ring vertices of target vertex
-    fn vertices_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VV<'a>;
-    /// Returns iterator over one-ring faces of target vertex
-    fn faces_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VF<'a>;
+    /// Iterates over one-ring vertices of vertex
+    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    /// Iterates over one-ring faces of vertex
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, face: &Self::VertexDescriptor, visit: TVisit);
 }
 
 ///

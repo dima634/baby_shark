@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fmt::Display, vec::IntoIter};
+use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
 use tabled::{Table, Tabled};
-use crate::{mesh::traits::{Mesh, TopologicalMesh}, faces_around_vertex};
+use crate::{mesh::traits::{Mesh, TopologicalMesh}};
 use self::helpers::Edge;
-use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, vertices_around_vertex, faces_around_vertex}};
+use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}};
 
 
 pub struct CornerTable<TCorner: Corner, TVertex: Vertex> {
@@ -208,25 +208,21 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
 
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType> {
         let mut sum = Vector3::zeros();
-        let mut face_index;
-        faces_around_vertex!(&self, *vertex, face_index, sum += self.face_normal(&face_index));
+        faces_around_vertex(&self, *vertex, |face_index| sum += self.face_normal(face_index));
 
         return sum.normalize();
     }
 }
 
 impl<TCorner: Corner, TVertex: Vertex> TopologicalMesh for CornerTable<TCorner, TVertex> {
-    type VV<'iter> = IntoIter<usize> where TVertex: 'iter, TCorner: 'iter;
-    type VF<'iter> = IntoIter<usize> where TVertex: 'iter, TCorner: 'iter;
-
     #[inline]
-    fn vertices_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VV<'a> {
-        return vertices_around_vertex(self, *vertex).into_iter();
+    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+        vertices_around_vertex(&self, *vertex, visit);
     }
 
     #[inline]
-    fn faces_around_vertex<'a>(&'a self, vertex: &Self::VertexDescriptor) -> Self::VF<'a> {
-        return faces_around_vertex(self, *vertex).into_iter();
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, face: &Self::VertexDescriptor, visit: TVisit) {
+        faces_around_vertex(self, *face, visit);
     }
 }
 
