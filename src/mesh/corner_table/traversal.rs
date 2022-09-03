@@ -1,6 +1,6 @@
 use crate::mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position, Floating};
 
-use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::Corner, traits::Flags}};
+use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face}, traits::Flags}};
 
 ///
 /// Can be used to traverse corner table topology
@@ -183,10 +183,10 @@ impl<'a, TScalar: Floating> CornerWalker<'a, TScalar> {
 impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
     fn from_vertex_on_face(
         mesh: &'a CornerTable<TScalar>, 
-        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
+        corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
         vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor
     ) -> Self { 
-        let mut walker = CornerWalker::from_corner(mesh, Corner::first_corner(*face));
+        let mut walker = CornerWalker::from_corner(mesh, first_corner(face(*corner)));
 
         while walker.get_corner().get_vertex_index() != *vertex {
             walker.next();
@@ -195,8 +195,12 @@ impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<
         return walker;
     }
 
-    fn set(&mut self, face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor) -> &mut Self {
-        self.set_current_corner(Corner::first_corner(*face));
+    fn set(
+        &mut self, 
+        corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
+        vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor
+    ) -> &mut Self {
+        self.set_current_corner(first_corner(face(*corner)));
 
         while self.get_corner().get_vertex_index() != *vertex {
             self.next();
@@ -205,8 +209,14 @@ impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<
         return self;
     }
 
+    #[inline]
     fn next(&mut self) -> &mut Self {
         return self.next();
+    }
+
+    #[inline]
+    fn get_vertex(&self) -> <CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor {
+        return self.get_corner().get_vertex_index();
     }
 }
 

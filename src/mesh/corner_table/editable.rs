@@ -110,11 +110,6 @@ impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor) {
         let mut walker = CornerWalker::from_corner(self, *edge);
 
-        if walker.get_corner().is_deleted() {
-            return;
-        }
-
-        
         // Skip collapse on boundary for now
         // TODO: implement collapse on boundary
         let (e_start, e_end) = self.get_edge_vertices(edge);
@@ -181,25 +176,13 @@ impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
         self.set_opposite_relationship(c6_idx, c13_idx);
     }
 
-    fn is_edge_collapse_safe(&mut self, edge: &Self::EdgeDescriptor) -> bool {
-        todo!()
-    }
-
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor) {
-        todo!()
-    }
-
-    fn is_edge_flip_safe(&mut self, edge: &Self::EdgeDescriptor) -> bool {
         todo!()
     }
 
     #[inline]
     fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>) {
         let corner = self.get_corner(*edge).unwrap();
-
-        if corner.is_deleted() {
-            return;
-        }
 
         match corner.get_opposite_corner_index() {
             Some(_) => self.split_inner_edge(*edge, at),
@@ -210,6 +193,11 @@ impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
     #[inline]
     fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Point3<Self::ScalarType>) {
         self.get_vertex_mut(*vertex).unwrap().set_position(*to);
+    }
+
+    #[inline]
+    fn edge_exist(&self, edge: &Self::EdgeDescriptor) -> bool {
+        return self.get_corner(*edge).unwrap().is_deleted();
     }
 }
 

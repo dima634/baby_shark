@@ -34,26 +34,6 @@ impl Corner {
     }
 
     #[inline]
-    pub fn next(corner: usize) -> usize {
-        return if (corner % 3) == 2 { corner - 2 } else { corner + 1 };
-    }
-
-    #[inline]
-    pub fn previous(corner: usize) -> usize {
-        return if (corner % 3) == 0 { corner + 2 } else { corner - 1 };
-    } 
-
-    #[inline]
-    pub fn face(corner: usize) -> usize {
-        return corner / 3;
-    }
-
-    #[inline]
-    pub fn first_corner(face: usize) -> usize {
-        return face * 3;
-    }
-
-    #[inline]
     pub fn get_next_corner_index(&self) -> usize {
         return self.next_corner_index;
     }
@@ -115,3 +95,24 @@ impl PartialEq for Corner {
     }
 }
 impl Eq for Corner {}
+
+
+#[inline]
+pub fn next(corner: usize) -> usize {
+    return if (corner % 3) == 2 { corner - 2 } else { corner + 1 };
+}
+
+#[inline]
+pub fn previous(corner: usize) -> usize {
+    return if (corner % 3) == 0 { corner + 2 } else { corner - 1 };
+} 
+
+#[inline]
+pub fn face(corner: usize) -> usize {
+    return corner / 3;
+}
+
+#[inline]
+pub fn first_corner(face: usize) -> usize {
+    return face * 3;
+}

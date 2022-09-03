@@ -22,7 +22,6 @@ pub trait Vertex {
 /// Triangular mesh
 /// 
 pub trait Mesh {
-    type MeshType: Mesh;
     type ScalarType: Floating;
 
     type EdgeDescriptor: Ord + Copy;
@@ -75,13 +74,16 @@ pub trait Position<'a, TMesh: Mesh> {
 
     /// Move to next vertex on face
     fn next(&mut self) -> &mut Self;
+
+    /// Returns current vertex
+    fn get_vertex(&self) -> TMesh::VertexDescriptor;
 }
 
 ///
 /// Triangular mesh that supports topological queries
 /// 
-pub trait TopologicalMesh: Mesh {
-    type Position<'a>: Position<'a, Self::MeshType>;
+pub trait TopologicalMesh: Mesh + Sized{
+    type Position<'a>: Position<'a, Self>;
 
     /// Iterates over one-ring vertices of vertex
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
@@ -97,13 +99,11 @@ pub trait TopologicalMesh: Mesh {
 /// 
 pub trait EditableMesh: Mesh {
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor);
-    fn is_edge_collapse_safe(&mut self, edge: &Self::EdgeDescriptor) -> bool;
-
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor);
-    fn is_edge_flip_safe(&mut self, edge: &Self::EdgeDescriptor) -> bool;
-
     fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
     fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Point3<Self::ScalarType>);
+
+    fn edge_exist(&self, edge: &Self::EdgeDescriptor) -> bool;
 }
 
 /// Contains constants which defines what is good mesh

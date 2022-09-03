@@ -119,7 +119,6 @@ impl<TScalar: Floating> CornerTable<TScalar> {
 }
 
 impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
-    type MeshType = CornerTable<TScalar>;
     type ScalarType = TScalar;
 
     type EdgeDescriptor = usize;
@@ -230,7 +229,7 @@ impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
 }
 
 impl<TScalar: Floating> TopologicalMesh for CornerTable<TScalar> {
-    type Position<'a> = CornerWalker<'a, Self::ScalarType>;
+    type Position<'a> = CornerWalker<'a, TScalar>;
     
     #[inline]
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
