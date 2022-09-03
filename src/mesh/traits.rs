@@ -22,11 +22,12 @@ pub trait Vertex {
 /// Triangular mesh
 /// 
 pub trait Mesh {
+    type MeshType: Mesh;
     type ScalarType: Floating;
 
-    type EdgeDescriptor;
-    type VertexDescriptor;
-    type FaceDescriptor;
+    type EdgeDescriptor: Ord + Copy;
+    type VertexDescriptor: Ord + Copy;
+    type FaceDescriptor: Ord + Copy;
 
     type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
     type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
@@ -51,6 +52,10 @@ pub trait Mesh {
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Returns edge length
     fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType;
+    /// Returns edge length
+    fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType;
+
+    fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
@@ -59,13 +64,32 @@ pub trait Mesh {
 }
 
 ///
+/// Position on face vertex
+/// 
+pub trait Position<'a, TMesh: Mesh> {
+    /// Create new position on face vertex
+    fn from_vertex_on_face(mesh: &'a TMesh, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> Self;
+
+    /// Set position to given vertex on face
+    fn set(&mut self, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> &mut Self;
+
+    /// Move to next vertex on face
+    fn next(&mut self) -> &mut Self;
+}
+
+///
 /// Triangular mesh that supports topological queries
 /// 
 pub trait TopologicalMesh: Mesh {
+    type Position<'a>: Position<'a, Self::MeshType>;
+
     /// Iterates over one-ring vertices of vertex
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
     /// Iterates over one-ring faces of vertex
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, face: &Self::VertexDescriptor, visit: TVisit);
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+
+    /// Return `true` if vertex is on boundary, `false` otherwise
+    fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool;
 }
 
 ///

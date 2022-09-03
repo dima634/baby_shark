@@ -1,6 +1,4 @@
 use std::cell::UnsafeCell;
-
-use crate::mesh;
 use super::flags;
 
 pub trait Flags {
@@ -35,20 +33,4 @@ pub trait Flags {
     }
 
     fn get_flags(&self) -> &UnsafeCell<flags::Flags>;
-}
-
-pub trait Vertex: Default + Flags + mesh::traits::Vertex {
-    fn get_corner_index(&self) -> usize;
-    fn set_corner_index(&mut self, index: usize) -> &mut Self;
-}
-
-pub trait Corner: Default + Flags {
-    fn get_next_corner_index(&self) -> usize;
-    fn set_next_corner_index(&mut self, index: usize) -> &Self;
-
-    fn get_opposite_corner_index(&self) -> Option<usize>;
-    fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self;
-
-    fn get_vertex_index(&self) -> usize;
-    fn set_vertex_index(&mut self, index: usize) -> &mut Self;
 }

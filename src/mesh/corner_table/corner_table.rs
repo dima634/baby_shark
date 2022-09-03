@@ -1,17 +1,17 @@
 use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
-use tabled::{Table, Tabled};
-use crate::{mesh::traits::{Mesh, TopologicalMesh}};
+use tabled::Table;
+use crate::{mesh::traits::{Mesh, TopologicalMesh, Floating}, algo::utils::triangle_normal};
 use self::helpers::Edge;
-use super::{connectivity::traits::{Corner, Vertex}, traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}};
+use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}};
 
 
-pub struct CornerTable<TCorner: Corner, TVertex: Vertex> {
-    pub(super) vertices: Vec<TVertex>,
-    pub(super) corners: Vec<TCorner>
+pub struct CornerTable<TScalar: Floating> {
+    pub(super) vertices: Vec<Vertex<TScalar>>,
+    pub(super) corners: Vec<Corner>
 }
 
-impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
+impl<TScalar: Floating> CornerTable<TScalar> {
     pub fn new<>() -> Self {
         return Self {
             corners: Vec::new(),
@@ -20,36 +20,36 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 
     #[inline]
-    pub fn get_vertex(&self, vertex_index:  usize) -> Option<&TVertex> {
+    pub fn get_vertex(&self, vertex_index:  usize) -> Option<&Vertex<TScalar>> {
         return self.vertices.get(vertex_index);
     }
 
     #[inline]
-    pub fn get_vertex_mut(&mut self, vertex_index:  usize) -> Option<&mut TVertex> {
+    pub fn get_vertex_mut(&mut self, vertex_index:  usize) -> Option<&mut Vertex<TScalar>> {
         return self.vertices.get_mut(vertex_index);
     }
 
     #[inline]
-    pub fn get_corner(&self, corner_index:  usize) -> Option<&TCorner> {
+    pub fn get_corner(&self, corner_index:  usize) -> Option<&Corner> {
         return self.corners.get(corner_index);
     }
 
     #[inline]
-    pub fn get_corner_mut(&mut self, corner_index:  usize) -> Option<&mut TCorner> {
+    pub fn get_corner_mut(&mut self, corner_index:  usize) -> Option<&mut Corner> {
         return self.corners.get_mut(corner_index);
     }
 
     /// Create new isolated corner
     #[inline]
-    pub fn create_corner(&mut self) -> &mut TCorner {
+    pub fn create_corner(&mut self) -> &mut Corner {
         let idx = self.corners.len();
-        self.corners.push(TCorner::default());
+        self.corners.push(Corner::default());
         return self.corners.get_mut(idx).unwrap();
     }
 
     /// Create new isolated vertex
     #[inline]
-    pub fn create_vertex(&mut self) -> &mut TVertex {
+    pub fn create_vertex(&mut self) -> &mut Vertex<TScalar> {
         let idx = self.vertices.len();
         self.vertices.push(Default::default());
         return self.vertices.get_mut(idx).unwrap();
@@ -118,16 +118,17 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 }
 
-impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
-    type ScalarType = TVertex::ScalarType;
+impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
+    type MeshType = CornerTable<TScalar>;
+    type ScalarType = TScalar;
 
     type EdgeDescriptor = usize;
     type VertexDescriptor = usize;
     type FaceDescriptor = usize;
 
-    type FacesIter<'iter> = CornerTableFacesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
-    type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
-    type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TCorner, TVertex> where TVertex: 'iter, TCorner: 'iter;
+    type FacesIter<'iter> = CornerTableFacesIter<'iter, TScalar>;
+    type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
+    type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
 
     fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self {
         assert!(faces.len() % 3 == 0, "Invalid number of face indices: {}", faces.len());
@@ -183,7 +184,7 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
     #[inline]
     fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
         let (p1, p2, p3) = self.face_positions(face);
-        return (p2 - p1).cross(&(p3 - p1)).normalize();
+        return triangle_normal(&p1, &p2, &p3);
     }
 
     #[inline]
@@ -200,6 +201,20 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
         let (v1, v2) = self.edge_positions(edge);
         return (v1 - v2).norm();
     }
+    #[inline]
+    fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
+        let (v1, v2) = self.edge_positions(edge);
+        return (v1 - v2).norm_squared();
+    }
+
+    #[inline]
+    fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
+        let mut walker = CornerWalker::from_corner(self, *edge);
+        return (
+            walker.next().get_corner().get_vertex_index(),
+            walker.next().get_corner().get_vertex_index()
+        );
+    }
 
     #[inline]
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType> {
@@ -214,19 +229,41 @@ impl<TCorner: Corner, TVertex: Vertex> Mesh for CornerTable<TCorner, TVertex> {
     }
 }
 
-impl<TCorner: Corner, TVertex: Vertex> TopologicalMesh for CornerTable<TCorner, TVertex> {
+impl<TScalar: Floating> TopologicalMesh for CornerTable<TScalar> {
+    type Position<'a> = CornerWalker<'a, Self::ScalarType>;
+    
     #[inline]
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
         vertices_around_vertex(&self, *vertex, visit);
     }
 
     #[inline]
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, face: &Self::VertexDescriptor, visit: TVisit) {
-        faces_around_vertex(self, *face, visit);
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+        faces_around_vertex(self, *vertex, visit);
+    }
+
+    fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool {
+        let mut walker = CornerWalker::from_vertex(self, *vertex);
+        walker.next();
+        let started_at = walker.get_corner_index();
+    
+        loop {
+            if walker.get_corner().get_opposite_corner_index().is_none() {
+                return true;
+            }
+
+            walker.opposite().previous();
+
+            if started_at == walker.get_corner_index() {
+                break;
+            }
+        }
+
+        return false;
     }
 }
 
-impl<TCorner: Corner + Tabled, TVertex: Vertex + Tabled> Display for CornerTable<TCorner, TVertex> {
+impl<TScalar: Floating> Display for CornerTable<TScalar> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let vertices = Table::new(self.vertices.iter());
         let corners = Table::new(self.corners.iter());
@@ -269,7 +306,7 @@ pub(super) mod helpers {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals}, connectivity::{vertex::VertexF, corner::DefaultCorner}};
+    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals}, connectivity::{vertex::VertexF, corner::Corner}};
 
     #[test]
     fn from_vertices_and_indices() {
@@ -283,13 +320,13 @@ mod tests {
         ];
 
         let expected_corners = vec![
-            DefaultCorner::new(1, None,    0, Default::default()),
-            DefaultCorner::new(2, Some(4), 1, Default::default()),
-            DefaultCorner::new(0, None,    2, Default::default()),
+            Corner::new(1, None,    0, Default::default()),
+            Corner::new(2, Some(4), 1, Default::default()),
+            Corner::new(0, None,    2, Default::default()),
 
-            DefaultCorner::new(4, None,    2, Default::default()),
-            DefaultCorner::new(5, Some(1), 3, Default::default()),
-            DefaultCorner::new(3, None,    0, Default::default())
+            Corner::new(4, None,    2, Default::default()),
+            Corner::new(5, Some(1), 3, Default::default()),
+            Corner::new(3, None,    0, Default::default())
         ];
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);

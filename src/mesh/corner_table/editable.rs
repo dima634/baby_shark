@@ -1,14 +1,12 @@
-use std::collections::HashSet;
-
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::{traits::{EditableMesh, TopologicalMesh}}};
-use super::{connectivity::traits::{Corner, Vertex}, corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}};
+use crate::{mesh::{traits::{EditableMesh, TopologicalMesh, Mesh, Floating}}};
+use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::traits::Flags};
 
 
-impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
+impl<TScalar: Floating> CornerTable<TScalar> {
     /// Splits inner edge opposite to corner at given position
-    fn split_inner_edge(&mut self, corner_index: usize, at: &Point3<TVertex::ScalarType>) {
+    fn split_inner_edge(&mut self, corner_index: usize, at: &Point3<TScalar>) {
         // New corner indices
         let c6_idx = self.corners.len();
         let c7_idx = c6_idx + 1;
@@ -65,7 +63,7 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 
     /// Splits boundary edge opposite to corner at given position
-    fn split_boundary_edge(&mut self, corner_index: usize, at: &Point3<TVertex::ScalarType>) {
+    fn split_boundary_edge(&mut self, corner_index: usize, at: &Point3<TScalar>) {
         // New corner indices
         let c3_idx = self.corners.len();
         let c4_idx = c3_idx + 1;
@@ -108,11 +106,19 @@ impl<TCorner: Corner, TVertex: Vertex> CornerTable<TCorner, TVertex> {
     }
 }
 
-impl<TCorner: Corner, TVertex: Vertex> EditableMesh for CornerTable<TCorner, TVertex> {
+impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor) {
         let mut walker = CornerWalker::from_corner(self, *edge);
 
         if walker.get_corner().is_deleted() {
+            return;
+        }
+
+        
+        // Skip collapse on boundary for now
+        // TODO: implement collapse on boundary
+        let (e_start, e_end) = self.get_edge_vertices(edge);
+        if self.is_vertex_on_boundary(&e_start) || self.is_vertex_on_boundary(&e_end) {
             return;
         }
 
@@ -137,22 +143,6 @@ impl<TCorner: Corner, TVertex: Vertex> EditableMesh for CornerTable<TCorner, TVe
     
         let c11_idx = walker.next().get_corner_index();
         let c13_idx = walker.get_corner().get_opposite_corner_index().unwrap();
-
-        // Is it safe to collapse edge
-        let mut v9_neighbors: HashSet<usize> = HashSet::new();
-        self.vertices_around_vertex(&v9_idx, |vertex_index| { v9_neighbors.insert(*vertex_index); });
-
-        let mut v9_v8_common_neighbors_count = 0;
-        self.vertices_around_vertex(&v8_idx, |vertex_index|
-        {
-            if v9_neighbors.contains(vertex_index) {
-                v9_v8_common_neighbors_count += 1;
-            }
-        });
-
-        if v9_v8_common_neighbors_count != 2 {
-            return;
-        }
 
         // Make sure vertices are not referencing deleted corners
         let c27_idx = walker.set_current_corner(c28_idx).next().get_corner().get_next_corner_index();
@@ -229,7 +219,7 @@ mod tests {
 
     use crate::mesh::{
         corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals, create_single_face_mesh, create_unit_cross_square_mesh, create_collapse_edge_sample_mesh}, 
-        connectivity::{vertex::VertexF, corner::DefaultCorner}}, 
+        connectivity::{vertex::VertexF, corner::Corner}}, 
         traits::EditableMesh
     };
 
@@ -247,21 +237,21 @@ mod tests {
 
         let expected_corners = vec![
             // next, opposite, vertex, index, flags
-            DefaultCorner::new(1, Some(7), 0, Default::default()), // 0
-            DefaultCorner::new(2, Some(4), 1, Default::default()), // 1
-            DefaultCorner::new(0, None,    2, Default::default()), // 2
+            Corner::new(1, Some(7), 0, Default::default()), // 0
+            Corner::new(2, Some(4), 1, Default::default()), // 1
+            Corner::new(0, None,    2, Default::default()), // 2
     
-            DefaultCorner::new(4, None,    2, Default::default()), // 3
-            DefaultCorner::new(5, Some(1), 3, Default::default()), // 4
-            DefaultCorner::new(3, Some(9), 0, Default::default()), // 5
+            Corner::new(4, None,    2, Default::default()), // 3
+            Corner::new(5, Some(1), 3, Default::default()), // 4
+            Corner::new(3, Some(9), 0, Default::default()), // 5
             
-            DefaultCorner::new(7, Some(10), 1, Default::default()), // 6
-            DefaultCorner::new(8, Some(0),  4, Default::default()), // 7
-            DefaultCorner::new(6, None,     2, Default::default()), // 8
+            Corner::new(7, Some(10), 1, Default::default()), // 6
+            Corner::new(8, Some(0),  4, Default::default()), // 7
+            Corner::new(6, None,     2, Default::default()), // 8
             
-            DefaultCorner::new(10, Some(5), 4, Default::default()), // 9
-            DefaultCorner::new(11, Some(6), 3, Default::default()), // 10
-            DefaultCorner::new(9,  None,    2, Default::default()), // 11
+            Corner::new(10, Some(5), 4, Default::default()), // 9
+            Corner::new(11, Some(6), 3, Default::default()), // 10
+            Corner::new(9,  None,    2, Default::default()), // 11
         ];
 
         mesh.split_edge(&1, &Point3::<f32>::new(0.5, 0.5, 0.0));
@@ -284,29 +274,29 @@ mod tests {
 
         let expected_corners = vec![
             // next, opposite, vertex, index, flags
-            DefaultCorner::new(1, Some(4),  0, Default::default()), // 0
-            DefaultCorner::new(2, Some(14), 1, Default::default()), // 1
-            DefaultCorner::new(0, None,     5, Default::default()), // 2
+            Corner::new(1, Some(4),  0, Default::default()), // 0
+            Corner::new(2, Some(14), 1, Default::default()), // 1
+            Corner::new(0, None,     5, Default::default()), // 2
     
-            DefaultCorner::new(4, Some(17), 1, Default::default()), // 3
-            DefaultCorner::new(5, Some(0),  2, Default::default()), // 4
-            DefaultCorner::new(3, None,     5, Default::default()), // 5
+            Corner::new(4, Some(17), 1, Default::default()), // 3
+            Corner::new(5, Some(0),  2, Default::default()), // 4
+            Corner::new(3, None,     5, Default::default()), // 5
             
-            DefaultCorner::new(7, Some(10), 2, Default::default()), // 6
-            DefaultCorner::new(8, Some(15), 3, Default::default()), // 7
-            DefaultCorner::new(6, None,     4, Default::default()), // 8
+            Corner::new(7, Some(10), 2, Default::default()), // 6
+            Corner::new(8, Some(15), 3, Default::default()), // 7
+            Corner::new(6, None,     4, Default::default()), // 8
             
-            DefaultCorner::new(10, Some(13), 3, Default::default()), // 9
-            DefaultCorner::new(11, Some(6),  0, Default::default()), // 10
-            DefaultCorner::new(9,  None,     4, Default::default()), // 11
+            Corner::new(10, Some(13), 3, Default::default()), // 9
+            Corner::new(11, Some(6),  0, Default::default()), // 10
+            Corner::new(9,  None,     4, Default::default()), // 11
             
-            DefaultCorner::new(13, Some(16), 0, Default::default()), // 12
-            DefaultCorner::new(14, Some(9),  5, Default::default()), // 13
-            DefaultCorner::new(12, Some(1),  4, Default::default()), // 14
+            Corner::new(13, Some(16), 0, Default::default()), // 12
+            Corner::new(14, Some(9),  5, Default::default()), // 13
+            Corner::new(12, Some(1),  4, Default::default()), // 14
             
-            DefaultCorner::new(16, Some(7),  5, Default::default()), // 15
-            DefaultCorner::new(17, Some(12), 2, Default::default()), // 16
-            DefaultCorner::new(15, Some(3),  4, Default::default()), // 17
+            Corner::new(16, Some(7),  5, Default::default()), // 15
+            Corner::new(17, Some(12), 2, Default::default()), // 16
+            Corner::new(15, Some(3),  4, Default::default()), // 17
         ];
 
         mesh.split_edge(&10, &Point3::<f32>::new(0.75, 0.75, 0.0));
@@ -327,13 +317,13 @@ mod tests {
 
         let expected_corners = vec![
             // next, opposite, vertex, index, flags
-            DefaultCorner::new(1, Some(4), 0, Default::default()), // 0
-            DefaultCorner::new(2, None,    1, Default::default()), // 1
-            DefaultCorner::new(0, None,    2, Default::default()), // 2
+            Corner::new(1, Some(4), 0, Default::default()), // 0
+            Corner::new(2, None,    1, Default::default()), // 1
+            Corner::new(0, None,    2, Default::default()), // 2
     
-            DefaultCorner::new(4, None,    1, Default::default()), // 3
-            DefaultCorner::new(5, Some(0), 3, Default::default()), // 4
-            DefaultCorner::new(3, None,    2, Default::default()), // 5
+            Corner::new(4, None,    1, Default::default()), // 3
+            Corner::new(5, Some(0), 3, Default::default()), // 4
+            Corner::new(3, None,    2, Default::default()), // 5
         ];
 
         mesh.split_edge(&1, &Point3::<f32>::new(0.5, 0.5, 0.0));
@@ -360,45 +350,45 @@ mod tests {
 
         let expected_corners = vec![
             // next, opposite, vertex, index, flags
-            DefaultCorner::new(1, Some(4),  0, Default::default()), // 0
-            DefaultCorner::new(2, Some(27), 1, Default::default()), // 1
-            DefaultCorner::new(0, None,     8, Default::default()), // 2
+            Corner::new(1, Some(4),  0, Default::default()), // 0
+            Corner::new(2, Some(27), 1, Default::default()), // 1
+            Corner::new(0, None,     8, Default::default()), // 2
     
-            DefaultCorner::new(4, Some(7), 1, Default::default()), // 3
-            DefaultCorner::new(5, Some(0), 2, Default::default()), // 4
-            DefaultCorner::new(3, None,    8, Default::default()), // 5
+            Corner::new(4, Some(7), 1, Default::default()), // 3
+            Corner::new(5, Some(0), 2, Default::default()), // 4
+            Corner::new(3, None,    8, Default::default()), // 5
     
-            DefaultCorner::new(7, Some(13), 2, Default::default()), // 6
-            DefaultCorner::new(8, Some(3),  3, Default::default()), // 7
-            DefaultCorner::new(6, None,     8, Default::default()), // 8
+            Corner::new(7, Some(13), 2, Default::default()), // 6
+            Corner::new(8, Some(3),  3, Default::default()), // 7
+            Corner::new(6, None,     8, Default::default()), // 8
     
-            DefaultCorner::new(10, Some(24), 3, Default::default()), // 9
-            DefaultCorner::new(11, Some(6),  8, Default::default()), // 10
-            DefaultCorner::new(9,  Some(13), 8, Default::default()), // 11
+            Corner::new(10, Some(24), 3, Default::default()), // 9
+            Corner::new(11, Some(6),  8, Default::default()), // 10
+            Corner::new(9,  Some(13), 8, Default::default()), // 11
     
-            DefaultCorner::new(13, Some(16), 3, Default::default()), // 12
-            DefaultCorner::new(14, Some(6),  4, Default::default()), // 13
-            DefaultCorner::new(12, None,     8, Default::default()), // 14
+            Corner::new(13, Some(16), 3, Default::default()), // 12
+            Corner::new(14, Some(6),  4, Default::default()), // 13
+            Corner::new(12, None,     8, Default::default()), // 14
     
-            DefaultCorner::new(16, Some(19), 4, Default::default()), // 15
-            DefaultCorner::new(17, Some(12), 5, Default::default()), // 16
-            DefaultCorner::new(15, None,     8, Default::default()), // 17
+            Corner::new(16, Some(19), 4, Default::default()), // 15
+            Corner::new(17, Some(12), 5, Default::default()), // 16
+            Corner::new(15, None,     8, Default::default()), // 17
     
-            DefaultCorner::new(19, Some(22), 5, Default::default()), // 18
-            DefaultCorner::new(20, Some(15), 6, Default::default()), // 19
-            DefaultCorner::new(18, None,     8, Default::default()), // 20
+            Corner::new(19, Some(22), 5, Default::default()), // 18
+            Corner::new(20, Some(15), 6, Default::default()), // 19
+            Corner::new(18, None,     8, Default::default()), // 20
     
-            DefaultCorner::new(22, Some(28), 6, Default::default()), // 21
-            DefaultCorner::new(23, Some(18), 7, Default::default()), // 22
-            DefaultCorner::new(21, None,     8, Default::default()), // 23
+            Corner::new(22, Some(28), 6, Default::default()), // 21
+            Corner::new(23, Some(18), 7, Default::default()), // 22
+            Corner::new(21, None,     8, Default::default()), // 23
     
-            DefaultCorner::new(25, Some(9),  7, Default::default()), // 24
-            DefaultCorner::new(26, Some(21), 8, Default::default()), // 25
-            DefaultCorner::new(24, Some(28), 8, Default::default()), // 26
+            Corner::new(25, Some(9),  7, Default::default()), // 24
+            Corner::new(26, Some(21), 8, Default::default()), // 25
+            Corner::new(24, Some(28), 8, Default::default()), // 26
     
-            DefaultCorner::new(28, Some(1),  7, Default::default()), // 27
-            DefaultCorner::new(29, Some(21), 0, Default::default()), // 28
-            DefaultCorner::new(27, None,     8, Default::default()), // 29
+            Corner::new(28, Some(1),  7, Default::default()), // 27
+            Corner::new(29, Some(21), 0, Default::default()), // 28
+            Corner::new(27, None,     8, Default::default()), // 29
         ];
 
         mesh.collapse_edge(&24);

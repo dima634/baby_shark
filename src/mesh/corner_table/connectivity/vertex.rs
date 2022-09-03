@@ -1,15 +1,15 @@
 use std::cell::UnsafeCell;
 use nalgebra::Point3;
 use tabled::Tabled;
-use crate::mesh::{self, traits::Floating};
+use crate::mesh::{traits::Floating};
 use crate::helpers::display::display_unsafecell;
-use super::{traits::{Vertex, Flags}, flags};
+use super::{traits::Flags, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
 #[derive(Debug, Tabled)]
-pub struct DefaultVertex<TScalarType: Floating> {
+pub struct Vertex<TScalarType: Floating> {
     corner_index: usize,
     position: Point3<TScalarType>,
 
@@ -17,7 +17,7 @@ pub struct DefaultVertex<TScalarType: Floating> {
     flags: UnsafeCell<flags::Flags>
 }
 
-impl<TScalarType: Floating> DefaultVertex<TScalarType> {
+impl<TScalarType: Floating> Vertex<TScalarType> {
     pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags) -> Self { 
         return Self { 
             corner_index, 
@@ -27,7 +27,7 @@ impl<TScalarType: Floating> DefaultVertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> Default for DefaultVertex<TScalarType> {
+impl<TScalarType: Floating> Default for Vertex<TScalarType> {
     fn default() -> Self {
         return Self {
             corner_index: usize::max_value(), 
@@ -37,42 +37,38 @@ impl<TScalarType: Floating> Default for DefaultVertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> Flags for DefaultVertex<TScalarType> {
+impl<TScalarType: Floating> Flags for Vertex<TScalarType> {
     #[inline]
     fn get_flags(&self) -> &UnsafeCell<flags::Flags> {
         return &self.flags;
     }
 }
 
-impl<TScalarType: Floating> mesh::traits::Vertex for DefaultVertex<TScalarType> {
-    type ScalarType = TScalarType;
-
+impl<TScalarType: Floating> Vertex<TScalarType> {
     #[inline]
-    fn get_position(&self) -> &Point3<Self::ScalarType> {
+    pub fn get_position(&self) -> &Point3<TScalarType> {
         return &self.position;
     }
 
     #[inline]
-    fn set_position(&mut self, point: Point3<Self::ScalarType>) -> &mut Self {
+    pub fn set_position(&mut self, point: Point3<TScalarType>) -> &mut Self {
         self.position = point;
         return self;
     }
-}
 
-impl<TScalarType: Floating> Vertex for DefaultVertex<TScalarType> {
     #[inline]
-    fn get_corner_index(&self) ->  usize {
+    pub fn get_corner_index(&self) ->  usize {
         return self.corner_index;
     }
 
     #[inline]
-    fn set_corner_index(&mut self, index:  usize) -> &mut Self {
+    pub fn set_corner_index(&mut self, index:  usize) -> &mut Self {
         self.corner_index = index;
         return self;
     }
 }
 
-impl<TScalarType: Floating> PartialEq for DefaultVertex<TScalarType> {
+impl<TScalarType: Floating> PartialEq for Vertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return 
@@ -80,8 +76,8 @@ impl<TScalarType: Floating> PartialEq for DefaultVertex<TScalarType> {
             self.position      == other.position;
     }
 }
-impl<TScalarType: Floating> Eq for DefaultVertex<TScalarType> {}
+impl<TScalarType: Floating> Eq for Vertex<TScalarType> {}
 
 /// Aliases
-pub type VertexF = DefaultVertex<f32>;
-pub type VertexD = DefaultVertex<f64>;
+pub type VertexF = Vertex<f32>;
+pub type VertexD = Vertex<f64>;

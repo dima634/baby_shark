@@ -1,18 +1,18 @@
-use crate::mesh::traits::mesh_stats::MAX_VERTEX_VALENCE;
+use crate::mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position, Floating};
 
-use super::{corner_table::CornerTable, connectivity::{traits::{Corner, Vertex}, flags::clear_visited}};
+use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::Corner, traits::Flags}};
 
 ///
 /// Can be used to traverse corner table topology
 /// 
-pub struct CornerWalker<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>,
+pub struct CornerWalker<'a, TScalar: Floating> {
+    table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
+impl<'a, TScalar: Floating> CornerWalker<'a, TScalar> {
     /// Creates walker starting at given corner
-    pub fn from_corner(table: &'a CornerTable<TCorner, TVertex>, corner_index: usize) -> Self { 
+    pub fn from_corner(table: &'a CornerTable<TScalar>, corner_index: usize) -> Self { 
         return Self {
             table, 
             corner_index
@@ -20,7 +20,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
     }
 
     /// Creates walker starting at random corner of given vertex
-    pub fn from_vertex(table: &'a CornerTable<TCorner, TVertex>, vertex_index: usize) -> Self { 
+    pub fn from_vertex(table: &'a CornerTable<TScalar>, vertex_index: usize) -> Self { 
         return Self {
             table, 
             corner_index: table.get_vertex(vertex_index).unwrap().get_corner_index()
@@ -134,7 +134,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
 
     /// Returns next corner
     #[inline]
-    pub fn get_next_corner(&self) -> &TCorner {
+    pub fn get_next_corner(&self) -> &Corner {
         return self.table.get_corner(self.get_corner().get_next_corner_index()).unwrap(); 
     }
 
@@ -146,13 +146,13 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
 
     /// Returns previous corner
     #[inline]
-    pub fn get_previous_corner(&self) -> &TCorner {
+    pub fn get_previous_corner(&self) -> &Corner {
         return self.table.get_corner(self.get_previous_corner_index()).unwrap(); 
     }
 
     /// Returns opposite corner
     #[inline]
-    pub fn get_opposite_corner(&self) -> Option<&TCorner> {
+    pub fn get_opposite_corner(&self) -> Option<&Corner> {
         if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
             return Some(self.table.get_corner(opposite).unwrap());
         }
@@ -163,7 +163,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
 
     /// Returns current corner
     #[inline]
-    pub fn get_corner(&self) -> &TCorner {
+    pub fn get_corner(&self) -> &Corner {
         return self.table.get_corner(self.corner_index).unwrap();
     }
 
@@ -175,21 +175,51 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerWalker<'a, TCorner, TVertex> {
 
     /// Returns vertex of current corner
     #[inline]
-    pub fn get_vertex(&self) -> &TVertex {
+    pub fn get_vertex(&self) -> &Vertex<TScalar> {
         return self.table.get_vertex(self.get_corner().get_vertex_index()).unwrap();
+    }
+}
+
+impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
+    fn from_vertex_on_face(
+        mesh: &'a CornerTable<TScalar>, 
+        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
+        vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor
+    ) -> Self { 
+        let mut walker = CornerWalker::from_corner(mesh, Corner::first_corner(*face));
+
+        while walker.get_corner().get_vertex_index() != *vertex {
+            walker.next();
+        } 
+
+        return walker;
+    }
+
+    fn set(&mut self, face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor) -> &mut Self {
+        self.set_current_corner(Corner::first_corner(*face));
+
+        while self.get_corner().get_vertex_index() != *vertex {
+            self.next();
+        }
+
+        return self;
+    }
+
+    fn next(&mut self) -> &mut Self {
+        return self.next();
     }
 }
 
 ///
 /// Iterator over faces of corner table. Face is returned as one of its corners.
 ///
-pub struct CornerTableFacesIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>,
+pub struct CornerTableFacesIter<'a, TScalar: Floating> {
+    table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableFacesIter<'a, TCorner, TVertex> {
-    pub fn new(corner_table: &'a CornerTable<TCorner, TVertex>) -> Self {
+impl<'a, TScalar: Floating> CornerTableFacesIter<'a, TScalar> {
+    pub fn new(corner_table: &'a CornerTable<TScalar>) -> Self {
         return Self {
             table: corner_table,
             corner_index: 0
@@ -197,11 +227,11 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableFacesIter<'a, TCorner, TVe
     }
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableFacesIter<'a, TCorner, TVertex> {
+impl<'a, TScalar: Floating> Iterator for CornerTableFacesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(next) = self.table.get_corner(self.corner_index) && next.is_deleted(){
+        while let Some(next) = self.table.get_corner(self.corner_index) && next.is_deleted() {
             self.corner_index += 3;
         }
 
@@ -220,13 +250,13 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableFacesIter<'a,
 ///
 /// Iterator over vertices of mesh
 /// 
-pub struct CornerTableVerticesIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>,
+pub struct CornerTableVerticesIter<'a, TScalar: Floating> {
+    table: &'a CornerTable<TScalar>,
     vertex_index: usize
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableVerticesIter<'a, TCorner, TVertex> {
-    pub fn new(table: &'a CornerTable<TCorner, TVertex>) -> Self {
+impl<'a, TScalar: Floating> CornerTableVerticesIter<'a, TScalar> {
+    pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         return Self { 
             table,
             vertex_index: 0
@@ -234,7 +264,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableVerticesIter<'a, TCorner, 
     }
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableVerticesIter<'a, TCorner, TVertex> {
+impl<'a, TScalar: Floating> Iterator for CornerTableVerticesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -258,13 +288,13 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableVerticesIter<
 ///
 /// Iterator over edges of mesh. Edge is returned as corner opposite to it. Uses `is_visited` flag
 /// 
-pub struct CornerTableEdgesIter<'a, TCorner: Corner, TVertex: Vertex> {
-    table: &'a CornerTable<TCorner, TVertex>,
+pub struct CornerTableEdgesIter<'a, TScalar: Floating> {
+    table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableEdgesIter<'a, TCorner, TVertex> {
-    pub fn new(table: &'a CornerTable<TCorner, TVertex>) -> Self {
+impl<'a, TScalar: Floating> CornerTableEdgesIter<'a, TScalar> {
+    pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         clear_visited(table.corners.iter());
         return Self {
             table,
@@ -273,7 +303,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> CornerTableEdgesIter<'a, TCorner, TVe
     }
 }
 
-impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a, TCorner, TVertex> {
+impl<'a, TScalar: Floating> Iterator for CornerTableEdgesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -303,12 +333,7 @@ impl<'a, TCorner: Corner, TVertex: Vertex> Iterator for CornerTableEdgesIter<'a,
 }
 
 /// Iterates over corners that are adjacent to given vertex
-pub fn corners_around_vertex<TCorner, TVertex, TFunc>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) 
-where 
-    TCorner: Corner, 
-    TVertex: Vertex, 
-    TFunc: FnMut(&usize) -> () 
-{
+pub fn corners_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();
@@ -350,7 +375,7 @@ where
     }
 }
 
-pub fn collect_corners_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize) -> Vec<usize> {
+pub fn collect_corners_around_vertex<TScalar: Floating>(corner_table: &CornerTable<TScalar>, vertex_index: usize) -> Vec<usize> {
     let mut corners = Vec::with_capacity(MAX_VERTEX_VALENCE);
     corners_around_vertex(corner_table, vertex_index, |corner_index| {
         corners.push(*corner_index)
@@ -360,7 +385,7 @@ pub fn collect_corners_around_vertex<TCorner: Corner, TVertex: Vertex>(corner_ta
 }
 
 /// Iterates over one-ring vertices of vertex
-pub fn vertices_around_vertex<TCorner: Corner, TVertex: Vertex, TFunc: FnMut(&usize) -> ()>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) {
+pub fn vertices_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();
@@ -400,7 +425,7 @@ pub fn vertices_around_vertex<TCorner: Corner, TVertex: Vertex, TFunc: FnMut(&us
 }
 
 /// Iterates over one-ring faces of vertex. Face is returned as one of it`s corners.
-pub fn faces_around_vertex<TCorner: Corner, TVertex: Vertex, TFunc: FnMut(&usize) -> ()>(corner_table: &CornerTable<TCorner, TVertex>, vertex_index: usize, mut visit: TFunc) {
+pub fn faces_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();

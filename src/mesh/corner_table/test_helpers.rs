@@ -1,6 +1,6 @@
 use nalgebra::Point3;
 use crate::mesh::traits::Mesh;
-use super::{prelude::CornerTableF, connectivity::{corner::DefaultCorner, vertex::VertexF}};
+use super::{prelude::CornerTableF, connectivity::{corner::Corner, vertex::VertexF}};
 
 pub fn create_unit_square_mesh() -> CornerTableF {
     let vertices = vec![
@@ -76,7 +76,7 @@ pub fn create_collapse_edge_sample_mesh() -> CornerTableF {
     return CornerTableF::from_vertices_and_indices(&vertices, &indices);
 }
 
-pub fn assert_mesh_equals(mesh: &CornerTableF, expected_corners: &Vec<DefaultCorner>, expected_vertices: &Vec<VertexF>) {
+pub fn assert_mesh_equals(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {
     // Assert equality for each element separately for readability
 
     assert_eq!(expected_vertices.len(), mesh.vertices.len());

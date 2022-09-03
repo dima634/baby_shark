@@ -2,13 +2,13 @@ use std::cell::UnsafeCell;
 
 use tabled::Tabled;
 use crate::helpers::display::{display_option, display_unsafecell};
-use super::{traits::{Flags, Corner}, flags};
+use super::{traits::Flags, flags};
 
 ///
 /// Default implementation for Corner trait
 /// 
 #[derive(Debug, Tabled)]
-pub struct DefaultCorner {
+pub struct Corner {
     next_corner_index: usize,
     #[tabled(display_with = "display_option")]
     opposite_corner_index: Option<usize>,
@@ -18,7 +18,7 @@ pub struct DefaultCorner {
     flags: UnsafeCell<flags::Flags>
 }
 
-impl DefaultCorner {
+impl Corner {
     pub fn new(
         next_corner_index: usize, 
         opposite_corner_index: Option<usize>,
@@ -32,9 +32,62 @@ impl DefaultCorner {
             flags: UnsafeCell::new(flags) 
         };
     }
+
+    #[inline]
+    pub fn next(corner: usize) -> usize {
+        return if (corner % 3) == 2 { corner - 2 } else { corner + 1 };
+    }
+
+    #[inline]
+    pub fn previous(corner: usize) -> usize {
+        return if (corner % 3) == 0 { corner + 2 } else { corner - 1 };
+    } 
+
+    #[inline]
+    pub fn face(corner: usize) -> usize {
+        return corner / 3;
+    }
+
+    #[inline]
+    pub fn first_corner(face: usize) -> usize {
+        return face * 3;
+    }
+
+    #[inline]
+    pub fn get_next_corner_index(&self) -> usize {
+        return self.next_corner_index;
+    }
+
+    #[inline]
+    pub fn set_next_corner_index(&mut self, index: usize) -> &Self {
+        self.next_corner_index = index;
+        return self;
+    }
+
+    #[inline]
+    pub fn get_opposite_corner_index(&self) -> Option<usize> {
+        return self.opposite_corner_index;
+    }
+
+    #[inline]
+    pub fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self {
+        self.opposite_corner_index = Some(index);
+        return self;
+    }
+
+    #[inline]
+    pub fn get_vertex_index(&self) -> usize {
+        return self.vertex_index;
+    }
+
+    #[inline]
+    pub fn set_vertex_index(&mut self, index: usize) -> &mut Self {
+        self.vertex_index = index;
+        return self;
+    }
 }
 
-impl Default for DefaultCorner {
+impl Default for Corner {
     fn default() -> Self {
         return Self { 
             next_corner_index:      usize::max_value(), 
@@ -45,49 +98,14 @@ impl Default for DefaultCorner {
     }
 }
 
-impl Flags for DefaultCorner {
+impl Flags for Corner {
     #[inline]
     fn get_flags(&self) -> &UnsafeCell<super::flags::Flags> {
         return &self.flags;
     }
 }
 
-impl Corner for DefaultCorner {
-    #[inline]
-    fn get_next_corner_index(&self) -> usize {
-        return self.next_corner_index;
-    }
-
-    #[inline]
-    fn set_next_corner_index(&mut self, index: usize) -> &Self {
-        self.next_corner_index = index;
-        return self;
-    }
-
-    #[inline]
-    fn get_opposite_corner_index(&self) -> Option<usize> {
-        return self.opposite_corner_index;
-    }
-
-    #[inline]
-    fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self {
-        self.opposite_corner_index = Some(index);
-        return self;
-    }
-
-    #[inline]
-    fn get_vertex_index(&self) -> usize {
-        return self.vertex_index;
-    }
-
-    #[inline]
-    fn set_vertex_index(&mut self, index: usize) -> &mut Self {
-        self.vertex_index = index;
-        return self;
-    }
-}
-
-impl PartialEq for DefaultCorner {
+impl PartialEq for Corner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return 
@@ -96,4 +114,4 @@ impl PartialEq for DefaultCorner {
             self.vertex_index          == other.vertex_index;
     }
 }
-impl Eq for DefaultCorner {}
+impl Eq for Corner {}

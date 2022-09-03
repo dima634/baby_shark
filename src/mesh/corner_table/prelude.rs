@@ -1,4 +1,4 @@
-use super::{corner_table::CornerTable, connectivity::{corner::DefaultCorner, vertex::{VertexF, VertexD}}};
+use super::{corner_table::CornerTable};
 
-pub type CornerTableF = CornerTable<DefaultCorner, VertexF>;
-pub type CornerTableD = CornerTable<DefaultCorner, VertexD>;
+pub type CornerTableF = CornerTable<f32>;
+pub type CornerTableD = CornerTable<f64>;
