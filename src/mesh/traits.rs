@@ -1,8 +1,9 @@
-use nalgebra::{Point3, RealField, Vector3};
+use nalgebra::{Point3, Vector3};
+use nalgebra_glm::RealNumber;
 use num_traits::Float;
 
-pub trait Floating: RealField + Float {}
-impl<T> Floating for T where T: RealField + Float {}
+pub trait Floating: RealNumber + Float {}
+impl<T> Floating for T where T: RealNumber + Float {}
 
 pub trait Edge {
     type VertexDescriptor;
