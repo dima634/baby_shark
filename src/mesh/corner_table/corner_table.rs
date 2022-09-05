@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
 use tabled::Table;
-use crate::{mesh::traits::{Mesh, TopologicalMesh, Floating}, algo::utils::triangle_normal};
+use crate::{mesh::traits::{Mesh, TopologicalMesh, Floating}, geometry::primitives::Triangle3};
 use self::helpers::Edge;
 use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}};
 
@@ -183,7 +183,7 @@ impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
     #[inline]
     fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
         let (p1, p2, p3) = self.face_positions(face);
-        return triangle_normal(&p1, &p2, &p3);
+        return Triangle3::normal(&p1, &p2, &p3);
     }
 
     #[inline]

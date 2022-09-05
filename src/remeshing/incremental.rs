@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, collections::BTreeSet};
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::{tangential_relaxation, triangle_normal}};
+use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3};
 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
@@ -153,7 +153,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             let v3 = mesh.vertex_position(&pos.next().get_vertex());
 
             let old_normal = mesh.face_normal(face);
-            let new_normal = triangle_normal(new_position, v2, v3);
+            let new_normal = Triangle3::normal(new_position, v2, v3);
 
             if old_normal.dot(&new_normal) < cast(0.7).unwrap() {
                 normal_flipped = true;

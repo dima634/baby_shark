@@ -31,11 +31,6 @@ where
     return barycenter - normal * normal_t * (barycenter - origin);
 }
 
-#[inline]
-pub fn triangle_normal<TScalar: Floating>(v1: &Point3<TScalar>, v2: &Point3<TScalar>, v3: &Point3<TScalar>) -> Vector3<TScalar> {
-    return (v2 - v1).cross(&(v3 - v1)).normalize();
-}
-
 /// v3 * (v1 x v2)
 #[inline]
 pub fn triple_product<TScalar: Floating>(v1: &Vector3<TScalar>, v2: &Vector3<TScalar>, v3: &Vector3<TScalar>) -> TScalar {

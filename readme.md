@@ -1,3 +1,5 @@
+# Geometry processing library in pure rust
+
 ### TODO:
 - [ ] StlWriter - calculate normal from vertices (now iterator over face vertices are executed twice)
 - [ ] CornerTable/Remesher - preallocate estimated amount of elements for internal arrays

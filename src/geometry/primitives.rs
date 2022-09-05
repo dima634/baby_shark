@@ -441,6 +441,11 @@ impl<TScalar: Floating> Triangle3<TScalar> {
         return Self { a, b, c } 
     }
 
+    #[inline]
+    pub fn normal(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Vector3<TScalar> {
+        return (b - a).cross(&(c - a)).normalize();
+    }
+
     /// Returns closest point on triangle to given point
     pub fn closest_point(&self, p: &Point3<TScalar>) -> Point3<TScalar> {
         let zero: TScalar = TScalar::zero();
@@ -699,7 +704,7 @@ pub(super) mod internal {
             }
 
             let qvec = tvec.cross(&edge1);
-            let mut v = line.direction.dot(&qvec) * inv_det;
+            let v = line.direction.dot(&qvec) * inv_det;
 
             if v < TScalar::zero() || v + u > TScalar::one() {
                 return None;
