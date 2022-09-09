@@ -2,7 +2,9 @@ use std::mem::swap;
 use nalgebra::{Point3, Vector3, center};
 use nalgebra_glm::{max2, min2};
 use num_traits::Float;
-use crate::{mesh::traits::Floating};
+use crate::{mesh::traits::Floating, algo::utils::{cwise_max, cwise_min}};
+
+use super::traits::HasBBox3;
 
 /// Infinite line. l(t) = p + v*t
 pub struct Line3<TScalar: Floating> {
@@ -310,6 +312,7 @@ impl<TScalar: Floating> Plane3<TScalar> {
 }
 
 /// 3D bounding box
+#[derive(Clone, Copy)]
 pub struct Box3<TScalar: Floating> {
     min: Point3<TScalar>,
     max: Point3<TScalar>
@@ -318,6 +321,13 @@ pub struct Box3<TScalar: Floating> {
 impl<TScalar: Floating> Box3<TScalar> {
     pub fn new(min: Point3<TScalar>, max: Point3<TScalar>) -> Self {
         return Self { min, max } ;
+    }
+
+    pub fn empty() -> Self {
+        return Self {
+            min: Point3::origin(), 
+            max: Point3::origin() 
+        } ;
     }
 
     #[inline]
@@ -350,13 +360,21 @@ impl<TScalar: Floating> Box3<TScalar> {
         return self.max.z - self.min.z;
     }
 
+    #[inline]
+    pub fn add_box3(&mut self, other: &Box3<TScalar>) -> &mut Self {
+        self.max = cwise_max(&self.max, &other.max);
+        self.min = cwise_min(&self.min, &other.min);
+
+        return self;
+    }
+
     /// Returns the ith box vertex in order: (x,y,z),(X,y,z),(x,Y,z),(X,Y,z),(x,y,Z),(X,y,Z),(x,Y,Z),(X,Y,Z)
     #[inline]
     pub fn vertex(&self, i: u8) -> Point3<TScalar> {
         return Point3::new(
             self.min.x + TScalar::from(i % 2).unwrap() * self.size_x(), 
-            self.min.y + TScalar::from((i / 2) % 2).unwrap() * self.size_x(), 
-            self.min.z + TScalar::from(if i > 3 {1} else {0}).unwrap() * self.size_x()
+            self.min.y + TScalar::from((i / 2) % 2).unwrap() * self.size_y(), 
+            self.min.z + TScalar::from(if i > 3 {1} else {0}).unwrap() * self.size_z()
         );
     }
 
@@ -512,14 +530,6 @@ impl<TScalar: Floating> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn bbox(&self) -> Box3<TScalar> {
-        return Box3::new(
-            min2(&self.c.coords, &min2(&self.a.coords, &self.b.coords)).into(),
-            max2(&self.c.coords, &max2(&self.a.coords, &self.b.coords)).into(),
-        );
-    }
-
-    #[inline]
     pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Point3<TScalar> {
         return Point3::new(
             barycoords.x * self.a.x + barycoords.y * self.b.x + barycoords.z * self.c.x,
@@ -616,6 +626,18 @@ impl<TScalar: Floating> Triangle3<TScalar> {
     #[inline]
     pub fn intersects_ray3(&self, ray: &Ray3<TScalar>) -> bool {
         return self.intersects_ray3_at(ray).is_some();
+    }
+}
+
+impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
+    type ScalarType = TScalar;
+
+    #[inline]
+    fn bbox(&self) -> Box3<TScalar> {
+        return Box3::new(
+            min2(&self.c.coords, &min2(&self.a.coords, &self.b.coords)).into(),
+            max2(&self.c.coords, &max2(&self.a.coords, &self.b.coords)).into(),
+        );
     }
 }
 
