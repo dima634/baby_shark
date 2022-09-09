@@ -11,3 +11,4 @@
 - [ ] Reusable vectors across app to reduce allocations for iter macro
 - [ ] Do we need to save next corner index? 
 - [ ] Corner table: better index typing
+- [ ] AABB tree: pre allocate memory during construction
