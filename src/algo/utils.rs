@@ -41,3 +41,21 @@ pub fn triple_product<TScalar: Floating>(v1: &Vector3<TScalar>, v2: &Vector3<TSc
 pub fn has_same_sign<TScalar: Floating>(a: TScalar, b: TScalar) -> bool {
     return Float::signum(a) == Float::signum(b) || a.is_zero() || b.is_zero();
 }
+
+#[inline]
+pub fn cwise_max<TScalar: Floating>(p1: &Point3<TScalar>, p2: &Point3<TScalar>) -> Point3<TScalar> {
+    return Point3::new(
+        Float::max(p1.x, p2.x), 
+        Float::max(p1.y, p2.y), 
+        Float::max(p1.z, p2.z)
+    );
+}
+
+#[inline]
+pub fn cwise_min<TScalar: Floating>(p1: &Point3<TScalar>, p2: &Point3<TScalar>) -> Point3<TScalar> {
+    return Point3::new(
+        Float::min(p1.x, p2.x), 
+        Float::min(p1.y, p2.y), 
+        Float::min(p1.z, p2.z)
+    );
+}
