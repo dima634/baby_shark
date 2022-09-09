@@ -2,6 +2,8 @@ use nalgebra::{Point3, Vector3};
 use nalgebra_glm::RealNumber;
 use num_traits::Float;
 
+use crate::geometry::primitives::Triangle3;
+
 pub trait Floating: RealNumber + Float {}
 impl<T> Floating for T where T: RealNumber + Float {}
 
@@ -25,9 +27,9 @@ pub trait Vertex {
 pub trait Mesh {
     type ScalarType: Floating;
 
-    type EdgeDescriptor: Ord + Copy;
-    type VertexDescriptor: Ord + Copy;
-    type FaceDescriptor: Ord + Copy;
+    type EdgeDescriptor: Ord + Clone + Copy;
+    type VertexDescriptor: Ord + Clone + Copy;
+    type FaceDescriptor: Ord + Clone + Copy;
 
     type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
     type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
@@ -45,22 +47,36 @@ pub trait Mesh {
 
     /// Returns positions of face vertices in ccw order
     fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
-    /// Returns face normal
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType>;
-
     /// Returns edge length
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>);
-    /// Returns edge length
-    fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType;
-    /// Returns edge length
-    fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType;
-
+    /// Return vertices of given edge
     fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
     /// Returns vertex normal (average of one-ring face normals)
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType>;
+
+    /// Returns face normal
+    #[inline]
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
+        let (p1, p2, p3) = self.face_positions(face);
+        return Triangle3::normal(&p1, &p2, &p3);
+    }
+
+    /// Returns edge length
+    #[inline]
+    fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
+        let (v1, v2) = self.edge_positions(edge);
+        return (v1 - v2).norm();
+    }
+
+    /// Returns edge length
+    #[inline]
+    fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
+        let (v1, v2) = self.edge_positions(edge);
+        return (v1 - v2).norm_squared();
+    }
 }
 
 ///

@@ -181,29 +181,12 @@ impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
-        let (p1, p2, p3) = self.face_positions(face);
-        return Triangle3::normal(&p1, &p2, &p3);
-    }
-
-    #[inline]
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, *edge);
         return (
             *walker.next().get_vertex().get_position(),
             *walker.next().get_vertex().get_position()
         );
-    }
-
-    #[inline]
-    fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
-        let (v1, v2) = self.edge_positions(edge);
-        return (v1 - v2).norm();
-    }
-    #[inline]
-    fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
-        let (v1, v2) = self.edge_positions(edge);
-        return (v1 - v2).norm_squared();
     }
 
     #[inline]

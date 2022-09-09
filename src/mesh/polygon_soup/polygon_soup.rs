@@ -2,6 +2,9 @@ use nalgebra::Point3;
 use crate::mesh::traits::{Floating, Mesh};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
+///
+/// Polygon soup
+/// 
 pub struct PolygonSoup<TScalar: Floating> {
    pub(super) vertices: Vec<Point3<TScalar>>
 }
