@@ -16,37 +16,27 @@ struct BinaryNode<TScalar: Floating> {
 }
 
 ///
-/// Bounding volume hierarchy of bounding boxes
+/// Bounding volume hierarchy of axis aligned bounding boxes
 /// 
 /// ## Generic parameters
 /// * `TObject` - type of objects that going to be saved in tree
-/// * `TPartition` - partitioning strategy used to split two sets of objects into subnodes (see [MedianCut])
 /// 
 /// ## Example
 /// ```ignore
-/// let aabb = AABBTree::<_, MedianCut>::from_mesh(&mesh)
+/// let aabb = AABBTree::from_mesh(&mesh)
 ///     .with_min_objects_per_leaf(10)
-///     .with_max_depth(40)
-///     .top_down();
+///     .with_max_depth(10)
+///     .top_down::<MedianCut>();
 /// ```
 /// 
-pub struct AABBTree<TObject, TPartition> 
-where 
-    TObject: HasBBox3, 
-    TPartition: PartitionStrategy<TObject> 
-{
+pub struct AABBTree<TObject: HasBBox3> {
     nodes: Vec<BinaryNode<TObject::ScalarType>>,
     objects: Vec<(TObject, Box3<TObject::ScalarType>)>,
     min_objects_per_leaf: usize,
-    max_depth: usize,
-    partition_strategy: TPartition
+    max_depth: usize
 }
 
-impl<TObject, TPartition> AABBTree<TObject, TPartition> 
-where 
-    TObject: HasBBox3, 
-    TPartition: PartitionStrategy<TObject> 
-{
+impl<TObject: HasBBox3> AABBTree<TObject> {
     /// 
     /// Create new AABB tree from objects. This method is not finishing construction of tree.
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
@@ -61,8 +51,7 @@ where
                     let bbox = obj.bbox(); 
                     return (obj, bbox) 
                 })
-                .collect(),
-            partition_strategy: TPartition::default()
+                .collect()
         };
     }
 
@@ -78,10 +67,15 @@ where
         return self;
     }
 
+    /// 
     /// Constructs AABB tree using top-down building strategy
-    pub fn top_down(mut self) -> Self {
+    /// 
+    /// ## Generic arguments
+    /// * `TPartition` - partitioning strategy used to split two sets of objects into subnodes (see [MedianCut])
+    /// 
+    pub fn top_down<TPartition: PartitionStrategy<TObject>>(mut self) -> Self {
         self.nodes.clear();
-        self.top_down_build_node(0, self.objects.len() - 1, 1);
+        self.top_down_build_node(0, self.objects.len() - 1, 1, &mut TPartition::default());
         return self;
     }
 
@@ -114,19 +108,19 @@ where
     }
 
     /// Build tree node (leaf or branch) from set of objects
-    fn top_down_build_node(&mut self, first: usize, last: usize, depth: usize) -> usize {
+    fn top_down_build_node<TPartition: PartitionStrategy<TObject>>(&mut self, first: usize, last: usize, depth: usize, partition_strategy: &mut TPartition) -> usize {
         if depth >= self.max_depth || last - first < self.min_objects_per_leaf {
             // Create leaf node when number of objects is small
             return self.leaf_node_from_objects(first, last);
         } else {
             // Split set of objects
-            let split_at_result = self.partition_strategy.split(&mut self.objects, first, last);
+            let split_at_result = partition_strategy.split(&mut self.objects, first, last);
 
             match split_at_result {
                 Ok(split_at) => {
                     // Create branch node if split succeeded
-                    let left = self.top_down_build_node(first, split_at - 1, depth + 1);
-                    let right = self.top_down_build_node(split_at, last, depth + 1);
+                    let left = self.top_down_build_node(first, split_at - 1, depth + 1, partition_strategy);
+                    let right = self.top_down_build_node(split_at, last, depth + 1, partition_strategy);
         
                     let mut bbox = self.nodes[left].bbox;
                     bbox.add_box3(&self.nodes[right].bbox);
@@ -171,7 +165,7 @@ where
     }
 }
 
-impl<TScalar: Floating, TPartition: PartitionStrategy<Triangle3<TScalar>>> AABBTree<Triangle3<TScalar>, TPartition>{
+impl<TScalar: Floating> AABBTree<Triangle3<TScalar>>{
     /// 
     /// Create new AABB tree from faces of triangular mesh. This method is not finishing construction of tree.
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
@@ -196,7 +190,7 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
     /// This method can rearrange elements with indices between `first` and `last`.
     /// But it is not allowed to mutate element outside that slice or add/remove elements to objects vector.
     /// 
-    fn split(&self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()>;
+    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()>;
 }
 
 ///
@@ -250,7 +244,7 @@ impl MedianCut {
 }
 
 impl<TObject: HasBBox3> PartitionStrategy<TObject> for MedianCut {
-    fn split(&self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> {
+    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> {
         // Split by biggest dimension first
         let mut bbox = objects[first].1;
 
