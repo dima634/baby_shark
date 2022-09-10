@@ -3,8 +3,7 @@ use nalgebra::{Point3, Vector3, center};
 use nalgebra_glm::{max2, min2};
 use num_traits::Float;
 use crate::{mesh::traits::Floating, algo::utils::{cwise_max, cwise_min}};
-
-use super::traits::HasBBox3;
+use super::traits::{HasBBox3, ClosestPoint3};
 
 /// Infinite line. l(t) = p + v*t
 pub struct Line3<TScalar: Floating> {
@@ -41,12 +40,6 @@ impl<TScalar: Floating> Line3<TScalar> {
 
     #[inline]
     pub fn point_at(&self, t: TScalar) -> Point3<TScalar> {
-        return self.point + self.direction.scale(t);
-    }
-
-    #[inline]
-    pub fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        let t = self.parameter_at(point);
         return self.point + self.direction.scale(t);
     }
 
@@ -114,6 +107,14 @@ impl<TScalar: Floating> Line3<TScalar> {
     }
 }
 
+impl<TScalar: Floating> ClosestPoint3<TScalar> for Line3<TScalar> {
+    #[inline]
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        let t = self.parameter_at(point);
+        return self.point + self.direction.scale(t);
+    }
+}
+
 /// 3D ray
 pub struct Ray3<TScalar: Floating> { 
     line: Line3<TScalar> 
@@ -132,17 +133,6 @@ impl<TScalar: Floating> Ray3<TScalar> {
     #[inline]
     pub fn get_direction(&self) -> &Vector3<TScalar> {
         return &self.line.direction;
-    }
-
-    #[inline]
-    pub fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        let mut t = self.line.parameter_at(point);
-
-        if t < TScalar::zero() {
-            t = TScalar::zero();
-        }
-
-        return self.line.point + self.line.direction.scale(t);
     }
 
     #[inline]
@@ -182,6 +172,19 @@ impl<TScalar: Floating> Ray3<TScalar> {
     }
 }
 
+impl<TScalar: Floating> ClosestPoint3<TScalar> for Ray3<TScalar> {
+    #[inline]
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        let mut t = self.line.parameter_at(point);
+
+        if t < TScalar::zero() {
+            t = TScalar::zero();
+        }
+
+        return self.line.point + self.line.direction.scale(t);
+    }
+}
+
 /// 3D line segment
 pub struct LineSegment3<TScalar: Floating> {
     line: Line3<TScalar>,
@@ -204,19 +207,6 @@ impl<TScalar: Floating> LineSegment3<TScalar> {
     #[inline]
     pub fn get_end(&self) -> Point3<TScalar> {
         return self.line.point_at(self.length);
-    }
-
-    #[inline]
-    pub fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        let mut t = self.line.parameter_at(point);
-
-        if t < TScalar::zero() {
-            t = TScalar::zero();
-        } else if t > self.length {
-            t = self.length;
-        }
-
-        return self.line.point_at(t);
     }
 
     #[inline]
@@ -256,6 +246,21 @@ impl<TScalar: Floating> LineSegment3<TScalar> {
     }
 }
 
+impl<TScalar: Floating> ClosestPoint3<TScalar> for LineSegment3<TScalar> {
+    #[inline]
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        let mut t = self.line.parameter_at(point);
+
+        if t < TScalar::zero() {
+            t = TScalar::zero();
+        } else if t > self.length {
+            t = self.length;
+        }
+
+        return self.line.point_at(t);
+    }
+}
+
 /// n * x + d = 0
 pub struct Plane3<TScalar: Floating> {
     normal: Vector3<TScalar>,
@@ -285,13 +290,6 @@ impl<TScalar: Floating> Plane3<TScalar> {
         return self.distance;
     }
 
-    /// Returns closest point on plane to given point
-    #[inline]
-    pub fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        let t = self.distance(point);
-        return point - self.normal.scale(t); 
-    }
-
     /// Returns signed distance from point to plane
     #[inline]
     pub fn distance(&self, point: &Point3<TScalar>) -> TScalar {
@@ -308,6 +306,15 @@ impl<TScalar: Floating> Plane3<TScalar> {
         let s = self.normal.dot(&c.coords) - self.distance;
         // Intersection occurs when distance s falls within [-r,+r] interval
         return Float::abs(s) <= r
+    }
+}
+
+impl<TScalar: Floating> ClosestPoint3<TScalar> for Plane3<TScalar> {
+    /// Returns closest point on plane to given point
+    #[inline]
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        let t = self.distance(point);
+        return point - self.normal.scale(t); 
     }
 }
 
@@ -384,11 +391,6 @@ impl<TScalar: Floating> Box3<TScalar> {
         return LineSegment3::new(&self.vertex(i), &self.vertex(7 - i));
     }
 
-    #[inline]
-    pub fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        return Point3::from(min2(&max2(&self.min.coords, &point.coords), &self.max.coords));
-    }
-
     pub fn squared_distance(&self, point: &Point3<TScalar>) -> TScalar {
         let mut sq_distance = TScalar::from(0.0).unwrap();
         
@@ -442,6 +444,13 @@ impl<TScalar: Floating> Box3<TScalar> {
     #[inline]
     pub fn intersects_triangle3(&self, triangle: &Triangle3<TScalar>) -> bool {
         return triangle.intersects_box3(self);
+    }
+}
+
+impl<TScalar: Floating> ClosestPoint3<TScalar> for Box3<TScalar> {
+    #[inline]
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        return Point3::from(min2(&max2(&self.min.coords, &point.coords), &self.max.coords));
     }
 }
 
@@ -743,7 +752,7 @@ pub(super) mod internal {
 #[cfg(test)]
 mod tests {
     use nalgebra::{Point3, Vector3};
-    use crate::geometry::primitives::Ray3;
+    use crate::geometry::{primitives::Ray3, traits::ClosestPoint3};
 
     use super::{Line3, Triangle3, LineSegment3};
 
