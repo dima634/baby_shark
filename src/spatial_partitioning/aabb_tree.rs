@@ -1,8 +1,9 @@
-use nalgebra::Vector3;
+use nalgebra::{Vector3, Point3};
 use num_traits::{Float, One};
 
-use crate::{geometry::{traits::HasBBox3, primitives::{Box3, Plane3, Triangle3}}, mesh::traits::{Floating, Mesh}};
+use crate::{geometry::{traits::{HasBBox3, ClosestPoint3}, primitives::{Box3, Plane3, Triangle3}}, mesh::traits::{Floating, Mesh}};
 
+#[derive(PartialEq)]
 enum NodeType {
     Leaf,
     Branch
@@ -13,6 +14,18 @@ struct BinaryNode<TScalar: Floating> {
     left: usize,
     right: usize,
     bbox: Box3<TScalar>
+}
+
+impl<TScalar: Floating> BinaryNode<TScalar> {
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        return self.node_type == NodeType::Leaf;
+    }
+
+    #[inline]
+    pub fn is_branch(&self) -> bool {
+        return self.node_type == NodeType::Branch;
+    }
 }
 
 ///
@@ -52,6 +65,15 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
                     return (obj, bbox) 
                 })
                 .collect()
+        };
+    }
+
+    pub fn empty() -> Self {
+        return Self { 
+            nodes: Vec::new(),
+            min_objects_per_leaf: 10,
+            max_depth: 40,
+            objects: Vec::new()
         };
     }
 
@@ -178,6 +200,55 @@ impl<TScalar: Floating> AABBTree<Triangle3<TScalar>>{
         }).collect();
 
         return Self::new(faces);
+    }
+}
+
+impl<TObject> AABBTree<TObject> 
+where 
+    TObject: ClosestPoint3,
+    TObject: HasBBox3<ScalarType = <TObject as ClosestPoint3>::ScalarType>
+{
+    pub fn closest_point(&self, point: &Point3<<TObject as ClosestPoint3>::ScalarType>, max_distance: <TObject as ClosestPoint3>::ScalarType) -> Option<Point3<<TObject as ClosestPoint3>::ScalarType>> {
+        let max_distance_square = max_distance * max_distance;
+
+        let mut stack = Vec::with_capacity(self.max_depth);
+        stack.push(self.nodes.last().unwrap());
+
+        let mut closest_point = Point3::origin();
+        let mut distance_squared = Float::infinity();
+
+        while !stack.is_empty() {
+            let top = stack.pop().unwrap();
+
+            if top.is_leaf() {
+                for (obj, _) in &self.objects[top.left..top.right + 1] {
+                    let new_closest = obj.closest_point(point);
+                    let new_distance = (new_closest - point).norm_squared();
+
+                    if new_distance < distance_squared {
+                        distance_squared = new_distance;
+                        closest_point = new_closest;
+                    }
+                }
+            } else {
+                let left = &self.nodes[top.left];
+                let right = &self.nodes[top.right];
+
+                if left.bbox.contains_point(point) || left.bbox.squared_distance(point) < max_distance_square {
+                    stack.push(left);
+                }
+
+                if right.bbox.contains_point(point) || right.bbox.squared_distance(point) < max_distance_square {
+                    stack.push(right);
+                }
+            }
+        }
+
+        if distance_squared.is_infinite() {
+            return None;
+        }
+
+        return Some(closest_point);
     }
 }
 

@@ -483,71 +483,6 @@ impl<TScalar: Floating> Triangle3<TScalar> {
         return (b - a).cross(&(c - a)).normalize();
     }
 
-    /// Returns closest point on triangle to given point
-    pub fn closest_point(&self, p: &Point3<TScalar>) -> Point3<TScalar> {
-        let zero: TScalar = TScalar::zero();
-
-        // Check if P in vertex region outside A
-        let ab = self.b - self.a;
-        let ac = self.c - self.a;
-        let ap = p - self.a;
-        let d1 = ab.dot(&ap);
-        let d2 = ac.dot(&ap);
-
-        // barycentric coordinates (1,0,0)
-        if d1 <= zero && d2 <= zero { 
-            return self.a; 
-        }
-
-        // Check if P in vertex region outside B
-        let bp = p - self.b;
-        let d3 = ab.dot(&bp);
-        let d4 = ac.dot(&bp);
-
-        // barycentric coordinates (0,1,0)
-        if d3 >= zero && d4 <= d3 {
-            return self.b; 
-        }
-
-        // Check if P in edge region of AB, if so return projection of P onto AB
-        let vc = d1*d4 - d3*d2;
-        if vc <= zero && d1 >= zero && d3 <= zero {
-            let v = d1 / (d1 - d3);
-            return self.a + ab.scale(v); // barycentric coordinates (1-v,v,0)
-        }
-
-        // Check if P in vertex region outside C
-        let cp = p - self.c;
-        let d5 = ab.dot(&cp);
-        let d6 = ac.dot(&cp);
-        
-        // barycentric coordinates (0,0,1)
-        if d6 >= zero && d5 <= d6 {
-            return self.c; 
-        }
-
-        // Check if P in edge region of AC, if so return projection of P onto AC
-        let vb = d5*d2 - d1*d6;
-        if vb <= zero && d2 >= zero && d6 <= zero {
-            let w = d2 / (d2 - d6);
-            return self.a + ac.scale(w); // barycentric coordinates (1-w,0,w)
-        }
-
-        // Check if P in edge region of BC, if so return projection of P onto BC
-        let va = d3*d6 - d5*d4;
-        if va <= zero && (d4 - d3) >= zero && (d5 - d6) >= zero {
-            let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-            return self.b + (self.c - self.b).scale(w); // barycentric coordinates (0,1-w,w)
-        }
-
-        // P inside face region. Compute Q through its barycentric coordinates (u,v,w)
-        let denom = TScalar::from(1.0).unwrap() / (va + vb + vc);
-        let v = vb * denom;
-        let w = vc * denom;
-
-        return self.a + ab * v + ac * w;
-    }
-
     #[inline]
     pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Point3<TScalar> {
         return Point3::new(
@@ -657,6 +592,75 @@ impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
             min2(&self.c.coords, &min2(&self.a.coords, &self.b.coords)).into(),
             max2(&self.c.coords, &max2(&self.a.coords, &self.b.coords)).into(),
         );
+    }
+}
+
+impl<TScalar: Floating> ClosestPoint3 for Triangle3<TScalar> {
+    type ScalarType = TScalar;
+
+    /// Returns closest point on triangle to given point
+    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+        let zero: TScalar = TScalar::zero();
+
+        // Check if P in vertex region outside A
+        let ab = self.b - self.a;
+        let ac = self.c - self.a;
+        let ap = point - self.a;
+        let d1 = ab.dot(&ap);
+        let d2 = ac.dot(&ap);
+
+        // barycentric coordinates (1,0,0)
+        if d1 <= zero && d2 <= zero { 
+            return self.a; 
+        }
+
+        // Check if P in vertex region outside B
+        let bp = point - self.b;
+        let d3 = ab.dot(&bp);
+        let d4 = ac.dot(&bp);
+
+        // barycentric coordinates (0,1,0)
+        if d3 >= zero && d4 <= d3 {
+            return self.b; 
+        }
+
+        // Check if P in edge region of AB, if so return projection of P onto AB
+        let vc = d1*d4 - d3*d2;
+        if vc <= zero && d1 >= zero && d3 <= zero {
+            let v = d1 / (d1 - d3);
+            return self.a + ab.scale(v); // barycentric coordinates (1-v,v,0)
+        }
+
+        // Check if P in vertex region outside C
+        let cp = point - self.c;
+        let d5 = ab.dot(&cp);
+        let d6 = ac.dot(&cp);
+        
+        // barycentric coordinates (0,0,1)
+        if d6 >= zero && d5 <= d6 {
+            return self.c; 
+        }
+
+        // Check if P in edge region of AC, if so return projection of P onto AC
+        let vb = d5*d2 - d1*d6;
+        if vb <= zero && d2 >= zero && d6 <= zero {
+            let w = d2 / (d2 - d6);
+            return self.a + ac.scale(w); // barycentric coordinates (1-w,0,w)
+        }
+
+        // Check if P in edge region of BC, if so return projection of P onto BC
+        let va = d3*d6 - d5*d4;
+        if va <= zero && (d4 - d3) >= zero && (d5 - d6) >= zero {
+            let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+            return self.b + (self.c - self.b).scale(w); // barycentric coordinates (0,1-w,w)
+        }
+
+        // P inside face region. Compute Q through its barycentric coordinates (u,v,w)
+        let denom = TScalar::from(1.0).unwrap() / (va + vb + vc);
+        let v = vb * denom;
+        let w = vc * denom;
+
+        return self.a + ab * v + ac * w;
     }
 }
 
