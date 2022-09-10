@@ -1,12 +1,13 @@
 use std::{marker::PhantomData, collections::BTreeSet};
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3};
+use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::aabb_tree::{AABBTree, MedianCut}};
 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
     shift_vertices: bool,
     collapse_edges: bool,
+    project_vertices: bool,
     iterations: u16,
 
     mesh_type: PhantomData<TMesh>
@@ -18,6 +19,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             split_edges: true,
             shift_vertices: true,
             collapse_edges: true,
+            project_vertices: true,
             iterations: 5,
             mesh_type: PhantomData
         };
@@ -42,6 +44,12 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     }
 
     #[inline]
+    pub fn with_project_vertices(mut self, project_vertices: bool) -> Self {
+        self.project_vertices = project_vertices;
+        return self;
+    }
+
+    #[inline]
     pub fn with_iterations_count(mut self, iterations: u16) -> Self {
         self.iterations = iterations;
         return self;
@@ -51,6 +59,11 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let max_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 3.0).unwrap() * target_edge_length;
         let min_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 5.0).unwrap() * target_edge_length;
         
+        let mut reference_mesh = AABBTree::empty();
+        if self.project_vertices {
+            reference_mesh = AABBTree::from_mesh(mesh).top_down::<MedianCut>();
+        }
+
         for _ in 0..self.iterations {
             if self.split_edges {
                 self.split_edges(mesh, max_edge_length);
@@ -62,6 +75,10 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
             if self.shift_vertices {
                 self.shift_vertices(mesh);
+            }
+
+            if self.project_vertices {
+                self.project_vertices(mesh, &reference_mesh, target_edge_length);
             }
         }
     }
@@ -110,6 +127,18 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
             if edge_length_squared < min_edge_length_squared {
                 mesh.collapse_edge(&edge);
+            }
+        }
+    }
+
+    fn project_vertices(&self, mesh: &mut TMesh, aabb_tree: &AABBTree<Triangle3<TMesh::ScalarType>>, target_edge_length: TMesh::ScalarType) {
+        let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
+
+        for vertex in vertices {
+            let vertex_position = mesh.vertex_position(&vertex);
+            
+            if let Some(closest_point) = aabb_tree.closest_point(vertex_position, target_edge_length) {
+                mesh.shift_vertex(&vertex, &closest_point);
             }
         }
     }
