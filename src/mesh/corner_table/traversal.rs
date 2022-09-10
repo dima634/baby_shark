@@ -241,7 +241,11 @@ impl<'a, TScalar: Floating> Iterator for CornerTableFacesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(next) = self.table.get_corner(self.corner_index) && next.is_deleted() {
+        while let Some(next) = self.table.get_corner(self.corner_index) {
+            if !next.is_deleted() {
+                break;
+            }
+
             self.corner_index += 3;
         }
 
@@ -317,7 +321,11 @@ impl<'a, TScalar: Floating> Iterator for CornerTableEdgesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(n) = self.table.get_corner(self.corner_index) && (n.is_visited() || n.is_deleted()){
+        while let Some(n) = self.table.get_corner(self.corner_index) {
+            if !(n.is_visited() || n.is_deleted()) {
+                break;
+            }
+
             self.corner_index += 1;
         }
 
