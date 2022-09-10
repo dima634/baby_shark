@@ -68,7 +68,8 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
     }
 
     /// 
-    /// Constructs AABB tree using top-down building strategy
+    /// Constructs AABB tree using top-down building strategy.
+    /// This strategy is fast but not always produce best tree.
     /// 
     /// ## Generic arguments
     /// * `TPartition` - partitioning strategy used to split two sets of objects into subnodes (see [MedianCut])
@@ -109,7 +110,7 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
 
     /// Build tree node (leaf or branch) from set of objects
     fn top_down_build_node<TPartition: PartitionStrategy<TObject>>(&mut self, first: usize, last: usize, depth: usize, partition_strategy: &mut TPartition) -> usize {
-        if depth >= self.max_depth || last - first < self.min_objects_per_leaf {
+        if depth >= self.max_depth || last - first <= self.min_objects_per_leaf {
             // Create leaf node when number of objects is small
             return self.leaf_node_from_objects(first, last);
         } else {
