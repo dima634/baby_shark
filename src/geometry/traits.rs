@@ -11,7 +11,9 @@ pub trait HasBBox3 {
 }
 
 /// Closest point to primitive query
-pub trait ClosestPoint3<TScalar: Floating> {
+pub trait ClosestPoint3 {
+    type ScalarType: Floating;
+
     /// Returns closest point on primitive to given point 
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar>;
+    fn closest_point(&self, point: &Point3<Self::ScalarType>) -> Point3<Self::ScalarType>;
 }
