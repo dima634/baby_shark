@@ -106,7 +106,7 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
     #[inline]
     pub fn traverse<TFunc>(&self, visit: &mut TFunc) 
     where
-        TFunc: FnMut((&[(TObject, Box3<<TObject as HasBBox3>::ScalarType>)], &Box3<TObject::ScalarType>))
+        TFunc: FnMut((&[(TObject, Box3<TObject::ScalarType>)], &Box3<TObject::ScalarType>))
     {
         self.visit_node(self.nodes.len() - 1, visit);
     }
@@ -114,7 +114,7 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
     /// Recursively visit tree node
     fn visit_node<TFunc>(&self, node_index: usize, visit: &mut TFunc) 
     where
-        TFunc: FnMut((&[(TObject, Box3<<TObject as HasBBox3>::ScalarType>)], &Box3<TObject::ScalarType>))
+        TFunc: FnMut((&[(TObject, Box3<TObject::ScalarType>)], &Box3<TObject::ScalarType>))
     {
         let node = &self.nodes[node_index];
 
@@ -203,12 +203,8 @@ impl<TScalar: Floating> AABBTree<Triangle3<TScalar>>{
     }
 }
 
-impl<TObject> AABBTree<TObject> 
-where 
-    TObject: ClosestPoint3,
-    TObject: HasBBox3<ScalarType = <TObject as ClosestPoint3>::ScalarType>
-{
-    pub fn closest_point(&self, point: &Point3<<TObject as ClosestPoint3>::ScalarType>, max_distance: <TObject as ClosestPoint3>::ScalarType) -> Option<Point3<<TObject as ClosestPoint3>::ScalarType>> {
+impl<TObject: HasBBox3 + ClosestPoint3> AABBTree<TObject> {
+    pub fn closest_point(&self, point: &Point3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Point3<TObject::ScalarType>> {
         let max_distance_square = max_distance * max_distance;
 
         let mut stack = Vec::with_capacity(self.max_depth);

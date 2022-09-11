@@ -3,7 +3,7 @@ use nalgebra::{Point3, Vector3, center};
 use nalgebra_glm::{max2, min2};
 use num_traits::Float;
 use crate::{mesh::traits::Floating, algo::utils::{cwise_max, cwise_min}};
-use super::traits::{HasBBox3, ClosestPoint3};
+use super::traits::{HasBBox3, ClosestPoint3, HasScalarType};
 
 /// Infinite line. l(t) = p + v*t
 pub struct Line3<TScalar: Floating> {
@@ -107,9 +107,11 @@ impl<TScalar: Floating> Line3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Line3<TScalar> {
+impl<TScalar: Floating> HasScalarType for Line3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> ClosestPoint3 for Line3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let t = self.parameter_at(point);
@@ -174,9 +176,11 @@ impl<TScalar: Floating> Ray3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Ray3<TScalar> {
+impl<TScalar: Floating> HasScalarType for Ray3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> ClosestPoint3 for Ray3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let mut t = self.line.parameter_at(point);
@@ -250,9 +254,11 @@ impl<TScalar: Floating> LineSegment3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for LineSegment3<TScalar> {
+impl<TScalar: Floating> HasScalarType for LineSegment3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> ClosestPoint3 for LineSegment3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let mut t = self.line.parameter_at(point);
@@ -315,9 +321,11 @@ impl<TScalar: Floating> Plane3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Plane3<TScalar> {
+impl<TScalar: Floating> HasScalarType for Plane3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> ClosestPoint3 for Plane3<TScalar> {
     /// Returns closest point on plane to given point
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
@@ -455,9 +463,11 @@ impl<TScalar: Floating> Box3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Box3<TScalar> {
+impl<TScalar: Floating> HasScalarType for Box3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> ClosestPoint3 for Box3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         return Point3::from(min2(&max2(&self.min.coords, &point.coords), &self.max.coords));
@@ -583,9 +593,11 @@ impl<TScalar: Floating> Triangle3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
+impl<TScalar: Floating> HasScalarType for Triangle3<TScalar> {
     type ScalarType = TScalar;
+}
 
+impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<TScalar> {
         return Box3::new(
@@ -596,8 +608,6 @@ impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
 }
 
 impl<TScalar: Floating> ClosestPoint3 for Triangle3<TScalar> {
-    type ScalarType = TScalar;
-
     /// Returns closest point on triangle to given point
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let zero: TScalar = TScalar::zero();
