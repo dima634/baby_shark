@@ -1,15 +1,15 @@
 use nalgebra::Point3;
-use crate::mesh::traits::{Floating, Mesh};
+use crate::{mesh::traits::{Mesh}, geometry::traits::RealNumber};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
 ///
 /// Polygon soup
 /// 
-pub struct PolygonSoup<TScalar: Floating> {
+pub struct PolygonSoup<TScalar: RealNumber> {
    pub(super) vertices: Vec<Point3<TScalar>>
 }
 
-impl<TScalar: Floating> PolygonSoup<TScalar> {
+impl<TScalar: RealNumber> PolygonSoup<TScalar> {
     pub fn new() -> Self { 
         return Self { 
             vertices: Vec::new() 
@@ -23,7 +23,7 @@ impl<TScalar: Floating> PolygonSoup<TScalar> {
     }
 }
 
-impl<TScalar: Floating> Mesh for PolygonSoup<TScalar> {
+impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     type ScalarType = TScalar;
 
     type EdgeDescriptor = usize;

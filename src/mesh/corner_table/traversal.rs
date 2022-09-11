@@ -1,16 +1,16 @@
-use crate::mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position, Floating};
+use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber};
 
 use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face}, traits::Flags}};
 
 ///
 /// Can be used to traverse corner table topology
 /// 
-pub struct CornerWalker<'a, TScalar: Floating> {
+pub struct CornerWalker<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TScalar: Floating> CornerWalker<'a, TScalar> {
+impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Creates walker starting at given corner
     pub fn from_corner(table: &'a CornerTable<TScalar>, corner_index: usize) -> Self { 
         return Self {
@@ -180,7 +180,7 @@ impl<'a, TScalar: Floating> CornerWalker<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
     fn from_vertex_on_face(
         mesh: &'a CornerTable<TScalar>, 
         corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
@@ -223,12 +223,12 @@ impl<'a, TScalar: Floating> Position<'a, CornerTable<TScalar>> for CornerWalker<
 ///
 /// Iterator over faces of corner table. Face is returned as one of its corners.
 ///
-pub struct CornerTableFacesIter<'a, TScalar: Floating> {
+pub struct CornerTableFacesIter<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TScalar: Floating> CornerTableFacesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> CornerTableFacesIter<'a, TScalar> {
     pub fn new(corner_table: &'a CornerTable<TScalar>) -> Self {
         return Self {
             table: corner_table,
@@ -237,7 +237,7 @@ impl<'a, TScalar: Floating> CornerTableFacesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for CornerTableFacesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for CornerTableFacesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -264,12 +264,12 @@ impl<'a, TScalar: Floating> Iterator for CornerTableFacesIter<'a, TScalar> {
 ///
 /// Iterator over vertices of mesh
 /// 
-pub struct CornerTableVerticesIter<'a, TScalar: Floating> {
+pub struct CornerTableVerticesIter<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
     vertex_index: usize
 }
 
-impl<'a, TScalar: Floating> CornerTableVerticesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> CornerTableVerticesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         return Self { 
             table,
@@ -278,7 +278,7 @@ impl<'a, TScalar: Floating> CornerTableVerticesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for CornerTableVerticesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for CornerTableVerticesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -302,12 +302,12 @@ impl<'a, TScalar: Floating> Iterator for CornerTableVerticesIter<'a, TScalar> {
 ///
 /// Iterator over edges of mesh. Edge is returned as corner opposite to it. Uses `is_visited` flag
 /// 
-pub struct CornerTableEdgesIter<'a, TScalar: Floating> {
+pub struct CornerTableEdgesIter<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
     corner_index: usize
 }
 
-impl<'a, TScalar: Floating> CornerTableEdgesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> CornerTableEdgesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         clear_visited(table.corners.iter());
         return Self {
@@ -317,7 +317,7 @@ impl<'a, TScalar: Floating> CornerTableEdgesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for CornerTableEdgesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for CornerTableEdgesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -351,7 +351,7 @@ impl<'a, TScalar: Floating> Iterator for CornerTableEdgesIter<'a, TScalar> {
 }
 
 /// Iterates over corners that are adjacent to given vertex
-pub fn corners_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
+pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();
@@ -393,7 +393,7 @@ pub fn corners_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(cor
     }
 }
 
-pub fn collect_corners_around_vertex<TScalar: Floating>(corner_table: &CornerTable<TScalar>, vertex_index: usize) -> Vec<usize> {
+pub fn collect_corners_around_vertex<TScalar: RealNumber>(corner_table: &CornerTable<TScalar>, vertex_index: usize) -> Vec<usize> {
     let mut corners = Vec::with_capacity(MAX_VERTEX_VALENCE);
     corners_around_vertex(corner_table, vertex_index, |corner_index| {
         corners.push(*corner_index)
@@ -403,7 +403,7 @@ pub fn collect_corners_around_vertex<TScalar: Floating>(corner_table: &CornerTab
 }
 
 /// Iterates over one-ring vertices of vertex
-pub fn vertices_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
+pub fn vertices_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();
@@ -443,7 +443,7 @@ pub fn vertices_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(co
 }
 
 /// Iterates over one-ring faces of vertex. Face is returned as one of it`s corners.
-pub fn faces_around_vertex<TScalar: Floating, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
+pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
     walker.previous();
     let started_at = walker.get_corner_index();

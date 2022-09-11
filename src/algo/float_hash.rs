@@ -1,9 +1,9 @@
 use num_traits::Float;
 
-use crate::mesh::traits::Floating;
+use crate::geometry::traits::RealNumber;
 
 #[inline]
-pub fn hash_float<TFloat: Floating>(float: TFloat) -> i32 {
+pub fn hash_float<TFloat: RealNumber>(float: TFloat) -> i32 {
     if float == TFloat::zero() {
         return 0;
     }

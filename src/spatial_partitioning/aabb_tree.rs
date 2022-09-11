@@ -1,7 +1,7 @@
 use nalgebra::{Vector3, Point3};
 use num_traits::{Float, One};
 
-use crate::{geometry::{traits::{HasBBox3, ClosestPoint3}, primitives::{Box3, Plane3, Triangle3}}, mesh::traits::{Floating, Mesh}};
+use crate::{geometry::{traits::{HasBBox3, ClosestPoint3, RealNumber}, primitives::{Box3, Plane3, Triangle3}}, mesh::traits::{Mesh}};
 
 #[derive(PartialEq)]
 enum NodeType {
@@ -9,14 +9,14 @@ enum NodeType {
     Branch
 }
 
-struct BinaryNode<TScalar: Floating> {
+struct BinaryNode<TScalar: RealNumber> {
     node_type: NodeType,
     left: usize,
     right: usize,
     bbox: Box3<TScalar>
 }
 
-impl<TScalar: Floating> BinaryNode<TScalar> {
+impl<TScalar: RealNumber> BinaryNode<TScalar> {
     #[inline]
     pub fn is_leaf(&self) -> bool {
         return self.node_type == NodeType::Leaf;
@@ -42,14 +42,22 @@ impl<TScalar: Floating> BinaryNode<TScalar> {
 ///     .top_down::<MedianCut>();
 /// ```
 /// 
-pub struct AABBTree<TObject: HasBBox3> {
+pub struct AABBTree<TObject>
+where
+    TObject: HasBBox3,
+    TObject::ScalarType: RealNumber
+{
     nodes: Vec<BinaryNode<TObject::ScalarType>>,
     objects: Vec<(TObject, Box3<TObject::ScalarType>)>,
     min_objects_per_leaf: usize,
     max_depth: usize
 }
 
-impl<TObject: HasBBox3> AABBTree<TObject> {
+impl<TObject> AABBTree<TObject>
+where
+    TObject: HasBBox3,
+    TObject::ScalarType: RealNumber
+{
     /// 
     /// Create new AABB tree from objects. This method is not finishing construction of tree.
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
@@ -188,7 +196,7 @@ impl<TObject: HasBBox3> AABBTree<TObject> {
     }
 }
 
-impl<TScalar: Floating> AABBTree<Triangle3<TScalar>>{
+impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>>{
     /// 
     /// Create new AABB tree from faces of triangular mesh. This method is not finishing construction of tree.
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
@@ -203,7 +211,11 @@ impl<TScalar: Floating> AABBTree<Triangle3<TScalar>>{
     }
 }
 
-impl<TObject: HasBBox3 + ClosestPoint3> AABBTree<TObject> {
+impl<TObject> AABBTree<TObject>
+where
+    TObject: HasBBox3 + ClosestPoint3,
+    TObject::ScalarType: RealNumber 
+{
     pub fn closest_point(&self, point: &Point3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Point3<TObject::ScalarType>> {
         let max_distance_square = max_distance * max_distance;
 
@@ -270,7 +282,11 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
 pub struct MedianCut {}
 
 impl MedianCut {
-    fn try_split_by_axis<TObject: HasBBox3>(axis: usize, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> {
+    fn try_split_by_axis<TObject>(axis: usize, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> 
+    where
+        TObject: HasBBox3,
+        TObject::ScalarType: RealNumber
+    {
         // Sort along split axis
         objects[first..last].sort_by(|(_, bbox1), (_, bbox2)| bbox1.get_center()[axis].partial_cmp(&bbox2.get_center()[axis]).unwrap());
 
@@ -311,7 +327,11 @@ impl MedianCut {
     }
 }
 
-impl<TObject: HasBBox3> PartitionStrategy<TObject> for MedianCut {
+impl<TObject> PartitionStrategy<TObject> for MedianCut     
+where
+    TObject: HasBBox3,
+    TObject::ScalarType: RealNumber
+{
     fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> {
         // Split by biggest dimension first
         let mut bbox = objects[first].1;

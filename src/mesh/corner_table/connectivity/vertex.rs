@@ -1,15 +1,14 @@
 use std::cell::UnsafeCell;
 use nalgebra::Point3;
 use tabled::Tabled;
-use crate::mesh::{traits::Floating};
-use crate::helpers::display::display_unsafecell;
+use crate::{helpers::display::display_unsafecell, geometry::traits::RealNumber};
 use super::{traits::Flags, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
 #[derive(Debug, Tabled)]
-pub struct Vertex<TScalarType: Floating> {
+pub struct Vertex<TScalarType: RealNumber> {
     corner_index: usize,
     position: Point3<TScalarType>,
 
@@ -17,7 +16,7 @@ pub struct Vertex<TScalarType: Floating> {
     flags: UnsafeCell<flags::Flags>
 }
 
-impl<TScalarType: Floating> Vertex<TScalarType> {
+impl<TScalarType: RealNumber> Vertex<TScalarType> {
     pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags) -> Self { 
         return Self { 
             corner_index, 
@@ -27,7 +26,7 @@ impl<TScalarType: Floating> Vertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> Default for Vertex<TScalarType> {
+impl<TScalarType: RealNumber> Default for Vertex<TScalarType> {
     fn default() -> Self {
         return Self {
             corner_index: usize::max_value(), 
@@ -37,14 +36,14 @@ impl<TScalarType: Floating> Default for Vertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> Flags for Vertex<TScalarType> {
+impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
     #[inline]
     fn get_flags(&self) -> &UnsafeCell<flags::Flags> {
         return &self.flags;
     }
 }
 
-impl<TScalarType: Floating> Vertex<TScalarType> {
+impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
     pub fn get_position(&self) -> &Point3<TScalarType> {
         return &self.position;
@@ -68,7 +67,7 @@ impl<TScalarType: Floating> Vertex<TScalarType> {
     }
 }
 
-impl<TScalarType: Floating> PartialEq for Vertex<TScalarType> {
+impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return 
@@ -76,7 +75,7 @@ impl<TScalarType: Floating> PartialEq for Vertex<TScalarType> {
             self.position      == other.position;
     }
 }
-impl<TScalarType: Floating> Eq for Vertex<TScalarType> {}
+impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}
 
 /// Aliases
 pub type VertexF = Vertex<f32>;

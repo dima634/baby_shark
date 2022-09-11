@@ -1,10 +1,10 @@
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::{traits::{EditableMesh, TopologicalMesh, Mesh, Floating}}};
+use crate::{mesh::{traits::{EditableMesh, TopologicalMesh, Mesh}}, geometry::traits::RealNumber};
 use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::traits::Flags};
 
 
-impl<TScalar: Floating> CornerTable<TScalar> {
+impl<TScalar: RealNumber> CornerTable<TScalar> {
     /// Splits inner edge opposite to corner at given position
     fn split_inner_edge(&mut self, corner_index: usize, at: &Point3<TScalar>) {
         // New corner indices
@@ -106,7 +106,7 @@ impl<TScalar: Floating> CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
+impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor) {
         let mut walker = CornerWalker::from_corner(self, *edge);
 
@@ -168,7 +168,7 @@ impl<TScalar: Floating> EditableMesh for CornerTable<TScalar> {
 
         // Shift vertex on other side of edge
         let v8 = self.get_vertex_mut(v8_idx).unwrap();
-        v8.set_position((v8.get_position() + v9_position.coords) / cast(2).unwrap())
+        v8.set_position((v8.get_position() + v9_position.coords) / cast(2.0).unwrap())
           .set_corner_index(c29_idx);
 
         // Setup new opposites

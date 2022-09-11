@@ -1,11 +1,6 @@
 use nalgebra::{Point3, Vector3};
-use nalgebra_glm::RealNumber;
-use num_traits::Float;
 
-use crate::geometry::primitives::Triangle3;
-
-pub trait Floating: RealNumber + Float {}
-impl<T> Floating for T where T: RealNumber + Float {}
+use crate::geometry::{primitives::Triangle3, traits::RealNumber};
 
 pub trait Edge {
     type VertexDescriptor;
@@ -15,7 +10,7 @@ pub trait Edge {
 }
 
 pub trait Vertex {
-    type ScalarType: Floating;
+    type ScalarType: RealNumber;
 
     fn get_position(&self) -> &Point3<Self::ScalarType>;
     fn set_position(&mut self, point: Point3<Self::ScalarType>) -> &mut Self;
@@ -25,7 +20,7 @@ pub trait Vertex {
 /// Triangular mesh
 /// 
 pub trait Mesh {
-    type ScalarType: Floating;
+    type ScalarType: RealNumber;
 
     type EdgeDescriptor: Ord + Clone + Copy;
     type VertexDescriptor: Ord + Clone + Copy;

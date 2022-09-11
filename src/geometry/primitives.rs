@@ -1,17 +1,17 @@
 use std::mem::swap;
-use nalgebra::{Point3, Vector3, center};
+use nalgebra::{Point3, Vector3};
 use nalgebra_glm::{max2, min2};
-use num_traits::Float;
-use crate::{mesh::traits::Floating, algo::utils::{cwise_max, cwise_min}};
-use super::traits::{HasBBox3, ClosestPoint3, HasScalarType};
+use num_traits::{Float, cast};
+use crate::{algo::utils::{cwise_max, cwise_min}};
+use super::traits::{HasBBox3, ClosestPoint3, HasScalarType, RealNumber, Number};
 
 /// Infinite line. l(t) = p + v*t
-pub struct Line3<TScalar: Floating> {
+pub struct Line3<TScalar: RealNumber> {
     point: Point3<TScalar>,
     direction: Vector3<TScalar>
 }
 
-impl<TScalar: Floating> Line3<TScalar> {
+impl<TScalar: RealNumber> Line3<TScalar> {
     pub fn new(point: Point3<TScalar>, direction: Vector3<TScalar>) -> Self {
         return Self { point, direction };
     }
@@ -107,11 +107,11 @@ impl<TScalar: Floating> Line3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for Line3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for Line3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Line3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for Line3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let t = self.parameter_at(point);
@@ -120,11 +120,11 @@ impl<TScalar: Floating> ClosestPoint3 for Line3<TScalar> {
 }
 
 /// 3D ray
-pub struct Ray3<TScalar: Floating> { 
+pub struct Ray3<TScalar: RealNumber> { 
     line: Line3<TScalar> 
 }
 
-impl<TScalar: Floating> Ray3<TScalar> {
+impl<TScalar: RealNumber> Ray3<TScalar> {
     pub fn new(point: Point3<TScalar>, direction: Vector3<TScalar>) -> Self {
         return Self { line: Line3::new(point, direction) };
     }
@@ -176,11 +176,11 @@ impl<TScalar: Floating> Ray3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for Ray3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for Ray3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Ray3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for Ray3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let mut t = self.line.parameter_at(point);
@@ -194,12 +194,12 @@ impl<TScalar: Floating> ClosestPoint3 for Ray3<TScalar> {
 }
 
 /// 3D line segment
-pub struct LineSegment3<TScalar: Floating> {
+pub struct LineSegment3<TScalar: RealNumber> {
     line: Line3<TScalar>,
     length: TScalar
 }
 
-impl<TScalar: Floating> LineSegment3<TScalar> {
+impl<TScalar: RealNumber> LineSegment3<TScalar> {
     pub fn new(start: &Point3<TScalar>, end: &Point3<TScalar>) -> Self { 
         return Self { 
             line: Line3::from_points(&start, &end), 
@@ -254,11 +254,11 @@ impl<TScalar: Floating> LineSegment3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for LineSegment3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for LineSegment3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> ClosestPoint3 for LineSegment3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for LineSegment3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let mut t = self.line.parameter_at(point);
@@ -274,12 +274,12 @@ impl<TScalar: Floating> ClosestPoint3 for LineSegment3<TScalar> {
 }
 
 /// n * x + d = 0
-pub struct Plane3<TScalar: Floating> {
+pub struct Plane3<TScalar: RealNumber> {
     normal: Vector3<TScalar>,
     distance: TScalar
 }
 
-impl<TScalar: Floating> Plane3<TScalar> {
+impl<TScalar: RealNumber> Plane3<TScalar> {
     pub fn new(normal: Vector3<TScalar>, d: TScalar) -> Self { 
         return Self { normal, distance: d };
     }
@@ -321,11 +321,11 @@ impl<TScalar: Floating> Plane3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for Plane3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for Plane3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Plane3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
     /// Returns closest point on plane to given point
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
@@ -336,12 +336,12 @@ impl<TScalar: Floating> ClosestPoint3 for Plane3<TScalar> {
 
 /// 3D bounding box
 #[derive(Clone, Copy)]
-pub struct Box3<TScalar: Floating> {
+pub struct Box3<TScalar: Number> {
     min: Point3<TScalar>,
     max: Point3<TScalar>
 }
 
-impl<TScalar: Floating> Box3<TScalar> {
+impl<TScalar: Number> Box3<TScalar> {
     pub fn new(min: Point3<TScalar>, max: Point3<TScalar>) -> Self {
         return Self { min, max } ;
     }
@@ -365,7 +365,7 @@ impl<TScalar: Floating> Box3<TScalar> {
 
     #[inline]
     pub fn get_center(&self) -> Point3<TScalar> {
-        return center(&self.min, &self.max);
+        return (&self.min + &self.max.coords) * cast(0.5).unwrap();
     }
 
     #[inline]
@@ -401,14 +401,8 @@ impl<TScalar: Floating> Box3<TScalar> {
         );
     }
 
-    /// Returns the ith diagonal of box
-    #[inline]
-    pub fn diagonal(&self, i: u8) -> LineSegment3<TScalar> {
-        return LineSegment3::new(&self.vertex(i), &self.vertex(7 - i));
-    }
-
     pub fn squared_distance(&self, point: &Point3<TScalar>) -> TScalar {
-        let mut sq_distance = TScalar::from(0.0).unwrap();
+        let mut sq_distance = TScalar::zero();
         
         for i in 0..3 {
             let v = point[i];
@@ -449,6 +443,14 @@ impl<TScalar: Floating> Box3<TScalar> {
 
         return true; 
     }
+}
+
+impl<TScalar: RealNumber> Box3<TScalar> {
+    /// Returns the ith diagonal of box
+    #[inline]
+    pub fn diagonal(&self, i: u8) -> LineSegment3<TScalar> {
+        return LineSegment3::new(&self.vertex(i), &self.vertex(7 - i));
+    }
     
     /// Test bbox - plane intersection
     #[inline]
@@ -463,11 +465,11 @@ impl<TScalar: Floating> Box3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for Box3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for Box3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Box3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for Box3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         return Point3::from(min2(&max2(&self.min.coords, &point.coords), &self.max.coords));
@@ -477,13 +479,13 @@ impl<TScalar: Floating> ClosestPoint3 for Box3<TScalar> {
 pub type BarycentricCoordinates<TScalar> = Vector3<TScalar>;
 
 /// 3D triangle
-pub struct Triangle3<TScalar: Floating> {
+pub struct Triangle3<TScalar: RealNumber> {
     a: Point3<TScalar>,
     b: Point3<TScalar>,
     c: Point3<TScalar>
 }
 
-impl<TScalar: Floating> Triangle3<TScalar> {
+impl<TScalar: RealNumber> Triangle3<TScalar> {
     pub fn new(a: Point3<TScalar>, b: Point3<TScalar>, c: Point3<TScalar>) -> Self { 
         return Self { a, b, c } 
     }
@@ -593,11 +595,11 @@ impl<TScalar: Floating> Triangle3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> HasScalarType for Triangle3<TScalar> {
+impl<TScalar: RealNumber> HasScalarType for Triangle3<TScalar> {
     type ScalarType = TScalar;
 }
 
-impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
+impl<TScalar: RealNumber> HasBBox3 for Triangle3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<TScalar> {
         return Box3::new(
@@ -607,7 +609,7 @@ impl<TScalar: Floating> HasBBox3 for Triangle3<TScalar> {
     }
 }
 
-impl<TScalar: Floating> ClosestPoint3 for Triangle3<TScalar> {
+impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
     /// Returns closest point on triangle to given point
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
         let zero: TScalar = TScalar::zero();
@@ -678,11 +680,11 @@ pub(super) mod internal {
     use nalgebra::Vector3;
     use num_traits::Float;
 
-    use crate::{mesh::traits::Floating, algo::utils::{triple_product, has_same_sign}};
+    use crate::{algo::utils::{triple_product, has_same_sign}, geometry::traits::RealNumber};
     use super::{Triangle3, Line3, BarycentricCoordinates};
 
     #[allow(dead_code)]
-    pub fn line_triangle_intersection<TScalar: Floating>(triangle: Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<BarycentricCoordinates<TScalar>> {
+    pub fn line_triangle_intersection<TScalar: RealNumber>(triangle: Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<BarycentricCoordinates<TScalar>> {
         let pa = triangle.a - line.point;
         let pb = triangle.b - line.point;
         let pc = triangle.c - line.point;
@@ -709,7 +711,7 @@ pub(super) mod internal {
     }
 
     /// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-    pub fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: Floating>(triangle: &Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+    pub fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumber>(triangle: &Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
         let edge1 = triangle.b - triangle.a;
         let edge2 = triangle.c - triangle.a;
 

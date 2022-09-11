@@ -1,13 +1,14 @@
-use crate::mesh::traits::Floating;
+use crate::geometry::traits::RealNumber;
+
 use super::polygon_soup::PolygonSoup;
 
 /// Iterator over faces of polygon soup
-pub struct FacesIter<'a, TScalar: Floating> {
+pub struct FacesIter<'a, TScalar: RealNumber> {
     polygon_soup: &'a PolygonSoup<TScalar>,
     current_face: usize
 }
 
-impl<'a, TScalar: Floating> FacesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> FacesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
         return Self { 
             polygon_soup,
@@ -16,7 +17,7 @@ impl<'a, TScalar: Floating> FacesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for FacesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for FacesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -32,12 +33,12 @@ impl<'a, TScalar: Floating> Iterator for FacesIter<'a, TScalar> {
 }
 
 /// Iterator over vertices of polygon soup
-pub struct VerticesIter<'a, TScalar: Floating> {
+pub struct VerticesIter<'a, TScalar: RealNumber> {
     polygon_soup: &'a PolygonSoup<TScalar>,
     current_vertex: usize
 }
 
-impl<'a, TScalar: Floating> VerticesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> VerticesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
         return Self { 
             polygon_soup,
@@ -46,7 +47,7 @@ impl<'a, TScalar: Floating> VerticesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for VerticesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for VerticesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,12 +63,12 @@ impl<'a, TScalar: Floating> Iterator for VerticesIter<'a, TScalar> {
 }
 
 /// Iterator over edges of polygon soup
-pub struct EdgesIter<'a, TScalar: Floating> {
+pub struct EdgesIter<'a, TScalar: RealNumber> {
     polygon_soup: &'a PolygonSoup<TScalar>,
     current_edge: usize
 }
 
-impl<'a, TScalar: Floating> EdgesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> EdgesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
         return Self { 
             polygon_soup,
@@ -76,7 +77,7 @@ impl<'a, TScalar: Floating> EdgesIter<'a, TScalar> {
     }
 }
 
-impl<'a, TScalar: Floating> Iterator for EdgesIter<'a, TScalar> {
+impl<'a, TScalar: RealNumber> Iterator for EdgesIter<'a, TScalar> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

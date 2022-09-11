@@ -1,17 +1,17 @@
 use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
 use tabled::Table;
-use crate::mesh::traits::{Mesh, TopologicalMesh, Floating};
+use crate::{mesh::traits::{Mesh, TopologicalMesh}, geometry::traits::RealNumber};
 use self::helpers::Edge;
 use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}};
 
 
-pub struct CornerTable<TScalar: Floating> {
+pub struct CornerTable<TScalar: RealNumber> {
     pub(super) vertices: Vec<Vertex<TScalar>>,
     pub(super) corners: Vec<Corner>
 }
 
-impl<TScalar: Floating> CornerTable<TScalar> {
+impl<TScalar: RealNumber> CornerTable<TScalar> {
     pub fn new<>() -> Self {
         return Self {
             corners: Vec::new(),
@@ -118,7 +118,7 @@ impl<TScalar: Floating> CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
+impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type ScalarType = TScalar;
 
     type EdgeDescriptor = usize;
@@ -211,7 +211,7 @@ impl<TScalar: Floating> Mesh for CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: Floating> TopologicalMesh for CornerTable<TScalar> {
+impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     type Position<'a> = CornerWalker<'a, TScalar>;
     
     #[inline]
@@ -245,7 +245,7 @@ impl<TScalar: Floating> TopologicalMesh for CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: Floating> Display for CornerTable<TScalar> {
+impl<TScalar: RealNumber> Display for CornerTable<TScalar> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let vertices = Table::new(self.vertices.iter());
         let corners = Table::new(self.corners.iter());

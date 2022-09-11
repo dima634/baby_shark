@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 use nalgebra::Point3;
-use crate::{algo::float_hash::{combine_hash, hash_float}, mesh::traits::Floating};
+use crate::{algo::float_hash::{combine_hash, hash_float}, geometry::traits::RealNumber};
 
 ///
 /// Hashable type for nalgebra Point3
 /// 
-struct HashablePoint<TScalar: Floating>(Point3<TScalar>);
+struct HashablePoint<TScalar: RealNumber>(Point3<TScalar>);
 
-impl<TScalar: Floating> PartialEq for HashablePoint<TScalar> {
+impl<TScalar: RealNumber> PartialEq for HashablePoint<TScalar> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return self.0 == other.0;
     }
 }
 
-impl<'a, TScalar: Floating> Eq for HashablePoint<TScalar> {}
+impl<'a, TScalar: RealNumber> Eq for HashablePoint<TScalar> {}
 
-impl<TScalar: Floating> Hash for HashablePoint<TScalar> {
+impl<TScalar: RealNumber> Hash for HashablePoint<TScalar> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let mut hash = hash_float(self.0[0]);
         hash = combine_hash(hash, hash_float(self.0[1]));
@@ -32,11 +32,11 @@ impl<TScalar: Floating> Hash for HashablePoint<TScalar> {
 ///
 /// Stores 3d point -> index map
 /// 
-pub struct PointIndexMap<TScalar: Floating> {
+pub struct PointIndexMap<TScalar: RealNumber> {
     map: HashMap<HashablePoint<TScalar>, usize>
 }
 
-impl<TScalar: Floating> PointIndexMap<TScalar> {
+impl<TScalar: RealNumber> PointIndexMap<TScalar> {
     pub fn new() -> Self {
         return Self {
             map: HashMap::new()
