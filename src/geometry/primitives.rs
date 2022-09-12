@@ -401,6 +401,11 @@ impl<TScalar: Number> Box3<TScalar> {
         );
     }
 
+    #[inline]
+    pub fn volume(&self) -> TScalar {
+        return self.size_x() * self.size_y() * self.size_z();
+    }
+
     pub fn squared_distance(&self, point: &Point3<TScalar>) -> TScalar {
         let mut sq_distance = TScalar::zero();
         
@@ -462,6 +467,11 @@ impl<TScalar: RealNumber> Box3<TScalar> {
     #[inline]
     pub fn intersects_triangle3(&self, triangle: &Triangle3<TScalar>) -> bool {
         return triangle.intersects_box3(self);
+    }
+
+    #[inline]
+    pub fn intersects_sphere3(&self, sphere: &Sphere3<TScalar>) -> bool {
+        return sphere.intersects_box3(self);
     }
 }
 
@@ -673,6 +683,37 @@ impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
         let w = vc * denom;
 
         return self.a + ab * v + ac * w;
+    }
+}
+
+/// 3D sphere
+pub struct Sphere3<TScalar: RealNumber> {
+    center: Point3<TScalar>,
+    radius: TScalar
+}
+
+impl<TScalar: RealNumber> Sphere3<TScalar> {
+    pub fn new(center: Point3<TScalar>, radius: TScalar) -> Self { 
+        return Self { center, radius };
+    }
+
+    #[inline]
+    pub fn intersects_box3(&self, bbox: &Box3<TScalar>) -> bool {
+        return bbox.squared_distance(&self.center) <= self.radius * self.radius;
+    }
+}
+
+impl<TScalar: RealNumber> HasScalarType for Sphere3<TScalar> {
+    type ScalarType = TScalar;
+}
+
+impl<TScalar: RealNumber> HasBBox3 for Sphere3<TScalar> {
+    #[inline]
+    fn bbox(&self) -> Box3<Self::ScalarType> {
+        return Box3::new(
+            self.center.coords.add_scalar(-self.radius).into(), 
+            self.center.coords.add_scalar(self.radius).into()
+        );
     }
 }
 

@@ -1,9 +1,9 @@
-use nalgebra::Point3;
+use nalgebra::{Point3, ClosedDiv};
 use num_traits::{NumCast, Float};
 use super::primitives::Box3;
 
-pub trait Number: nalgebra_glm::Number + NumCast {}
-impl<T> Number for T where T: nalgebra_glm::Number + NumCast {}
+pub trait Number: nalgebra_glm::Number + NumCast + ClosedDiv {}
+impl<T> Number for T where T: nalgebra_glm::Number + NumCast + ClosedDiv {}
 
 pub trait RealNumber: nalgebra_glm::RealNumber + Float {}
 impl<T> RealNumber for T where T: nalgebra_glm::RealNumber + Float {}

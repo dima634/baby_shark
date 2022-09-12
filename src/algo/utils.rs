@@ -1,8 +1,7 @@
 use nalgebra::{Point3, Vector3};
-use nalgebra_glm::Number;
 use num_traits::Float;
 
-use crate::geometry::traits::RealNumber;
+use crate::geometry::traits::{RealNumber, Number};
 
 pub fn barycenter<'a, TScalar, TPointsIter>(points: TPointsIter) -> Point3<TScalar> 
 where 
@@ -69,5 +68,14 @@ pub fn cwise_min<TScalar: Number>(p1: &Point3<TScalar>, p2: &Point3<TScalar>) ->
         min(p1.x, p2.x), 
         min(p1.y, p2.y), 
         min(p1.z, p2.z)
+    );
+}
+
+#[inline]
+pub fn cast<T1: Number, T2: Number>(p: &Vector3<T1>) -> Vector3<T2> {
+    return Vector3::new(
+        T2::from(p.x).unwrap(), 
+        T2::from(p.y).unwrap(),
+        T2::from(p.z).unwrap()
     );
 }
