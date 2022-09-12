@@ -8,7 +8,8 @@ pub fn hash_float<TFloat: RealNumber>(float: TFloat) -> i32 {
         return 0;
     }
 
-    return Float::floor(float * TFloat::from(73856093).unwrap()).to_i32().unwrap();
+    let i = Float::floor(float * TFloat::from(73856093).unwrap()) % TFloat::from(i32::MAX).unwrap();
+    return i.to_i32().unwrap();
 }
 
 #[inline]
