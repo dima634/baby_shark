@@ -18,3 +18,4 @@
 - [ ] Do we need to save next corner index? 
 - [ ] Corner table: better index typing
 - [ ] AABB tree: pre allocate memory during construction
+- [ ] Grid: consider exploiting min-max distance or incremental sphere growth
