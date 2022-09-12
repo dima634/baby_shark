@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, collections::BTreeSet};
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::aabb_tree::{AABBTree, MedianCut}};
+use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::{aabb_tree::{AABBTree, MedianCut}, grid::Grid}};
 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
@@ -59,9 +59,9 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let max_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 3.0).unwrap() * target_edge_length;
         let min_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 5.0).unwrap() * target_edge_length;
         
-        let mut reference_mesh = AABBTree::empty();
+        let mut reference_mesh = Grid::empty();
         if self.project_vertices {
-            reference_mesh = AABBTree::from_mesh(mesh).top_down::<MedianCut>();
+            reference_mesh = Grid::from_mesh(mesh);
         }
 
         for _ in 0..self.iterations {
@@ -106,10 +106,10 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
-            let vertex_normal = mesh.vertex_normal(&vertex);
+            let vertex_normal = mesh.vertex_normal(&vertex); 
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(&v)));
-            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);
+            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);   
             mesh.shift_vertex(&vertex, &new_position);
         }
     }
@@ -131,13 +131,13 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
     }
 
-    fn project_vertices(&self, mesh: &mut TMesh, aabb_tree: &AABBTree<Triangle3<TMesh::ScalarType>>, target_edge_length: TMesh::ScalarType) {
+    fn project_vertices(&self, mesh: &mut TMesh, grid: &Grid<Triangle3<TMesh::ScalarType>>, target_edge_length: TMesh::ScalarType) {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
 
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
             
-            if let Some(closest_point) = aabb_tree.closest_point(vertex_position, target_edge_length) {
+            if let Some(closest_point) = grid.closest_point(vertex_position, target_edge_length) {
                 mesh.shift_vertex(&vertex, &closest_point);
             }
         }
