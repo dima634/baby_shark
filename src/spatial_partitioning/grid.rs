@@ -133,17 +133,23 @@ where
         let mut closest_point = Point3::origin();
 
         // Search for closest point
-        for i in cells.get_min().x..cells.get_max().x {
-            for j in cells.get_min().y..cells.get_max().y {
-                for k in cells.get_min().z..cells.get_max().z {
+        for i in cells.get_min().x..=cells.get_max().x {
+            for j in cells.get_min().y..=cells.get_max().y {
+                for k in cells.get_min().z..=cells.get_max().z {
                     let cell = Cell::new(i, j, k);
                     let cell_bbox = self.cell_to_box(&cell);
+                    
+                    // Reject cells outside sphere
+                    if !cell_bbox.intersects_sphere3(&search_sphere) {
+                        continue;
+                    }
+
+                    // Reject cells that are farther than already found closest point
+                    if !cell_bbox.contains_point(&point) && cell_bbox.squared_distance(&point) > distance_squared {
+                        continue;
+                    }
 
                     if let Some(objects_in_cell) = self.cells.get(&cell) {
-                        // Reject cells outside sphere
-                        if !cell_bbox.intersects_sphere3(&search_sphere) {
-                            continue;
-                        }
 
                         // Find closest object in cell
                         for obj_index in objects_in_cell {
