@@ -6,7 +6,7 @@ use std::{
 use nalgebra::{Point3, Vector3};
 use simba::scalar::{SupersetOf, SubsetOf};
 
-use crate::{algo::merge_points::merge_points, mesh::traits::Mesh};
+use crate::{algo::merge_points::merge_points, mesh::traits::Mesh, geometry::primitives::Triangle3};
 
 const STL_HEADER_SIZE: usize = 80;
 
@@ -151,7 +151,7 @@ impl StlWriter {
     
         for face in mesh.faces() {
             let (v1, v2, v3) = mesh.face_positions(&face);
-            let normal = mesh.face_normal(&face);
+            let normal = Triangle3::normal(&v1, &v2, &v3);
             self.write_face(writer, &v1.cast(), &v2.cast(), &v3.cast(), &normal.cast())?;
         }
 
