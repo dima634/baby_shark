@@ -9,7 +9,6 @@
 ### TODO:
 - [ ] Mesh trait: move vertex normal to topological mesh
 - [ ] Mesh trait: default implementation for edge/face position using get_edge_vertices/get_face_vertices
-- [ ] Remesher: project on reference mesh
 - [ ] Remesher/Corner table: flip
 - [ ] Remesher/Corner table: handle edge boundary collapse
 - [ ] StlWriter - calculate normal from vertices (now iterator over face vertices are executed twice)
