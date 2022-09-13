@@ -21,11 +21,6 @@ impl<TScalar: RealNumber> BinaryNode<TScalar> {
     pub fn is_leaf(&self) -> bool {
         return self.node_type == NodeType::Leaf;
     }
-
-    #[inline]
-    pub fn is_branch(&self) -> bool {
-        return self.node_type == NodeType::Branch;
-    }
 }
 
 ///
