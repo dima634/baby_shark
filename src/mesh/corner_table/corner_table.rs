@@ -57,21 +57,14 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
     /// Creates isolated face from existing vertices vertices
     pub fn create_face_from_vertices(&mut self, v1: usize, v2: usize, v3: usize) {
-        let c1_idx = self.corners.len();
-        let c2_idx = c1_idx + 1;
-        let c3_idx = c1_idx + 2;
-
         let c1 = self.create_corner();
         c1.set_vertex_index(v1);
-        c1.set_next_corner_index(c2_idx);
 
         let c2 = self.create_corner();
         c2.set_vertex_index(v2);
-        c2.set_next_corner_index(c3_idx);
 
         let c3 = self.create_corner();
         c3.set_vertex_index(v3);
-        c3.set_next_corner_index(c1_idx);
     }
 
     /// Makes give corners opposite to each other
@@ -85,13 +78,11 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         &mut self,
         edge_opposite_corner_map: &mut HashMap<Edge, usize>,
         opposite_edge: &mut Edge,
-        vertex_index: usize,
-        next_index: usize
+        vertex_index: usize
     ) {
         let corner_index = self.corners.len();
         let corner = self.create_corner();
         corner.set_vertex_index(vertex_index);
-        corner.set_next_corner_index(next_index);
 
         // Find opposite corner
         let mut opposite_corner_index: Option<&usize> = edge_opposite_corner_map.get(&opposite_edge);
@@ -146,9 +137,9 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             let v2_index = faces[face_idx + 1];
             let v3_index = faces[face_idx + 2];
 
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v2_index, v3_index), v1_index, face_idx + 1);
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v3_index, v1_index), v2_index, face_idx + 2);
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v1_index, v2_index), v3_index, face_idx);
+            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v2_index, v3_index), v1_index);
+            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v3_index, v1_index), v2_index);
+            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v1_index, v2_index), v3_index);
         }
 
         return corner_table;
@@ -302,13 +293,13 @@ mod tests {
         ];
 
         let expected_corners = vec![
-            Corner::new(1, None,    0, Default::default()),
-            Corner::new(2, Some(4), 1, Default::default()),
-            Corner::new(0, None,    2, Default::default()),
+            Corner::new(None,    0, Default::default()),
+            Corner::new(Some(4), 1, Default::default()),
+            Corner::new(None,    2, Default::default()),
 
-            Corner::new(4, None,    2, Default::default()),
-            Corner::new(5, Some(1), 3, Default::default()),
-            Corner::new(3, None,    0, Default::default())
+            Corner::new(None,    2, Default::default()),
+            Corner::new(Some(1), 3, Default::default()),
+            Corner::new(None,    0, Default::default())
         ];
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);

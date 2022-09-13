@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, collections::BTreeSet};
 use nalgebra::Point3;
 use num_traits::cast;
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::{aabb_tree::{AABBTree, MedianCut}, grid::Grid}};
+use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,

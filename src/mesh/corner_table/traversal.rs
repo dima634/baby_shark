@@ -1,6 +1,6 @@
 use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber};
 
-use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face}, traits::Flags}};
+use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face, next, previous}, traits::Flags}};
 
 ///
 /// Can be used to traverse corner table topology
@@ -37,7 +37,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Moves to next corner
     #[inline]
     pub fn next(&mut self) -> &mut Self {
-        self.corner_index = self.get_corner().get_next_corner_index();
+        self.corner_index = next(self.get_corner_index());
         return self;
     }
     
@@ -135,13 +135,19 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Returns next corner
     #[inline]
     pub fn get_next_corner(&self) -> &Corner {
-        return self.table.get_corner(self.get_corner().get_next_corner_index()).unwrap(); 
+        return self.table.get_corner(next(self.get_corner_index())).unwrap(); 
+    }
+
+    /// Returns next corner index
+    #[inline]
+    pub fn get_next_corner_index(&self) -> usize {
+        return next(self.get_corner_index()); 
     }
 
     /// Returns previous corner index
     #[inline]
     pub fn get_previous_corner_index(&self) -> usize {
-        return self.get_next_corner().get_next_corner_index(); 
+        return previous(self.get_corner_index()); 
     }
 
     /// Returns previous corner
@@ -358,7 +364,7 @@ pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(c
     let mut border_reached = false;
 
     loop {
-        visit(&walker.get_corner().get_next_corner_index());
+        visit(&walker.get_next_corner_index());
 
         walker.previous();
         
@@ -380,7 +386,7 @@ pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(c
         walker.opposite();
 
         loop {
-            visit(&walker.get_next_corner().get_next_corner_index());
+            visit(&walker.get_previous_corner_index());
 
             walker.next();
 

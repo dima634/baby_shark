@@ -9,7 +9,6 @@ use super::{traits::Flags, flags};
 /// 
 #[derive(Debug, Tabled)]
 pub struct Corner {
-    next_corner_index: usize,
     #[tabled(display_with = "display_option")]
     opposite_corner_index: Option<usize>,
     vertex_index: usize,
@@ -20,28 +19,15 @@ pub struct Corner {
 
 impl Corner {
     pub fn new(
-        next_corner_index: usize, 
         opposite_corner_index: Option<usize>,
         vertex_index: usize,
         flags: flags::Flags
     ) -> Self { 
         return Self { 
-            next_corner_index, 
             opposite_corner_index, 
             vertex_index, 
             flags: UnsafeCell::new(flags) 
         };
-    }
-
-    #[inline]
-    pub fn get_next_corner_index(&self) -> usize {
-        return self.next_corner_index;
-    }
-
-    #[inline]
-    pub fn set_next_corner_index(&mut self, index: usize) -> &Self {
-        self.next_corner_index = index;
-        return self;
     }
 
     #[inline]
@@ -69,8 +55,7 @@ impl Corner {
 
 impl Default for Corner {
     fn default() -> Self {
-        return Self { 
-            next_corner_index:      usize::max_value(), 
+        return Self {
             opposite_corner_index:  None,
             vertex_index:           usize::max_value(),
             flags:                  Default::default() 
@@ -89,7 +74,6 @@ impl PartialEq for Corner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         return 
-            self.next_corner_index     == other.next_corner_index &&   
             self.opposite_corner_index == other.opposite_corner_index &&
             self.vertex_index          == other.vertex_index;
     }
