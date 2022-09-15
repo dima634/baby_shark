@@ -76,6 +76,30 @@ pub fn create_collapse_edge_sample_mesh() -> CornerTableF {
     return CornerTableF::from_vertices_and_indices(&vertices, &indices);
 }
 
+pub fn create_flip_edge_sample_mesh() -> CornerTableF {
+    let vertices = vec![
+        Point3::<f32>::new(0.5, 1.0, 0.0),
+        Point3::<f32>::new(0.0, 0.5, 0.0),
+        Point3::<f32>::new(0.5, 0.0, 0.0),
+        Point3::<f32>::new(1.0, 0.5, 0.0),
+        Point3::<f32>::new(1.0, 1.0, 0.0),
+        Point3::<f32>::new(0.0, 1.0, 0.0),
+        Point3::<f32>::new(0.0, 0.0, 0.0),
+        Point3::<f32>::new(1.0, 0.0, 0.0)
+    ];
+
+    let indices = vec![
+        0, 1, 2,
+        2, 3, 0,
+        1, 6, 2,
+        2, 7, 3,
+        3, 4, 0,
+        0, 5, 1
+    ];
+
+    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+}
+
 pub fn assert_mesh_equals(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {
     // Assert equality for each element separately for readability
 

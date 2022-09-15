@@ -177,7 +177,52 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     }
 
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor) {
-        todo!()
+        let mut walker = CornerWalker::from_corner(self, *edge);
+
+        // Face 1
+        let c1_idx = walker.get_corner_index();
+        let v1_idx = walker.get_corner().get_vertex_index();
+
+        let c2_idx = walker.next().get_corner_index();
+        let c2 = walker.get_corner();
+        let v2_idx = c2.get_vertex_index();
+        let c2_opp = c2.get_opposite_corner_index().unwrap();
+
+        let c0_idx = walker.next().get_corner_index();
+        let c0 = walker.get_corner();
+        let v0_idx = c0.get_vertex_index();
+        let c0_opp = c0.get_opposite_corner_index().unwrap();
+
+        // Face 2
+        let c4_idx = walker.next().opposite().get_corner_index();
+        let v3_idx = walker.get_corner().get_vertex_index();
+
+        let c5_idx = walker.next().get_corner_index();
+        let c5_opp = walker.get_corner().get_opposite_corner_index().unwrap();
+
+        let c3_idx = walker.next().get_corner_index();
+        let c3_opp = walker.get_corner().get_opposite_corner_index().unwrap();
+
+
+        // Update corners
+        self.corners[c0_idx].set_vertex_index(v1_idx);
+        self.set_opposite_relationship(c0_idx, c5_opp);
+        self.corners[c1_idx].set_vertex_index(v2_idx);
+        self.set_opposite_relationship(c1_idx, c4_idx);
+        self.corners[c2_idx].set_vertex_index(v3_idx);
+        self.set_opposite_relationship(c2_idx, c0_opp);
+
+        self.corners[c3_idx].set_vertex_index(v3_idx);
+        self.set_opposite_relationship(c3_idx, c2_opp);
+        self.corners[c4_idx].set_vertex_index(v0_idx);
+        self.corners[c5_idx].set_vertex_index(v1_idx);
+        self.set_opposite_relationship(c5_idx, c3_opp);
+
+        // Make sure vertices are referencing correct corners
+        self.vertices[v0_idx].set_corner_index(c4_idx);
+        self.vertices[v1_idx].set_corner_index(c0_idx);
+        self.vertices[v2_idx].set_corner_index(c1_idx);
+        self.vertices[v3_idx].set_corner_index(c2_idx);
     }
 
     #[inline]
@@ -206,7 +251,7 @@ mod tests {
     use nalgebra::Point3;
 
     use crate::mesh::{
-        corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals, create_single_face_mesh, create_unit_cross_square_mesh, create_collapse_edge_sample_mesh}, 
+        corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals, create_single_face_mesh, create_unit_cross_square_mesh, create_collapse_edge_sample_mesh, create_flip_edge_sample_mesh}, 
         connectivity::{vertex::VertexF, corner::Corner}}, 
         traits::EditableMesh
     };
@@ -380,6 +425,53 @@ mod tests {
         ];
 
         mesh.collapse_edge(&24);
+
+        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+    }
+
+    #[test]
+    fn flip_edge() {
+        let mut mesh = create_flip_edge_sample_mesh();
+
+        let expected_vertices = vec![
+            VertexF::new(4, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(0, Point3::<f32>::new(0.0, 0.5, 0.0), Default::default()), // 1
+            VertexF::new(1, Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(2, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 3
+            VertexF::new(13, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 4
+            VertexF::new(16, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 5
+            VertexF::new(7, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 6
+            VertexF::new(10, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 7
+        ];
+
+        let expected_corners = vec![
+            // opposite, vertex, flags
+            Corner::new(Some(10), 1, Default::default()), // 0
+            Corner::new(Some(4),  2, Default::default()), // 1
+            Corner::new(Some(7),  3, Default::default()), // 2
+        
+            Corner::new(Some(16), 3, Default::default()), // 3
+            Corner::new(Some(1),  0, Default::default()), // 4
+            Corner::new(Some(13), 1, Default::default()), // 5
+
+            Corner::new(None,    1, Default::default()), // 6
+            Corner::new(Some(2), 6, Default::default()), // 7
+            Corner::new(None,    2, Default::default()), // 8
+
+            Corner::new(None,    2, Default::default()), // 9
+            Corner::new(Some(0), 7, Default::default()), // 10
+            Corner::new(None,    3, Default::default()), // 11
+
+            Corner::new(None,    3, Default::default()), // 12
+            Corner::new(Some(5), 4, Default::default()), // 13
+            Corner::new(None,    0, Default::default()), // 14
+
+            Corner::new(None,    0, Default::default()), // 15
+            Corner::new(Some(3), 5, Default::default()), // 16
+            Corner::new(None,    1,  Default::default()), // 17
+        ];
+
+        mesh.flip_edge(&1);
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
     }
