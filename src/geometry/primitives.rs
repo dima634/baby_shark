@@ -502,7 +502,34 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     #[inline]
     pub fn normal(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Vector3<TScalar> {
-        return (b - a).cross(&(c - a)).normalize();
+        let cross = (b - a).cross(&(c - a));
+        debug_assert!(cross.norm_squared() > TScalar::zero(), "Degenerate face");
+        return cross.normalize();
+    }
+
+    #[inline]
+    pub fn area(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+        return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
+    }
+
+    pub fn quality(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+        let ab = b - a;
+        let ac = c - a;
+        let double_area = ab.cross(&ac).norm();
+
+        if double_area.is_zero() {
+            return TScalar::zero();
+        }
+
+        let bc = c - b;
+        
+        let ab_len = ab.norm_squared();
+        let ac_len = ac.norm_squared();
+        let bc_len = bc.norm_squared();
+        let len_max = Float::max(Float::max(ab_len, ac_len), bc_len);
+        let equilateral_triangle_aspect_ratio = TScalar::from(1.1547005383792515).unwrap();
+
+        return equilateral_triangle_aspect_ratio * double_area / len_max;
     }
 
     #[inline]
@@ -678,7 +705,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
         }
 
         // P inside face region. Compute Q through its barycentric coordinates (u,v,w)
-        let denom = TScalar::from(1.0).unwrap() / (va + vb + vc);
+        let denom = TScalar::one() / (va + vb + vc);
         let v = vb * denom;
         let w = vc * denom;
 
@@ -819,6 +846,7 @@ pub(super) mod internal {
 #[cfg(test)]
 mod tests {
     use nalgebra::{Point3, Vector3};
+    use num_traits::Float;
     use crate::geometry::{primitives::Ray3, traits::ClosestPoint3};
 
     use super::{Line3, Triangle3, LineSegment3};
@@ -941,5 +969,16 @@ mod tests {
         intersection = triangle.intersects_ray3_at(&ray2);
 
         assert!(intersection.is_none());
+    }
+
+    #[test]
+    fn triangle_quality() {
+        let equilateral_quality = Triangle3::quality(
+            &Point3::new(-1.0, 1.5, 0.0), 
+            &Point3::new(1.0, -2.0, 0.0), 
+            &Point3::new(3.0, 1.5, 0.0)
+        );
+
+        assert!((1.0 - equilateral_quality).abs() < 0.01);
     }
 }
