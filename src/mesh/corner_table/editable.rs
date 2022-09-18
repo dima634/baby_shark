@@ -112,7 +112,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 
         // Skip collapse on boundary for now
         // TODO: implement collapse on boundary
-        let (e_start, e_end) = self.get_edge_vertices(edge);
+        let (e_start, e_end) = self.edge_vertices(edge);
         if self.is_vertex_on_boundary(&e_start) || self.is_vertex_on_boundary(&e_end) {
             return;
         }
