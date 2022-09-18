@@ -109,11 +109,21 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 }
 
+///
+/// Implementation of mesh trait for corner table.
+/// 
+/// Edge is represented by index of opposite corner.
+/// Vertex is represented by it`s index in vertices vector.
+/// Face is represented by index of one of it`s.
+/// 
 impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type ScalarType = TScalar;
 
+    /// Index of corner opposite to edge
     type EdgeDescriptor = usize;
+    /// Vertex index
     type VertexDescriptor = usize;
+    /// Index of one of face corners
     type FaceDescriptor = usize;
 
     type FacesIter<'iter> = CornerTableFacesIter<'iter, TScalar>;
@@ -161,13 +171,13 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+    fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         let mut walker = CornerWalker::from_corner(self, *face);
 
         return (
-            *walker.get_vertex().get_position(),
-            *walker.next().get_vertex().get_position(),
-            *walker.next().get_vertex().get_position()
+            walker.get_corner().get_vertex_index(),
+            walker.next().get_corner().get_vertex_index(),
+            walker.next().get_corner().get_vertex_index()
         );
     }
 
@@ -181,7 +191,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
+    fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
         let mut walker = CornerWalker::from_corner(self, *edge);
         return (
             walker.next().get_corner().get_vertex_index(),
@@ -233,6 +243,20 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
         }
 
         return false;
+    }
+
+    #[inline]
+    fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool {
+        return self.corners[*edge].get_opposite_corner_index().is_none();
+    }
+
+    #[inline]
+    fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>) {
+        let f1 = *edge;
+        return (
+            f1,
+            self.corners[f1].get_opposite_corner_index()
+        );
     }
 }
 

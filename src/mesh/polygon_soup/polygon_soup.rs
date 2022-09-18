@@ -73,7 +73,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     #[inline]
-    fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
+    fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
         todo!()
     }
 
@@ -84,6 +84,10 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
 
     #[inline]
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> nalgebra::Vector3<Self::ScalarType> {
+        todo!()
+    }
+
+    fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         todo!()
     }
 }

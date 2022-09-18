@@ -40,17 +40,28 @@ pub trait Mesh {
     /// Iterator over mesh edges
     fn edges<'a>(&'a self) -> Self::EdgesIter<'a>;
 
-    /// Returns positions of face vertices in ccw order
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>);
+    /// Return vertices of given face
+    fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor);
     /// Returns edge length
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>);
     /// Return vertices of given edge
-    fn get_edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
+    fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
     /// Returns vertex normal (average of one-ring face normals)
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType>;
+
+    /// Returns positions of face vertices in ccw order
+    #[inline]
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+        let (v1, v2, v3) = self.face_vertices(face);
+        return (
+            *self.vertex_position(&v1),
+            *self.vertex_position(&v2),
+            *self.vertex_position(&v3)
+        );
+    }
 
     /// Returns face normal
     #[inline]
@@ -75,17 +86,29 @@ pub trait Mesh {
 }
 
 ///
-/// Position on face vertex
+/// Position on face corner
 /// 
 pub trait Position<'a, TMesh: Mesh> {
-    /// Create new position on face vertex
+    /// Create new position on face corner
     fn from_vertex_on_face(mesh: &'a TMesh, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> Self;
 
-    /// Set position to given vertex on face
-    fn set(&mut self, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> &mut Self;
+    /// Create new position on `face` corner opposite to `edge`
+    fn from_edge_on_face(mesh: &'a TMesh, face: &TMesh::FaceDescriptor, edge: &TMesh::EdgeDescriptor) -> Self;
+
+    /// Create new position on any corner opposite to `edge`
+    fn from_edge(mesh: &'a TMesh, edge: &TMesh::EdgeDescriptor) -> Self;
+
+    /// Set position to given corner at vertex on `face`
+    fn set_from_vertex_on_face(&mut self, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> &mut Self;
+
+    /// Set position to corner opposite to given `edge` on `face`
+    fn set_from_edge_on_face(&mut self, face: &TMesh::FaceDescriptor, edge: &TMesh::EdgeDescriptor) -> &mut Self;
 
     /// Move to next vertex on face
     fn next(&mut self) -> &mut Self;
+
+    /// Move to opposite corner
+    fn opposite(&mut self) -> &mut Self;
 
     /// Returns current vertex
     fn get_vertex(&self) -> TMesh::VertexDescriptor;
@@ -104,6 +127,11 @@ pub trait TopologicalMesh: Mesh + Sized{
 
     /// Return `true` if vertex is on boundary, `false` otherwise
     fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool;
+    /// Return `true` if edge is on boundary, `false` otherwise
+    fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool;
+
+    /// Returns incident faces of edge
+    fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>);
 }
 
 ///
