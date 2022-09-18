@@ -191,23 +191,33 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     }
 
     fn check_faces_normals_after_collapse(&self, mesh: &TMesh, collapsed_vertex: &TMesh::VertexDescriptor, new_position: &Point3<TMesh::ScalarType>) -> bool {
-        let mut normal_flipped = false;
+        let mut bad_collapse = false;
     
         mesh.faces_around_vertex(&collapsed_vertex, |face| {
             let mut pos = TMesh::Position::from_vertex_on_face(mesh, &face, &collapsed_vertex);
 
+            let v1 = mesh.vertex_position(&pos.get_vertex());
             let v2 = mesh.vertex_position(&pos.next().get_vertex());
             let v3 = mesh.vertex_position(&pos.next().get_vertex());
 
-            let old_normal = mesh.face_normal(face);
+            let old_quality = Triangle3::quality(v1, v2, v3);
+            let new_quality = Triangle3::quality(new_position, v2, v3);
+
+            // Quality become too bad?
+            if new_quality < old_quality * cast(0.5).unwrap() {
+                bad_collapse = true;
+            }
+
+            let old_normal = Triangle3::normal(v1, v2, v3);
             let new_normal = Triangle3::normal(new_position, v2, v3);
 
+            // Normal flipped?
             if old_normal.dot(&new_normal) < cast(0.7).unwrap() {
-                normal_flipped = true;
+                bad_collapse = true;
             }
         });
 
-        return !normal_flipped;
+        return !bad_collapse;
     }
 
     fn is_flip_safe(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
