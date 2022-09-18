@@ -1,12 +1,13 @@
 use std::{marker::PhantomData, collections::BTreeSet};
 use nalgebra::Point3;
-use num_traits::cast;
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats::MAX_VERTEX_VALENCE}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
+use num_traits::{cast, Float};
+use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
     shift_vertices: bool,
     collapse_edges: bool,
+    flip_edges: bool,
     project_vertices: bool,
     iterations: u16,
 
@@ -19,6 +20,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             split_edges: true,
             shift_vertices: true,
             collapse_edges: true,
+            flip_edges: true,
             project_vertices: true,
             iterations: 5,
             mesh_type: PhantomData
@@ -40,6 +42,12 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     #[inline]
     pub fn with_collapse_edges(mut self, collapse_edges: bool) -> Self {
         self.collapse_edges = collapse_edges;
+        return self;
+    }
+
+    #[inline]
+    pub fn with_flip_edges(mut self, flip_edges: bool) -> Self {
+        self.flip_edges = flip_edges;
         return self;
     }
 
@@ -73,6 +81,10 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
                 self.collapse_edges(mesh, min_edge_length);
             }
 
+            if self.flip_edges {
+                self.flip_edges(mesh);
+            }
+
             if self.shift_vertices {
                 self.shift_vertices(mesh);
             }
@@ -102,11 +114,11 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
     fn shift_vertices(&self, mesh: &mut TMesh) {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
-        let mut one_ring: Vec<Point3<TMesh::ScalarType>> = Vec::with_capacity(MAX_VERTEX_VALENCE);
+        let mut one_ring: Vec<Point3<TMesh::ScalarType>> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
 
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
-            let vertex_normal = mesh.vertex_normal(&vertex); 
+            let vertex_normal = mesh.vertex_normal(&vertex);
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(&v)));
             let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);   
@@ -119,14 +131,20 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
         for edge in edges {
-            if !self.is_collapse_safe(mesh, &edge) {
-                continue;
-            }
-
             let edge_length_squared = mesh.edge_length_squared(&edge);
 
-            if edge_length_squared < min_edge_length_squared {
+            if edge_length_squared < min_edge_length_squared && self.is_collapse_safe(mesh, &edge) {
                 mesh.collapse_edge(&edge);
+            }
+        }
+    }
+
+    fn flip_edges(&self, mesh: &mut TMesh) {
+        let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
+
+        for edge in edges {
+            if self.will_flip_improve_valence(mesh, &edge) && self.is_flip_safe(mesh, &edge) {
+                mesh.flip_edge(&edge);
             }
         }
     }
@@ -150,7 +168,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
 
         // Count common vertices of edge vertices
-        let (e_start, e_end) = mesh.get_edge_vertices(edge);
+        let (e_start, e_end) = mesh.edge_vertices(edge);
         let mut e_start_neighbors = BTreeSet::new();
         mesh.vertices_around_vertex(&e_start, |vertex| { e_start_neighbors.insert(*vertex); });
         let mut common_neighbors_count = 0;
@@ -190,5 +208,86 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         });
 
         return !normal_flipped;
+    }
+
+    fn is_flip_safe(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
+        // Is topologically safe?
+        if mesh.is_edge_on_boundary(edge) {
+            return false;
+        }
+
+        // Check normals after flip (geometrical safety)
+        let mut pos = TMesh::Position::from_edge(mesh, edge);
+        
+        let v1 = mesh.vertex_position(&pos.get_vertex());
+        let v2 = mesh.vertex_position(&pos.next().get_vertex());
+        let v0 = mesh.vertex_position(&pos.next().get_vertex());
+        let v3 = mesh.vertex_position(&pos.next().opposite().get_vertex());
+
+        let old_normal1 = Triangle3::normal(v0, v1, v2);
+        let new_normal1 = Triangle3::normal(v1, v2, v3);
+
+        if old_normal1.angle(&new_normal1) > cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians() {
+            return false;
+        }
+
+        let old_normal2 = Triangle3::normal(v0, v2, v3);
+        let new_normal2 = Triangle3::normal(v0, v1, v3);
+
+        if old_normal2.angle(&new_normal2) > cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians() {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn will_flip_improve_valence(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
+        let mut pos = TMesh::Position::from_edge(mesh, edge);
+
+        let v1 = pos.get_vertex();
+        let v2 = pos.next().get_vertex();
+        let v0 = pos.next().get_vertex();
+        let v3 = pos.next().opposite().get_vertex();
+
+        let v0_ideal_val = self.ideal_valence(mesh, &v0);
+        let v1_ideal_val = self.ideal_valence(mesh, &v1);
+        let v2_ideal_val = self.ideal_valence(mesh, &v2);
+        let v3_ideal_val = self.ideal_valence(mesh, &v3);
+
+        let v0_val = self.valence(mesh, &v0);
+        let v1_val = self.valence(mesh, &v1);
+        let v2_val = self.valence(mesh, &v2);
+        let v3_val = self.valence(mesh, &v3);
+
+        let old_deviation =
+            (v0_val - v0_ideal_val).abs() +
+            (v1_val - v1_ideal_val).abs() +
+            (v2_val - v2_ideal_val).abs() +
+            (v3_val - v3_ideal_val).abs();
+
+        let new_deviation = 
+            (v0_val - 1 - v0_ideal_val).abs() +
+            (v1_val + 1 - v1_ideal_val).abs() +
+            (v2_val - 1 - v2_ideal_val).abs() +
+            (v3_val + 1 - v3_ideal_val).abs();
+
+        return new_deviation < old_deviation;
+    }
+
+    #[inline]
+    fn valence(&self, mesh: &TMesh, vertex: &TMesh::VertexDescriptor) -> isize {
+        let mut valence = 0;
+        mesh.vertices_around_vertex(vertex, |_| valence += 1);
+
+        return valence;
+    }    
+    
+    #[inline]
+    fn ideal_valence(&self, mesh: &TMesh, vertex: &TMesh::VertexDescriptor) -> isize {
+        if mesh.is_vertex_on_boundary(vertex) {
+            return mesh_stats::IDEAL_BOUNDARY_VERTEX_VALENCE as isize;
+        } else {
+            return mesh_stats::IDEAL_INTERIOR_VERTEX_VALENCE as isize;
+        }
     }
 }

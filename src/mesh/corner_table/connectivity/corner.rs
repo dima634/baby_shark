@@ -100,3 +100,9 @@ pub fn face(corner: usize) -> usize {
 pub fn first_corner(face: usize) -> usize {
     return face * 3;
 }
+
+/// Returns true when `corner` is part `face`
+#[inline]
+pub fn face_contains_corner(face: usize, corner: usize) -> bool {
+    return self::face(corner) == face;
+}
