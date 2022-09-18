@@ -143,7 +143,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
 
         for edge in edges {
-            if self.will_flip_improve_valence(mesh, &edge) && self.is_flip_safe(mesh, &edge) {
+            if self.will_flip_improve_quality(mesh, &edge) && self.is_flip_safe(mesh, &edge) {
                 mesh.flip_edge(&edge);
             }
         }
@@ -184,7 +184,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             return false;
         }
 
-        // Check new normals
+        // Check new normals (geometrical safety)
         let new_position = (mesh.vertex_position(&e_start) + mesh.vertex_position(&e_end).coords) / cast(2).unwrap();
         return self.check_faces_normals_after_collapse(mesh, &e_start, &new_position) && 
                self.check_faces_normals_after_collapse(mesh, &e_end, &new_position);
@@ -227,21 +227,26 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let old_normal1 = Triangle3::normal(v0, v1, v2);
         let new_normal1 = Triangle3::normal(v1, v2, v3);
 
-        if old_normal1.angle(&new_normal1) > cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians() {
+        let threshold = cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians();
+
+        if old_normal1.angle(&new_normal1) > threshold {
             return false;
         }
 
         let old_normal2 = Triangle3::normal(v0, v2, v3);
         let new_normal2 = Triangle3::normal(v0, v1, v3);
 
-        if old_normal2.angle(&new_normal2) > cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians() {
+        if old_normal2.angle(&new_normal2) > threshold || 
+           old_normal2.angle(&new_normal1) > threshold || 
+           old_normal1.angle(&new_normal2) > threshold 
+        {
             return false;
         }
 
         return true;
     }
 
-    fn will_flip_improve_valence(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
+    fn will_flip_improve_quality(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
         let mut pos = TMesh::Position::from_edge(mesh, edge);
 
         let v1 = pos.get_vertex();
@@ -271,7 +276,17 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             (v2_val - 1 - v2_ideal_val).abs() +
             (v3_val + 1 - v3_ideal_val).abs();
 
-        return new_deviation < old_deviation;
+        let v0_pos = mesh.vertex_position(&v0);
+        let v1_pos = mesh.vertex_position(&v1);
+        let v2_pos = mesh.vertex_position(&v2);
+        let v3_pos = mesh.vertex_position(&v3);
+
+        let old_face_quality = Triangle3::quality(v0_pos, v1_pos, v2_pos).min(Triangle3::quality(v0_pos, v2_pos, v3_pos));
+        let new_face_quality = Triangle3::quality(v1_pos, v2_pos, v3_pos).min(Triangle3::quality(v0_pos, v1_pos, v3_pos));
+
+        return (new_deviation < old_deviation && new_face_quality >= old_face_quality * cast(0.5).unwrap()) ||
+               (new_deviation == old_deviation && new_face_quality > old_face_quality) || // Same valence but better quality
+               (new_face_quality > old_face_quality * cast(1.5).unwrap());                // Hurt valence but improve quality by much
     }
 
     #[inline]
