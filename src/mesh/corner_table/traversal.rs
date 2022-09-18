@@ -1,6 +1,6 @@
 use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber};
 
-use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face, next, previous}, traits::Flags}};
+use super::{corner_table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face, next, previous, face_contains_corner}, traits::Flags}};
 
 ///
 /// Can be used to traverse corner table topology
@@ -57,7 +57,8 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Moves to previous corner. Shorthand for next().next()
     #[inline]
     pub fn previous(&mut self) -> &mut Self {
-        return self.next().next();
+        self.corner_index = previous(self.get_corner_index());
+        return self;
     }
 
     /// Moves to right corner
@@ -187,6 +188,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
 }
 
 impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
+    #[inline]
     fn from_vertex_on_face(
         mesh: &'a CornerTable<TScalar>, 
         corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
@@ -201,7 +203,23 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
         return walker;
     }
 
-    fn set(
+    #[inline]
+    fn from_edge_on_face(
+        mesh: &'a CornerTable<TScalar>, 
+        f: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
+        edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor
+    ) -> Self {
+        let corner = if face_contains_corner(face(*f), *edge) { 
+            *edge 
+        } else { 
+            mesh.corners[*edge].get_opposite_corner_index().unwrap() 
+        };
+
+        return CornerWalker::from_corner(mesh, corner);
+    }
+
+    #[inline]
+    fn set_from_vertex_on_face(
         &mut self, 
         corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
         vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor
@@ -214,6 +232,22 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
 
         return self;
     }
+    
+    #[inline]
+    fn set_from_edge_on_face(
+        &mut self, 
+        f: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
+        edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor
+    ) -> &mut Self {
+        if face_contains_corner(face(*f), *edge) { 
+            self.set_current_corner(*edge);
+        } else { 
+            let corner = self.table.corners[*edge].get_opposite_corner_index().unwrap();
+            self.set_current_corner(corner);
+        };
+
+        return self;
+    }
 
     #[inline]
     fn next(&mut self) -> &mut Self {
@@ -223,6 +257,16 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
     #[inline]
     fn get_vertex(&self) -> <CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor {
         return self.get_corner().get_vertex_index();
+    }
+
+    #[inline]
+    fn from_edge(mesh: &'a CornerTable<TScalar>, edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor) -> Self {
+        return CornerWalker::from_corner(mesh, *edge);
+    }
+
+    #[inline]
+    fn opposite(&mut self) -> &mut Self {
+        return self.opposite();
     }
 }
 
