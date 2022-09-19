@@ -3,6 +3,25 @@ use nalgebra::Point3;
 use num_traits::{cast, Float};
 use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
 
+///
+/// Incremental isotropic remesher. 
+/// This algorithm incrementally performs simple operations such as edge splits, 
+/// edge collapses, edge flips, and Laplacian smoothing. 
+/// All the vertices of the remeshed patch are reprojected to 
+/// the original surface to keep a good approximation of the input.
+/// 
+/// ## Example
+/// ```ignore
+/// let remesher = IncrementalRemesher::new()
+///     .with_iterations_count(10)
+///     .with_split_edges(true)
+///     .with_collapse_edges(true)
+///     .with_flip_edges(true)
+///     .with_shift_vertices(true)
+///     .with_project_vertices(true);
+/// remesher.remesh(&mut mesh, 0.002f32);
+/// ```
+/// 
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
     shift_vertices: bool,
@@ -22,47 +41,59 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             collapse_edges: true,
             flip_edges: true,
             project_vertices: true,
-            iterations: 5,
+            iterations: 10,
             mesh_type: PhantomData
         };
     }
 
+    /// Set flag indicating whether edge split should be performed. Default is `true`
     #[inline]
     pub fn with_split_edges(mut self, split_edges: bool) -> Self {
         self.split_edges = split_edges;
         return self;
     }
 
+    /// Set flag indicating whether laplacian smoothing should be performed. Default is `true`
     #[inline]
     pub fn with_shift_vertices(mut self, shift_vertices: bool) -> Self {
         self.shift_vertices = shift_vertices;
         return self;
     }
 
+    /// Set flag indicating whether edge collapse should be performed. Default is `true`
     #[inline]
     pub fn with_collapse_edges(mut self, collapse_edges: bool) -> Self {
         self.collapse_edges = collapse_edges;
         return self;
     }
 
+    /// Set flag indicating whether edge flip should be performed. Default is `true`
     #[inline]
     pub fn with_flip_edges(mut self, flip_edges: bool) -> Self {
         self.flip_edges = flip_edges;
         return self;
     }
 
+    /// Set flag indicating whether vertices of resulting mesh should be projected to original. Default is `true`
     #[inline]
     pub fn with_project_vertices(mut self, project_vertices: bool) -> Self {
         self.project_vertices = project_vertices;
         return self;
     }
 
+    /// Set number of remeshing iterations. Default is `10`
     #[inline]
     pub fn with_iterations_count(mut self, iterations: u16) -> Self {
         self.iterations = iterations;
         return self;
     }
 
+    ///
+    /// Remesh given `mesh`
+    /// ## Arguments
+    /// * `mesh` - triangular mesh
+    /// * `target_edge_length` - desired length of edge
+    /// 
     pub fn remesh(&self, mesh: &mut TMesh, target_edge_length: TMesh::ScalarType) {
         let max_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 3.0).unwrap() * target_edge_length;
         let min_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 5.0).unwrap() * target_edge_length;
@@ -116,6 +147,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
         let mut one_ring: Vec<Point3<TMesh::ScalarType>> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
 
+        // Perform laplacian smoothing for each vertex
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
             let vertex_normal = mesh.vertex_normal(&vertex);
@@ -130,6 +162,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
+        // Collapse long edges
         for edge in edges {
             let edge_length_squared = mesh.edge_length_squared(&edge);
 
@@ -142,6 +175,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     fn flip_edges(&self, mesh: &mut TMesh) {
         let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
 
+        // Flip edges to improve valence
         for edge in edges {
             if self.will_flip_improve_quality(mesh, &edge) && self.is_flip_safe(mesh, &edge) {
                 mesh.flip_edge(&edge);
@@ -152,6 +186,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     fn project_vertices(&self, mesh: &mut TMesh, grid: &Grid<Triangle3<TMesh::ScalarType>>, target_edge_length: TMesh::ScalarType) {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
 
+        // Project vertices back on original mesh
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
             
