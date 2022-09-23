@@ -1,7 +1,7 @@
-use std::{marker::PhantomData, collections::BTreeSet};
+use std::marker::PhantomData;
 use nalgebra::Point3;
 use num_traits::{cast, Float};
-use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::utils::tangential_relaxation, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
+use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::{utils::tangential_relaxation, edge_collapse}, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
 
 ///
 /// Incremental isotropic remesher. 
@@ -166,7 +166,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         for edge in edges {
             let edge_length_squared = mesh.edge_length_squared(&edge);
 
-            if edge_length_squared < min_edge_length_squared && self.is_collapse_safe(mesh, &edge) {
+            if edge_length_squared < min_edge_length_squared && edge_collapse::is_safe(mesh, &edge) {
                 mesh.collapse_edge(&edge);
             }
         }
@@ -194,65 +194,6 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
                 mesh.shift_vertex(&vertex, &closest_point);
             }
         }
-    }
-
-    fn is_collapse_safe(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {        
-        // Was collapsed?
-        if mesh.edge_exist(edge) {
-            return false;
-        }
-
-        // Count common vertices of edge vertices
-        let (e_start, e_end) = mesh.edge_vertices(edge);
-        let mut e_start_neighbors = BTreeSet::new();
-        mesh.vertices_around_vertex(&e_start, |vertex| { e_start_neighbors.insert(*vertex); });
-        let mut common_neighbors_count = 0;
-        mesh.vertices_around_vertex(&e_end, |vertex|
-        {
-            if e_start_neighbors.contains(vertex) {
-                common_neighbors_count += 1;
-            }
-        });
-
-        // Is topologically safe?
-        if common_neighbors_count != 2 {
-            return false;
-        }
-
-        // Check new normals (geometrical safety)
-        let new_position = (mesh.vertex_position(&e_start) + mesh.vertex_position(&e_end).coords) / cast(2).unwrap();
-        return self.check_faces_normals_after_collapse(mesh, &e_start, &new_position) && 
-               self.check_faces_normals_after_collapse(mesh, &e_end, &new_position);
-    }
-
-    fn check_faces_normals_after_collapse(&self, mesh: &TMesh, collapsed_vertex: &TMesh::VertexDescriptor, new_position: &Point3<TMesh::ScalarType>) -> bool {
-        let mut bad_collapse = false;
-    
-        mesh.faces_around_vertex(&collapsed_vertex, |face| {
-            let mut pos = TMesh::Position::from_vertex_on_face(mesh, &face, &collapsed_vertex);
-
-            let v1 = mesh.vertex_position(&pos.get_vertex());
-            let v2 = mesh.vertex_position(&pos.next().get_vertex());
-            let v3 = mesh.vertex_position(&pos.next().get_vertex());
-
-            let old_quality = Triangle3::quality(v1, v2, v3);
-            let new_quality = Triangle3::quality(new_position, v2, v3);
-
-            // Quality become too bad?
-            if new_quality < old_quality * cast(0.5).unwrap() {
-                bad_collapse = true;
-            }
-
-            let old_normal = Triangle3::normal(v1, v2, v3);
-            let new_normal = Triangle3::normal(new_position, v2, v3);
-
-            // Normal flipped?
-            if old_normal.dot(&new_normal) < cast(0.7).unwrap() {
-                bad_collapse = true;
-            }
-        });
-
-        return !bad_collapse;
     }
 
     fn is_flip_safe(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
