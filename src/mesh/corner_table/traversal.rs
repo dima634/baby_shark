@@ -535,6 +535,44 @@ pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(cor
     }
 }
 
+/// Iterates over edges incident to vertex. Edge is represented by opposite corner index.
+pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize) -> () >(corner_table: &CornerTable<TScalar>, vertex_index: usize, mut visit: TFunc) {
+    let mut walker = CornerWalker::from_vertex(corner_table, vertex_index);
+    walker.next();
+    let started_at = walker.get_corner_index();
+    let mut border_reached = false;
+
+    loop {
+        visit(&walker.get_corner_index());
+
+        if walker.get_corner().get_opposite_corner_index().is_none() {
+            border_reached = true;
+            break;
+        }
+
+        walker.opposite().previous();
+        
+        if started_at == walker.get_corner_index() {
+            break;
+        }
+    }
+
+    if border_reached  {
+        walker.set_current_corner(started_at);
+        walker.next();
+
+        loop {
+            visit(&walker.get_corner_index());
+
+            if walker.get_corner().get_opposite_corner_index().is_none() {
+                break;
+            }
+    
+            walker.opposite().next();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::mesh::{

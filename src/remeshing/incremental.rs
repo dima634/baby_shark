@@ -165,9 +165,11 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         // Collapse long edges
         for edge in edges {
             let edge_length_squared = mesh.edge_length_squared(&edge);
+            let (v1, v2) = mesh.edge_positions(&edge);
+            let collapse_at = (v1 + v2.coords) * cast(0.5).unwrap();
 
-            if edge_length_squared < min_edge_length_squared && edge_collapse::is_safe(mesh, &edge) {
-                mesh.collapse_edge(&edge);
+            if edge_length_squared < min_edge_length_squared && edge_collapse::is_safe(mesh, &edge, &collapse_at, cast(0.5).unwrap()) {
+                mesh.collapse_edge(&edge, &collapse_at);
             }
         }
     }

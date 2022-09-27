@@ -6,7 +6,7 @@ use num_traits::cast;
 use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position}, geometry::primitives::Triangle3};
 
 /// Returns `true` when edge collapse is topologically safe, `false` otherwise
-pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
+pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
     // Was collapsed?
     if !mesh.edge_exist(edge) {
         return false;
@@ -28,28 +28,41 @@ pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &mut T
     return common_neighbors_count == 2 
 }
 
-/// Returns `true` when edge collapse is geometrically safe (normals of new faces are not flipped), `false` otherwise
-pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
+///
+/// Returns `true` when edge collapse is geometrically safe, `false` otherwise.
+/// Collapse is not safe when face normals are flipped or quality faces becomes too bad.
+/// 
+pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
+    mesh: &TMesh, 
+    edge: &TMesh::EdgeDescriptor, 
+    new_position: &Point3<TMesh::ScalarType>,
+    min_quality: TMesh::ScalarType
+) -> bool {
     // Check new normals (geometrical safety)
     let (e_start, e_end) = mesh.edge_vertices(edge);
-    let new_position = (mesh.vertex_position(&e_start) + mesh.vertex_position(&e_end).coords) * cast(0.5).unwrap();
-    return check_faces_normals_after_collapse(mesh, &e_start, &new_position) && 
-           check_faces_normals_after_collapse(mesh, &e_end, &new_position);
+    return check_faces_after_collapse(mesh, &e_start, new_position, min_quality) && 
+           check_faces_after_collapse(mesh, &e_end, new_position, min_quality);
 }
 
 /// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
-pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {        
+pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
+    mesh: &TMesh, 
+    edge: &TMesh::EdgeDescriptor, 
+    collapse_at: &Point3<TMesh::ScalarType>,
+    min_quality: TMesh::ScalarType
+) -> bool {        
     if !is_topologically_safe(mesh, &edge) {
         return false;
     }
 
-    return is_geometrically_safe(mesh, &edge);
+    return is_geometrically_safe(mesh, &edge, collapse_at, min_quality);
 }
 
-fn check_faces_normals_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
+fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh, 
     collapsed_vertex: &TMesh::VertexDescriptor, 
-    new_position: &Point3<TMesh::ScalarType>
+    new_position: &Point3<TMesh::ScalarType>,
+    min_quality: TMesh::ScalarType
 ) -> bool {
     let mut bad_collapse = false;
 
@@ -64,7 +77,7 @@ fn check_faces_normals_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
         let new_quality = Triangle3::quality(new_position, v2, v3);
 
         // Quality become too bad?
-        if new_quality < old_quality * cast(0.5).unwrap() {
+        if new_quality < old_quality * min_quality {
             bad_collapse = true;
         }
 

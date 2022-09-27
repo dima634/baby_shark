@@ -1,5 +1,4 @@
 use nalgebra::Point3;
-use num_traits::cast;
 use crate::{mesh::{traits::{EditableMesh, TopologicalMesh, Mesh}}, geometry::traits::RealNumber};
 use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::traits::Flags};
 
@@ -107,7 +106,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 }
 
 impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
-    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor) {
+    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, *edge);
 
         // Skip collapse on boundary for now
@@ -158,7 +157,6 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 
         // Remove vertex on edge end
         let v9 = self.get_vertex_mut(v9_idx).unwrap();
-        let v9_position = *v9.get_position();
         v9.set_deleted(true);
 
         // Update vertex for corners around removed one
@@ -168,7 +166,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 
         // Shift vertex on other side of edge
         let v8 = self.get_vertex_mut(v8_idx).unwrap();
-        v8.set_position((v8.get_position() + v9_position.coords) / cast(2.0).unwrap())
+        v8.set_position(*at)
           .set_corner_index(c29_idx);
 
         // Setup new opposites
@@ -424,7 +422,7 @@ mod tests {
             Corner::new(None,     8, Default::default()), // 29
         ];
 
-        mesh.collapse_edge(&24);
+        mesh.collapse_edge(&24, &Point3::new(0.5, 0.5, 0.0));
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
     }

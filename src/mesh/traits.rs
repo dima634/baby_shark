@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use nalgebra::{Point3, Vector3};
 
 use crate::geometry::{primitives::Triangle3, traits::RealNumber};
@@ -22,9 +24,9 @@ pub trait Vertex {
 pub trait Mesh {
     type ScalarType: RealNumber;
 
-    type EdgeDescriptor: Ord + Clone + Copy;
-    type VertexDescriptor: Ord + Clone + Copy;
-    type FaceDescriptor: Ord + Clone + Copy;
+    type EdgeDescriptor: Ord + Clone + Copy + Hash;
+    type VertexDescriptor: Ord + Clone + Copy + Hash;
+    type FaceDescriptor: Ord + Clone + Copy + Hash;
 
     type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
     type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
@@ -124,6 +126,8 @@ pub trait TopologicalMesh: Mesh + Sized{
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
     /// Iterates over one-ring faces of vertex
     fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    /// Iterates over edges incident to vertex
+    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
 
     /// Return `true` if vertex is on boundary, `false` otherwise
     fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool;
@@ -138,12 +142,44 @@ pub trait TopologicalMesh: Mesh + Sized{
 /// Triangular mesh that supports editing operations
 /// 
 pub trait EditableMesh: Mesh {
-    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor);
+    /// Collapse `edge` at given point. This method do not perform checks if operation is safe.
+    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
+    // Flip `edge`. This method do not perform checks if operation is safe.
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor);
+    // Split `edge` at given point.
     fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
+    /// Shift vertex to new position.
     fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Point3<Self::ScalarType>);
 
+    /// Returns `true` when edge exist in mesh, otherwise - `false`.
+    /// Can be used to check if edge was deleted by [collapse_edge] method.
     fn edge_exist(&self, edge: &Self::EdgeDescriptor) -> bool;
+}
+
+///
+/// Can be used to set flags for mesh primitives.
+/// Is used by some algorithms to mark processed faces/edges/vertices.
+/// 
+pub trait Marker<TMesh: Mesh> {
+    fn mark_face(&self, face: &TMesh::FaceDescriptor);
+    fn unmark_face(&self, face: &TMesh::FaceDescriptor);
+    fn is_face_marked(&self, face: &TMesh::FaceDescriptor) -> bool;
+    
+    fn mark_vertex(&self, vertex: &TMesh::VertexDescriptor);
+    fn unmark_vertex(&self, vertex: &TMesh::VertexDescriptor);
+    fn is_vertex_marked(&self, vertex: &TMesh::VertexDescriptor) -> bool;
+    
+    fn mark_edge(&self, edge: &TMesh::EdgeDescriptor) ;
+    fn unmark_edge(&self, edge: &TMesh::EdgeDescriptor);
+    fn is_edge_marked(&self, edge: &TMesh::EdgeDescriptor) -> bool;
+}
+
+/// Mesh that support [Marker] API
+pub trait MeshMarker: Mesh + Sized {
+    type Marker: Marker<Self>;
+
+    /// Returns marker
+    fn marker(&self) -> Self::Marker;
 }
 
 /// Contains constants which defines what is good mesh

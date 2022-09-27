@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
 use tabled::Table;
-use crate::{mesh::traits::{Mesh, TopologicalMesh}, geometry::traits::RealNumber};
+use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber};
 use self::helpers::Edge;
-use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}};
+use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex, edges_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}, marker::CornerTableMarker};
 
 
 pub struct CornerTable<TScalar: RealNumber> {
@@ -225,6 +225,11 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
         faces_around_vertex(self, *vertex, visit);
     }
 
+    #[inline]
+    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+        edges_around_vertex(self, *vertex, visit)
+    }
+
     fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool {
         let mut walker = CornerWalker::from_vertex(self, *vertex);
         walker.next();
@@ -257,6 +262,15 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
             f1,
             self.corners[f1].get_opposite_corner_index()
         );
+    }
+}
+
+impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {
+    type Marker = CornerTableMarker<TScalar>;
+
+    #[inline]
+    fn marker(&self) -> Self::Marker {
+        return CornerTableMarker::new(&self);
     }
 }
 

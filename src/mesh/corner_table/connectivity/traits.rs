@@ -32,5 +32,50 @@ pub trait Flags {
         }
     }
 
+    #[inline]
+    fn is_marked_1(&self) -> bool {
+        unsafe {
+            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_1);
+        }
+    }
+
+    #[inline]
+    fn set_marked_1(&self, marked: bool) -> &Self {
+        unsafe {
+            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_1, marked);
+            return self;
+        }
+    }
+
+    #[inline]
+    fn is_marked_2(&self) -> bool {
+        unsafe {
+            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_2);
+        }
+    }
+
+    #[inline]
+    fn set_marked_2(&self, marked: bool) -> &Self {
+        unsafe {
+            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_2, marked);
+            return self;
+        }
+    }
+
+    #[inline]
+    fn is_marked_3(&self) -> bool {
+        unsafe {
+            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_3);
+        }
+    }
+
+    #[inline]
+    fn set_marked_3(&self, marked: bool) -> &Self {
+        unsafe {
+            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_3, marked);
+            return self;
+        }
+    }
+
     fn get_flags(&self) -> &UnsafeCell<flags::Flags>;
 }
