@@ -273,7 +273,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for LineSegment3<TScalar> {
     }
 }
 
-/// n * x + d = 0
+/// n * x - d = 0
 pub struct Plane3<TScalar: RealNumber> {
     normal: Vector3<TScalar>,
     distance: TScalar
@@ -539,6 +539,11 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
             barycoords.x * self.a.y + barycoords.y * self.b.y + barycoords.z * self.c.y,
             barycoords.x * self.a.z + barycoords.y * self.b.z + barycoords.z * self.c.z,
         );
+    }
+
+    #[inline]
+    pub fn plane(&self) -> Plane3<TScalar> {
+        return Plane3::from_points(&self.a, &self.b, &self.c);
     }
 
     /// Test triangle - bbox intersection
