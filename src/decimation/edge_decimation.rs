@@ -140,7 +140,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// ```ignore
 /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
 ///     .max_error(Some(0.00015))
-///     .min_edges_count(None);
+///     .min_faces_count(None);
 /// decimator.decimate(&mut mesh);
 /// ```
 /// 
@@ -150,7 +150,7 @@ where
     TCollapseStrategy: CollapseStrategy<TMesh>
 {
     max_error: TMesh::ScalarType,
-    min_edges_count: usize,
+    min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
     not_safe_collapses: Vec<Contraction<TMesh>>,
@@ -165,7 +165,7 @@ where
     pub fn new() -> Self {
         return Self {
             max_error: cast(0.001).unwrap(),
-            min_edges_count: 0,
+            min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
@@ -192,18 +192,18 @@ where
     }    
     
     ///
-    /// Set minimum number of edges in resulting mesh. Should be a non-zero number.
+    /// Set minimum number of faces in resulting mesh. Should be a non-zero number.
     /// By default this check is disabled.
     /// Pass `None` to disable this check.
     /// 
     #[inline]
-    pub fn min_edges_count(mut self, min_edges_count: Option<usize>) -> Self {
+    pub fn min_faces_count(mut self, min_edges_count: Option<usize>) -> Self {
         match min_edges_count {
             Some(count) => { 
-                debug_assert!(count != 0, "Min edges count should be non-zero. If was intend to disable edges count check pass None rather than zero.");
-                self.min_edges_count = count;
+                debug_assert!(count != 0, "Min faces count should be non-zero. If you was intended to disable faces count check pass None rather than zero.");
+                self.min_faces_count = count;
             },
-            None => self.min_edges_count = 0,
+            None => self.min_faces_count = 0,
         };
 
         return self;
@@ -216,12 +216,12 @@ where
     /// ```ignore
     /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
     ///     .max_error(Some(0.00015))
-    ///     .min_edges_count(None);
+    ///     .min_faces_count(None);
     /// decimator.decimate(&mut mesh);
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        debug_assert!(self.max_error.is_finite() || self.min_edges_count > 0, "Either max error or min edges count should be set.");
+        debug_assert!(self.max_error.is_finite() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -236,7 +236,7 @@ where
     fn collapse_edges(&mut self, mesh: &mut TMesh) {
         let marker = mesh.marker();
 
-        let mut remaining_edges_count = mesh.edges().count();
+        let mut remaining_faces_count = mesh.faces().count();
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
@@ -274,26 +274,26 @@ where
                 // Inform collapse strategy about collapse
                 self.collapse_strategy.collapse_edge(mesh, &best.edge);
 
-                // Update number of remaining edges
-                // If edge is on boundary 2 edges are collapsed
-                // If edge is interior then 3
+                // Update number of remaining faces
+                // If edge is on boundary 1 face is collapsed
+                // If edge is interior then 2
                 if mesh.is_edge_on_boundary(&best.edge) {
-                    remaining_edges_count -= 2;
+                    remaining_faces_count -= 1;
                 } else {
-                    remaining_edges_count -= 3;
+                    remaining_faces_count -= 2;
                 }
                 
                 // Collapse edge
                 mesh.collapse_edge(&best.edge, &collapse_at);
 
-                // Stop when number of remaining edges smaller than minimal
-                if remaining_edges_count <= self.min_edges_count {
+                // Stop when number of remaining faces smaller than minimal
+                if remaining_faces_count <= self.min_faces_count {
                     break;
                 }
             }
 
             // Stop when number of remaining edges smaller than minimal
-            if remaining_edges_count <= self.min_edges_count {
+            if remaining_faces_count <= self.min_faces_count {
                 break;
             }
 

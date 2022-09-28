@@ -30,10 +30,10 @@ remesher.remesh(&mut mesh, 0.002f32);
 ```
 
 ## Mesh simplification (decimation)
-This library implements incremental edge decimation algorithm. On each iteration edge with lowest collape cost is collapsed.
+This library implements incremental edge decimation algorithm. On each iteration edge with lowest collapse cost is collapsed.
 Several stop condition are supported:
 * *Max error* - algorithm stops when collapse lowest cost is bigger than given value
-* *Min edges count* - algorithm stops when edges count drops below given value
+* *Min faces count* - algorithm stops when faces count drops below given value
 
 ![image](https://user-images.githubusercontent.com/48240075/192602743-59d91022-4eb1-4aef-b7af-5f0b3cdcefb5.png)
 
@@ -41,14 +41,13 @@ Several stop condition are supported:
 ```rust
  let mut decimator = EdgeDecimator::new()
      .max_error(Some(0.0005))
-     .min_edges_count(Some(10000));
+     .min_faces_count(Some(10000));
  decimator.decimate(&mut mesh);
 ```
 
 ## TODO:
 - [ ] Mesh trait: move vertex normal to topological mesh
 - [ ] Mesh trait: default implementation for edge/face position using get_edge_vertices/get_face_vertices
-- [ ] Incremental decimator: use min faces count rather than edges count
 - [ ] Remesher/Corner table: handle edge boundary collapses
 - [ ] CornerTable/Remesher - preallocate estimated amount of elements for internal arrays
 - [ ] Reusable vectors across app to reduce allocations for iter macro
