@@ -46,7 +46,8 @@ pub fn create_single_face_mesh() -> CornerTableF {
     return CornerTableF::from_vertices_and_indices(&vertices, &indices);
 }
 
-pub fn create_collapse_edge_sample_mesh() -> CornerTableF {
+// Mesh with vertices around edges vertices
+pub fn create_collapse_edge_sample_mesh1() -> CornerTableF {
     let vertices = vec![
         Point3::<f32>::new(0.0, 1.0, 0.0),
         Point3::<f32>::new(0.0, 0.5, 0.0),
@@ -71,6 +72,49 @@ pub fn create_collapse_edge_sample_mesh() -> CornerTableF {
         6, 7, 9,
         7, 8, 9,
         7, 0, 8
+    ];
+
+    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+}
+
+// Mesh with vertices around one vertex of edge
+pub fn create_collapse_edge_sample_mesh2() -> CornerTableF {
+    let vertices = vec![
+        Point3::<f32>::new(0.5, 0.0, 0.0),
+        Point3::<f32>::new(1.0, 0.0, 0.0),
+        Point3::<f32>::new(1.0, 0.5, 0.0),
+        Point3::<f32>::new(1.0, 1.0, 0.0),
+        Point3::<f32>::new(0.5, 1.0, 0.0),
+        Point3::<f32>::new(0.25, 0.5, 0.0),
+        Point3::<f32>::new(0.75, 0.5, 0.0)
+    ];
+
+    let indices = vec![
+        0, 1, 6,
+        1, 2, 6,
+        2, 3, 6,
+        3, 4, 6,
+        4, 5, 6,
+        5, 0, 6
+    ];
+
+    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+}
+
+// Half star
+pub fn create_collapse_edge_sample_mesh3() -> CornerTableF {
+    let vertices = vec![
+        Point3::<f32>::new(0.0, 1.0, 0.0),
+        Point3::<f32>::new(1.0, 0.0, 0.0),
+        Point3::<f32>::new(3.0, 0.0, 0.0),
+        Point3::<f32>::new(4.0, 1.0, 0.0),
+        Point3::<f32>::new(2.0, 1.0, 0.0)
+    ];
+
+    let indices = vec![
+        0, 1, 4,
+        1, 2, 4,
+        2, 3, 4
     ];
 
     return CornerTableF::from_vertices_and_indices(&vertices, &indices);

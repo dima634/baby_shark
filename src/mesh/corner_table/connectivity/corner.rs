@@ -36,8 +36,8 @@ impl Corner {
     }
 
     #[inline]
-    pub fn set_opposite_corner_index(&mut self, index: usize) -> &mut Self {
-        self.opposite_corner_index = Some(index);
+    pub fn set_opposite_corner_index(&mut self, index: Option<usize>) -> &mut Self {
+        self.opposite_corner_index = index;
         return self;
     }
 

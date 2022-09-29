@@ -70,8 +70,8 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     /// Makes give corners opposite to each other
     #[inline]
     pub fn set_opposite_relationship(&mut self, corner1_index: usize, corner2_index: usize) {
-        self.get_corner_mut(corner1_index).unwrap().set_opposite_corner_index(corner2_index);
-        self.get_corner_mut(corner2_index).unwrap().set_opposite_corner_index(corner1_index);
+        self.get_corner_mut(corner1_index).unwrap().set_opposite_corner_index(Some(corner2_index));
+        self.get_corner_mut(corner2_index).unwrap().set_opposite_corner_index(Some(corner1_index));
     }
 
     fn corner_from(
@@ -95,9 +95,9 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
         if opposite_corner_index.is_some() {
             // Set opposite for corners
-            corner.set_opposite_corner_index(*opposite_corner_index.unwrap());
+            corner.set_opposite_corner_index(opposite_corner_index.copied());
             let opposite_corner = self.corners.get_mut(*opposite_corner_index.unwrap()).unwrap();
-            opposite_corner.set_opposite_corner_index(corner_index);
+            opposite_corner.set_opposite_corner_index(Some(corner_index));
         } else {
             // Save edge and it`s opposite corner
             edge_opposite_corner_map.insert(*opposite_edge, corner_index);

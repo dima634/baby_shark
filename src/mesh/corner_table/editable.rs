@@ -1,7 +1,39 @@
 use nalgebra::Point3;
 use crate::{mesh::{traits::{EditableMesh, TopologicalMesh, Mesh}}, geometry::traits::RealNumber};
-use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::traits::Flags};
+use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::{traits::Flags, corner}};
 
+/// Set corner for wing vertex of collapsed edge
+#[inline]
+fn set_corner_for_wing_vertex<TScalar: RealNumber>(
+    corner_table: &mut CornerTable<TScalar>, 
+    vertex_index: usize, 
+    opposite_corner_left: Option<usize>,
+    opposite_corner_right: Option<usize>
+) {
+    if let Some(corner) = opposite_corner_left {
+        corner_table.vertices[vertex_index].set_corner_index(corner::previous(corner));
+    } else if let Some(corner) = opposite_corner_right {
+        corner_table.vertices[vertex_index].set_corner_index(corner::next(corner));
+    } else {
+        corner_table.vertices[vertex_index].set_deleted(true);
+    }
+}
+
+/// Make corners opposite to each other
+#[inline]
+fn make_corners_opposite<TScalar: RealNumber>(
+    corner_table: &mut CornerTable<TScalar>, 
+    c1: Option<usize>,
+    c2: Option<usize>
+) {
+    if let Some(c1_idx) = c1 {
+        corner_table.corners[c1_idx].set_opposite_corner_index(c2);
+    }
+    
+    if let Some(c2_idx) = c2 {
+        corner_table.corners[c2_idx].set_opposite_corner_index(c1);
+    }
+}
 
 impl<TScalar: RealNumber> CornerTable<TScalar> {
     /// Splits inner edge opposite to corner at given position
@@ -109,13 +141,6 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, *edge);
 
-        // Skip collapse on boundary for now
-        // TODO: implement collapse on boundary
-        let (e_start, e_end) = self.edge_vertices(edge);
-        if self.is_vertex_on_boundary(&e_start) || self.is_vertex_on_boundary(&e_end) {
-            return;
-        }
-
         // Collect corners of faces that is going to be removed, 
         // vertices of collapsed edge and corners that going to be opposite after collapse
         let c24_idx = walker.get_corner_index();
@@ -123,37 +148,44 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 
         let c25_idx = walker.next().get_corner_index();
         let v8_idx = walker.get_corner().get_vertex_index();
-        let c21_idx = walker.get_corner().get_opposite_corner_index().unwrap();
+        let c21_idx = walker.get_corner().get_opposite_corner_index();
 
         let c26_idx = walker.next().get_corner_index();
-        let c28_idx = walker.get_corner().get_opposite_corner_index().unwrap();
-
-        let c9_idx = walker.next().opposite().get_corner_index();
-        let v3_idx = walker.get_corner().get_vertex_index();
-
-        let c10_idx = walker.next().get_corner_index();
+        let c28_idx = walker.get_corner().get_opposite_corner_index();
         let v9_idx = walker.get_corner().get_vertex_index();
-        let c6_idx = walker.get_corner().get_opposite_corner_index().unwrap();
-    
-        let c11_idx = walker.next().get_corner_index();
-        let c13_idx = walker.get_corner().get_opposite_corner_index().unwrap();
+
+        walker.next();
+
+        let mut c6_idx = None;
+        let mut c13_idx = None;
+
+        // If not boundary edge
+        if walker.get_corner().get_opposite_corner_index().is_some() {
+            let c9_idx = walker.opposite().get_corner_index();
+            let v3_idx = walker.get_corner().get_vertex_index();
+
+            let c10_idx = walker.next().get_corner_index();
+            c6_idx = walker.get_corner().get_opposite_corner_index();
+        
+            let c11_idx = walker.next().get_corner_index();
+            c13_idx = walker.get_corner().get_opposite_corner_index();
+
+            // Make sure vertices are not referencing deleted corners
+            set_corner_for_wing_vertex(self, v3_idx, c13_idx, c6_idx);
+
+            // Delete face
+            self.get_corner_mut(c9_idx).unwrap().set_deleted(true);
+            self.get_corner_mut(c10_idx).unwrap().set_deleted(true);
+            self.get_corner_mut(c11_idx).unwrap().set_deleted(true);
+        }
 
         // Make sure vertices are not referencing deleted corners
-        let c27_idx = walker.set_current_corner(c28_idx).next().get_next_corner_index();
-        let c29_idx = walker.get_corner_index();
-        let c7_idx = walker.set_current_corner(c6_idx).get_next_corner_index();
+        set_corner_for_wing_vertex(self, v7_idx, c28_idx, c21_idx);
 
-        self.get_vertex_mut(v7_idx).unwrap().set_corner_index(c27_idx);
-        self.get_vertex_mut(v3_idx).unwrap().set_corner_index(c7_idx);
-
-        // Delete corners
+        // Delete face
         self.get_corner_mut(c24_idx).unwrap().set_deleted(true);
         self.get_corner_mut(c25_idx).unwrap().set_deleted(true);
         self.get_corner_mut(c26_idx).unwrap().set_deleted(true);
-
-        self.get_corner_mut(c9_idx).unwrap().set_deleted(true);
-        self.get_corner_mut(c10_idx).unwrap().set_deleted(true);
-        self.get_corner_mut(c11_idx).unwrap().set_deleted(true);
 
         // Remove vertex on edge end
         let v9 = self.get_vertex_mut(v9_idx).unwrap();
@@ -165,13 +197,12 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
         }
 
         // Shift vertex on other side of edge
-        let v8 = self.get_vertex_mut(v8_idx).unwrap();
-        v8.set_position(*at)
-          .set_corner_index(c29_idx);
+        self.get_vertex_mut(v8_idx).unwrap().set_position(*at);
+        set_corner_for_wing_vertex(self, v8_idx, c6_idx.or(c21_idx), c28_idx.or(c13_idx));
 
         // Setup new opposites
-        self.set_opposite_relationship(c28_idx, c21_idx);
-        self.set_opposite_relationship(c6_idx, c13_idx);
+        make_corners_opposite(self, c28_idx, c21_idx);
+        make_corners_opposite(self, c6_idx, c13_idx);
     }
 
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor) {
@@ -249,7 +280,17 @@ mod tests {
     use nalgebra::Point3;
 
     use crate::mesh::{
-        corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals, create_single_face_mesh, create_unit_cross_square_mesh, create_collapse_edge_sample_mesh, create_flip_edge_sample_mesh}, 
+        corner_table::{
+            test_helpers::{
+                create_unit_square_mesh, 
+                assert_mesh_equals, 
+                create_single_face_mesh, 
+                create_unit_cross_square_mesh, 
+                create_collapse_edge_sample_mesh1, 
+                create_flip_edge_sample_mesh, 
+                create_collapse_edge_sample_mesh2, 
+                create_collapse_edge_sample_mesh3
+            }, 
         connectivity::{vertex::VertexF, corner::Corner}}, 
         traits::EditableMesh
     };
@@ -364,18 +405,18 @@ mod tests {
 
     #[test]
     fn collapse_edge() {
-        let mut mesh = create_collapse_edge_sample_mesh();
+        let mut mesh = create_collapse_edge_sample_mesh1();
 
         let expected_vertices = vec![
             VertexF::new(28, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
             VertexF::new(3, Point3::<f32>::new(0.0, 0.5, 0.0), Default::default()), // 1
             VertexF::new(6, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(7, Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 3
+            VertexF::new(12, Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 3
             VertexF::new(15, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 4
             VertexF::new(18, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 5
             VertexF::new(21, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 6
             VertexF::new(27, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 7
-            VertexF::new(29, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 8
+            VertexF::new(8, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 8
             VertexF::new(26, Point3::<f32>::new(0.75, 0.5, 0.0), Default::default()), // 9
         ];
 
@@ -423,6 +464,84 @@ mod tests {
         ];
 
         mesh.collapse_edge(&24, &Point3::new(0.5, 0.5, 0.0));
+
+        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+    }
+
+    #[test]
+    fn collapse_edge_with_one_vertex_on_boundary() {
+        let mut mesh = create_collapse_edge_sample_mesh2();
+
+        let expected_vertices = vec![
+            VertexF::new(0,  Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 0
+            VertexF::new(3, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(6, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 2
+            VertexF::new(9, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(10, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 4
+            VertexF::new(11, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 5
+            VertexF::new(17, Point3::<f32>::new(0.75, 0.5, 0.0), Default::default()), // 6
+        ];
+
+        let expected_corners = vec![
+            // opposite, vertex, flags
+            Corner::new(Some(4),  0, Default::default()), // 0
+            Corner::new(None,     1, Default::default()), // 1
+            Corner::new(None,     5, Default::default()), // 2
+    
+            Corner::new(Some(7), 1, Default::default()), // 3
+            Corner::new(Some(0), 2, Default::default()), // 4
+            Corner::new(None,    5, Default::default()), // 5
+    
+            Corner::new(Some(10), 2, Default::default()), // 6
+            Corner::new(Some(3),  3, Default::default()), // 7
+            Corner::new(None,     5, Default::default()), // 8
+    
+            Corner::new(None,     3, Default::default()), // 9
+            Corner::new(Some(6),  4, Default::default()), // 10
+            Corner::new(None,     5, Default::default()), // 11
+    
+            Corner::new(Some(16), 4, Default::default()), // 12
+            Corner::new(Some(9),  5, Default::default()), // 13
+            Corner::new(None,     5, Default::default()), // 14
+    
+            Corner::new(Some(1),  5, Default::default()), // 15
+            Corner::new(Some(12), 0, Default::default()), // 16
+            Corner::new(None,     5, Default::default()), // 17
+        ];
+
+        mesh.collapse_edge(&12, &Point3::new(0.5, 0.5, 0.0));
+
+        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+    }
+
+    #[test]
+    fn collapse_boundary_edge() {
+        let mut mesh = create_collapse_edge_sample_mesh3();
+
+        let expected_vertices = vec![
+            VertexF::new(0,  Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(6,  Point3::<f32>::new(2.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(6,  Point3::<f32>::new(3.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(7,  Point3::<f32>::new(4.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(2,  Point3::<f32>::new(2.0, 1.0, 0.0), Default::default()), // 4
+        ];
+
+        let expected_corners = vec![
+            // opposite, vertex, flags
+            Corner::new(Some(7),  0, Default::default()), // 0
+            Corner::new(None,     1, Default::default()), // 1
+            Corner::new(None,     4, Default::default()), // 2
+    
+            Corner::new(Some(7), 1, Default::default()), // 3
+            Corner::new(Some(0), 1, Default::default()), // 4
+            Corner::new(None,    4, Default::default()), // 5
+    
+            Corner::new(None,    1, Default::default()), // 6
+            Corner::new(Some(0), 3, Default::default()), // 7
+            Corner::new(None,    4, Default::default()), // 8
+        ];
+
+        mesh.collapse_edge(&5, &Point3::new(2.0, 0.0, 0.0));
 
         assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
     }

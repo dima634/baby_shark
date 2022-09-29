@@ -61,7 +61,7 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 
     #[inline]
-    pub fn set_corner_index(&mut self, index:  usize) -> &mut Self {
+    pub fn set_corner_index(&mut self, index: usize) -> &mut Self {
         self.corner_index = index;
         return self;
     }
