@@ -23,8 +23,6 @@ impl<TScalar: RealNumber> Hash for HashablePoint<TScalar> {
         hash = combine_hash(hash, hash_float(self.0[1]));
         hash = combine_hash(hash, hash_float(self.0[2]));
 
-        //println!("{}", hash);
-
         state.write_i32(hash);
     }
 }
