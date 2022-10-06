@@ -1,1 +1,1 @@
-mod reeb_graph;
+pub mod reeb_graph;
