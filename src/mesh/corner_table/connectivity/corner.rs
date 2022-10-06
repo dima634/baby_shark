@@ -101,6 +101,11 @@ pub fn first_corner(face: usize) -> usize {
     return face * 3;
 }
 
+#[inline]
+pub fn first_corner_from_corner(face_index: usize) -> usize {
+    return first_corner(face(face_index));
+}
+
 /// Returns true when `corner` is part `face`
 #[inline]
 pub fn face_contains_corner(face: usize, corner: usize) -> bool {

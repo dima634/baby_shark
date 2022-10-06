@@ -1,6 +1,6 @@
 use crate::{geometry::traits::RealNumber, mesh::traits::{Marker, Mesh}};
 
-use super::{corner_table::CornerTable, connectivity::traits::Flags};
+use super::{corner_table::CornerTable, connectivity::{traits::Flags, corner}};
 
 /// Implementation of [Marker] API for [CornerTable] 
 pub struct CornerTableMarker<TScalar: RealNumber> {
@@ -20,18 +20,15 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     //
 
     #[inline]
-    fn mark_face(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor) {
-        unsafe { (*self.corner_table).corners[*face].set_marked_1(true); }
-    }
-
-    #[inline]
-    fn unmark_face(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor) {
-        unsafe { (*self.corner_table).corners[*face].set_marked_1(false); }
+    fn mark_face(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor, marked: bool) {
+        let first_corner = corner::first_corner_from_corner(*face);
+        unsafe { (*self.corner_table).corners[first_corner].set_marked_1(marked); }
     }
 
     #[inline]
     fn is_face_marked(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor) -> bool {
-        unsafe { return (*self.corner_table).corners[*face].is_marked_1(); }
+        let first_corner = corner::first_corner_from_corner(*face);
+        unsafe { return (*self.corner_table).corners[first_corner].is_marked_1(); }
     }
 
     //
@@ -39,13 +36,8 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     //
 
     #[inline]
-    fn mark_vertex(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor) {
-        unsafe { (*self.corner_table).vertices[*vertex].set_marked_1(true); }
-    }
-
-    #[inline]
-    fn unmark_vertex(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor) {
-        unsafe { (*self.corner_table).vertices[*vertex].set_marked_1(false); }
+    fn mark_vertex(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor, marked: bool) {
+        unsafe { (*self.corner_table).vertices[*vertex].set_marked_1(marked); }
     }
 
     #[inline]
@@ -58,13 +50,15 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     // 
 
     #[inline]
-    fn mark_edge(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor)  {
-        unsafe { (*self.corner_table).corners[*edge].set_marked_2(true); }
-    }
-
-    #[inline]
-    fn unmark_edge(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor) {
-        unsafe { (*self.corner_table).corners[*edge].set_marked_2(false); }
+    fn mark_edge(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor, marked: bool)  {
+        unsafe { 
+            let corner = &(*self.corner_table).corners[*edge];
+            corner.set_marked_2(marked);
+    
+            if let Some(opposite) = corner.get_opposite_corner_index() {
+                (*self.corner_table).corners[opposite].set_marked_2(marked); 
+            }
+        }
     }
 
     #[inline]
