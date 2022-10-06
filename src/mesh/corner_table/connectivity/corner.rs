@@ -102,8 +102,8 @@ pub fn first_corner(face: usize) -> usize {
 }
 
 #[inline]
-pub fn first_corner_from_corner(face_index: usize) -> usize {
-    return first_corner(face(face_index));
+pub fn first_corner_from_corner(corner: usize) -> usize {
+    return first_corner(face(corner));
 }
 
 /// Returns true when `corner` is part `face`

@@ -136,6 +136,9 @@ pub trait TopologicalMesh: Mesh + Sized{
 
     /// Returns incident faces of edge
     fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>);
+
+    /// Returns edges of face
+    fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor);
 }
 
 ///

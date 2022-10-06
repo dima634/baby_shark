@@ -3,7 +3,22 @@ use nalgebra::{Point3, Vector3};
 use tabled::Table;
 use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber};
 use self::helpers::Edge;
-use super::{traversal::{CornerTableFacesIter, CornerTableVerticesIter, CornerTableEdgesIter, CornerWalker, faces_around_vertex, vertices_around_vertex, edges_around_vertex}, connectivity::{corner::Corner, vertex::Vertex}, marker::CornerTableMarker};
+use super::{
+    traversal::{
+        CornerTableFacesIter, 
+        CornerTableVerticesIter, 
+        CornerTableEdgesIter, 
+        CornerWalker, 
+        faces_around_vertex, 
+        vertices_around_vertex, 
+        edges_around_vertex
+    }, 
+    connectivity::{
+        corner::{Corner, first_corner_from_corner}, 
+        vertex::Vertex
+    }, 
+    marker::CornerTableMarker
+};
 
 
 pub struct CornerTable<TScalar: RealNumber> {
@@ -261,6 +276,16 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
         return (
             f1,
             self.corners[f1].get_opposite_corner_index()
+        );
+    }
+
+    #[inline]
+    fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor) {
+        let first_corner = first_corner_from_corner(*face);
+        return (
+            first_corner,
+            first_corner + 1,
+            first_corner + 2
         );
     }
 }
