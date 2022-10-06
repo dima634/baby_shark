@@ -20,7 +20,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     //
 
     #[inline]
-    fn mark_face(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor, marked: bool) {
+    fn mark_face(&mut self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor, marked: bool) {
         let first_corner = corner::first_corner_from_corner(*face);
         unsafe { (*self.corner_table).corners[first_corner].set_marked_1(marked); }
     }
@@ -36,7 +36,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     //
 
     #[inline]
-    fn mark_vertex(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor, marked: bool) {
+    fn mark_vertex(&mut self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor, marked: bool) {
         unsafe { (*self.corner_table).vertices[*vertex].set_marked_1(marked); }
     }
 
@@ -50,7 +50,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     // 
 
     #[inline]
-    fn mark_edge(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor, marked: bool)  {
+    fn mark_edge(&mut self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor, marked: bool)  {
         unsafe { 
             let corner = &(*self.corner_table).corners[*edge];
             corner.set_marked_2(marked);

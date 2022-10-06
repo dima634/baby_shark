@@ -161,13 +161,13 @@ pub trait EditableMesh: Mesh {
 /// Is used by some algorithms to mark processed faces/edges/vertices.
 /// 
 pub trait Marker<TMesh: Mesh> {
-    fn mark_face(&self, face: &TMesh::FaceDescriptor, marked: bool);
+    fn mark_face(&mut self, face: &TMesh::FaceDescriptor, marked: bool);
     fn is_face_marked(&self, face: &TMesh::FaceDescriptor) -> bool;
     
-    fn mark_vertex(&self, vertex: &TMesh::VertexDescriptor, marked: bool);
+    fn mark_vertex(&mut self, vertex: &TMesh::VertexDescriptor, marked: bool);
     fn is_vertex_marked(&self, vertex: &TMesh::VertexDescriptor) -> bool;
     
-    fn mark_edge(&self, edge: &TMesh::EdgeDescriptor, marked: bool);
+    fn mark_edge(&mut self, edge: &TMesh::EdgeDescriptor, marked: bool);
     fn is_edge_marked(&self, edge: &TMesh::EdgeDescriptor) -> bool;
 }
 

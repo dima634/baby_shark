@@ -234,7 +234,7 @@ where
 
     /// Collapse edges
     fn collapse_edges(&mut self, mesh: &mut TMesh) {
-        let marker = mesh.marker();
+        let mut marker = mesh.marker();
 
         let mut remaining_faces_count = mesh.faces().count();
 
@@ -257,7 +257,7 @@ where
 
                 // Need to update collapse cost?
                 if marker.is_edge_marked(&best.edge) {
-                    marker.unmark_edge(&best.edge);
+                    marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
                     if best.cost < self.max_error {
@@ -268,8 +268,8 @@ where
                 }        
                 
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(&v1, |edge| marker.mark_edge(edge));
-                mesh.edges_around_vertex(&v2, |edge| marker.mark_edge(edge));
+                mesh.edges_around_vertex(&v1, |edge| marker.mark_edge(edge, true));
+                mesh.edges_around_vertex(&v2, |edge| marker.mark_edge(edge, true));
 
                 // Inform collapse strategy about collapse
                 self.collapse_strategy.collapse_edge(mesh, &best.edge);
