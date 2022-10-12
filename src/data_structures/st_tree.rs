@@ -2,8 +2,8 @@ use std::cmp::{Ordering};
 
 pub type NodeIndex = usize;
 
-pub struct STTree<TCostType: PartialOrd> {
-    nodes: Vec<Node<TCostType>>
+pub struct STTree<TWeightType: PartialOrd> {
+    nodes: Vec<Node<TWeightType>>
 }
 
 impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
@@ -64,29 +64,20 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
         n1.weight = weight;
     }
 
-    pub fn cut(&mut self, n1: NodeIndex, n2: NodeIndex) {
+    pub fn cut(&mut self, n1: NodeIndex, n2: NodeIndex) -> Result<(), ()> {
         let node1 = &self.nodes[n1];
         let node2 = &self.nodes[n1];
 
         match (node1.parent, node2.parent) {
-            (None, None) => debug_assert!(false),
-            (None, Some(n2_parent)) => {
-                debug_assert!(n2_parent == n1);
-                self.nodes[n2].parent = None;
-            },
-            (Some(n1_parent), None) => {
-                debug_assert!(n1_parent == n2);
+            (Some(n1_parent), _) if n1_parent == n2 => {
                 self.nodes[n1].parent = None;
+                return Ok(());
             },
-            (Some(n1_parent), Some(n2_parent)) => {
-                if n1_parent == n2 {
-                    self.nodes[n1].parent = None;
-                } else if n2_parent == n1  {
-                    self.nodes[n2].parent = None;
-                } else {
-                    debug_assert!(false);
-                }
+            (_, Some(n2_parent)) if n2_parent == n1 => {
+                self.nodes[n2].parent = None;
+                return Ok(());
             },
+            _ => Err(())
         }
     }
 
