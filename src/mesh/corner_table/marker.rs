@@ -52,7 +52,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     #[inline]
     fn mark_edge(&mut self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor, marked: bool)  {
         unsafe { 
-            let corner = &(*self.corner_table).corners[*edge];
+            let corner = &(*self.corner_table).corners[edge.get_corner_index()];
             corner.set_marked_2(marked);
     
             if let Some(opposite) = corner.get_opposite_corner_index() {
@@ -63,6 +63,6 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
 
     #[inline]
     fn is_edge_marked(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor) -> bool {
-        unsafe { return (*self.corner_table).corners[*edge].is_marked_2(); }
+        unsafe { return (*self.corner_table).corners[edge.get_corner_index()].is_marked_2(); }
     }
 }
