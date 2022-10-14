@@ -17,7 +17,7 @@ use super::{
         corner::{Corner, first_corner_from_corner}, 
         vertex::Vertex
     }, 
-    marker::CornerTableMarker
+    marker::CornerTableMarker, descriptors::EdgeRef
 };
 
 
@@ -135,7 +135,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type ScalarType = TScalar;
 
     /// Index of corner opposite to edge
-    type EdgeDescriptor = usize;
+    type EdgeDescriptor = EdgeRef;
     /// Vertex index
     type VertexDescriptor = usize;
     /// Index of one of face corners
@@ -198,7 +198,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
     #[inline]
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
-        let mut walker = CornerWalker::from_corner(self, *edge);
+        let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
         return (
             *walker.next().get_vertex().get_position(),
             *walker.next().get_vertex().get_position()
@@ -207,7 +207,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
     #[inline]
     fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
-        let mut walker = CornerWalker::from_corner(self, *edge);
+        let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
         return (
             walker.next().get_corner().get_vertex_index(),
             walker.next().get_corner().get_vertex_index()
@@ -267,12 +267,12 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
 
     #[inline]
     fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool {
-        return self.corners[*edge].get_opposite_corner_index().is_none();
+        return self.corners[edge.get_corner_index()].get_opposite_corner_index().is_none();
     }
 
     #[inline]
     fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>) {
-        let f1 = *edge;
+        let f1 = edge.get_corner_index();
         return (
             f1,
             self.corners[f1].get_opposite_corner_index()
@@ -283,9 +283,9 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor) {
         let first_corner = first_corner_from_corner(*face);
         return (
-            first_corner,
-            first_corner + 1,
-            first_corner + 2
+            Self::EdgeDescriptor::new(first_corner, self),
+            Self::EdgeDescriptor::new(first_corner + 1, self),
+            Self::EdgeDescriptor::new(first_corner + 2, self)
         );
     }
 }
