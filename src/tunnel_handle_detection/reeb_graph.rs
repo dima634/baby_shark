@@ -69,7 +69,7 @@ impl<'a, TMesh: TopologicalMesh> ReebGraphBuilder<'a, TMesh> {
             let a1 = self.add_arc(&e1);
             let a2 = self.add_arc(&e2);
 
-
+            
         }
 
         return self.graph;
