@@ -6,7 +6,7 @@ pub struct STTree<TWeightType: PartialOrd> {
     nodes: Vec<Node<TWeightType>>
 }
 
-impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
+impl<TWeight: Ord + Copy> STTree<TWeight> {
     pub fn new() -> Self {
         return Self {
             nodes: Vec::new()
@@ -14,8 +14,14 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
     }
 
     #[inline]
+    pub fn create_node(&mut self) -> NodeIndex {
+        self.nodes.push(Node::new(None));
+        return self.nodes.len() - 1;
+    }
+
+    #[inline]
     pub fn parent(&self, node: NodeIndex) -> Option<NodeIndex> {
-        return self.nodes[node].parent;
+        return self.nodes[node].parent.and_then(|(parent_index, _)| Some(parent_index));
     }
 
     #[inline]
@@ -24,13 +30,13 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
     }
 
     #[inline]
-    pub fn root_path(&self, node: NodeIndex) -> RootPath<'_, TWeightType> {
+    pub fn root_path(&self, node: NodeIndex) -> RootPath<'_, TWeight> {
         return RootPath::new(self, node);
     }
 
     #[inline]
-    pub fn weight(&self, node: NodeIndex) -> &TWeightType {
-        return &self.nodes[node].weight;
+    pub fn weight(&self, node: NodeIndex) -> Option<TWeight> {
+        return self.nodes[node].parent.and_then(|(_, weight)| Some(weight));
     }
 
     #[inline]
@@ -49,19 +55,17 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
                 return Ordering::Less;
             }
 
-            let order = node1.weight.partial_cmp(&node2.weight);
-            return order.unwrap_or(Ordering::Greater);
+            return node1.parent.unwrap().1.cmp(&node2.parent.unwrap().1);
         }).unwrap();
     }
 
     #[inline]
-    pub fn link(&mut self, node1: NodeIndex, node2: NodeIndex, weight: TWeightType) {
+    pub fn link(&mut self, node1: NodeIndex, node2: NodeIndex, weight: TWeight) {
         debug_assert!(self.root(node1) != self.root(node2));
 
         self.evert(node1);
         let n1 = &mut self.nodes[node1];
-        n1.parent = Some(node2);
-        n1.weight = weight;
+        n1.parent = Some((node2, weight));
     }
 
     pub fn cut(&mut self, n1: NodeIndex, n2: NodeIndex) -> Result<(), ()> {
@@ -69,11 +73,11 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
         let node2 = &self.nodes[n1];
 
         match (node1.parent, node2.parent) {
-            (Some(n1_parent), _) if n1_parent == n2 => {
+            (Some((n1_parent, _)), _) if n1_parent == n2 => {
                 self.nodes[n1].parent = None;
                 return Ok(());
             },
-            (_, Some(n2_parent)) if n2_parent == n1 => {
+            (_, Some((n2_parent, _))) if n2_parent == n1 => {
                 self.nodes[n2].parent = None;
                 return Ok(());
             },
@@ -81,46 +85,21 @@ impl<TWeightType: PartialOrd + Copy> STTree<TWeightType> {
         }
     }
 
+    #[inline]
     pub fn evert(&mut self, node: NodeIndex) {
-        if self.root(node).is_none() {
-            return;
-        }
+        self.evert_node(node, None);
+    }
 
-        let mut current = node;
-        let current_node = &self.nodes[current];
-
-        let mut parent = current_node.parent;
-        let mut parent_weight = current_node.weight;
-        let parent_node = &self.nodes[current_node.parent.unwrap()];
-  
-        let mut grand_parent = parent_node.parent;
-        let mut grand_parent_weight = parent_node.weight;
-  
-        self.nodes[current].parent = None;
-  
-        // Reverse all nodes until the root
-        loop {
-            let parent_node = &mut self.nodes[parent.unwrap()];
-            parent_node.parent = Some(current);
-            parent_node.weight = parent_weight;
-    
-            current = parent.unwrap();
-            parent = grand_parent;
-            parent_weight = grand_parent_weight;
-    
-            if let Some(grand_parent_index) = grand_parent {
-                let grand_parent_node = &mut self.nodes[grand_parent_index];
-                grand_parent_weight = grand_parent_node.weight;
-                grand_parent = grand_parent_node.parent;
-            } else {
-                break;
-            }
+    fn evert_node(&mut self, node: usize, new_parent: Option<(usize, TWeight)>) {
+        if let Some((_, weight)) = self.nodes[node].parent {
+            self.evert_node(node, Some((node, weight)));
+            self.nodes[node].parent = new_parent;
         }
     }
 }
 
-pub struct RootPath<'a, TCostType: PartialOrd> {
-    st_tree: &'a STTree<TCostType>,
+pub struct RootPath<'a, TWeight: PartialOrd> {
+    st_tree: &'a STTree<TWeight>,
     current: Option<NodeIndex>
 }
 
@@ -133,14 +112,14 @@ impl<'a, TCostType: PartialOrd> RootPath<'a, TCostType> {
     }
 }
 
-impl<'a, TCostType: PartialOrd> Iterator for RootPath<'a, TCostType> {
+impl<'a, TCostType: PartialOrd + Copy> Iterator for RootPath<'a, TCostType> {
     type Item = NodeIndex;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         return match self.current {
             Some(current_index) => {
-                self.current = self.st_tree.nodes[current_index].parent;
+                let parent = &self.st_tree.nodes[current_index].parent;
+                self.current = parent.and_then(|(parent_index, _)| Some(parent_index));
                 return Some(current_index);
             },
             None => None,
@@ -148,18 +127,12 @@ impl<'a, TCostType: PartialOrd> Iterator for RootPath<'a, TCostType> {
     }
 }
 
-struct Node<TCostType> {
-    weight: TCostType,
-    parent: Option<NodeIndex>
+struct Node<TWeight> {
+    parent: Option<(NodeIndex, TWeight)>
 }
 
-impl<TCostType> Node<TCostType> {
-    pub fn new(weight: TCostType, parent: Option<NodeIndex>) -> Self { 
-        return Self { weight, parent };
-    }
-
-    #[inline]
-    pub fn is_root(&self) -> bool {
-        return self.parent.is_none();
+impl<TWeight> Node<TWeight> {
+    pub fn new(parent: Option<(NodeIndex, TWeight)>) -> Self { 
+        return Self { parent };
     }
 }
