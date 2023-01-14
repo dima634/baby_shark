@@ -1,0 +1,275 @@
+use std::{mem::swap, cmp::{min, max}};
+
+use crate::{mesh::traits::{Mesh, VertexProperties, TopologicalMesh}, geometry::traits::RealNumber, helpers::utils::sort3};
+
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
+pub struct ReebValue<TScalar: RealNumber>(TScalar);
+
+impl<TScalar: RealNumber> ReebValue<TScalar> {
+    pub fn new(value: TScalar) -> Self {
+        return Self(value);
+    }
+
+    #[inline]
+    pub fn value(&self) -> TScalar {
+        return self.0;
+    }
+}
+
+impl<TScalar: RealNumber> Eq for ReebValue<TScalar> {}
+
+impl<TScalar: RealNumber> Ord for ReebValue<TScalar> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        return self.partial_cmp(other).unwrap();
+    }
+}
+
+impl<TScalar: RealNumber> Default for ReebValue<TScalar> {
+    #[inline]
+    fn default() -> Self {
+        return Self(TScalar::neg_infinity())
+    }
+}
+
+pub type ReebValues<TMesh> = <TMesh as VertexProperties>::VertexPropertyMap<ReebValue<<TMesh as Mesh>::ScalarType>>;
+
+pub struct OrderedVertex<TMesh: Mesh> {
+    vertex: TMesh::VertexDescriptor,
+    reeb_value: ReebValue<TMesh::ScalarType>
+}
+
+impl<TMesh: Mesh> Copy for OrderedVertex<TMesh> {}
+impl<TMesh: Mesh> Clone for OrderedVertex<TMesh> {
+    fn clone(&self) -> Self {
+        return Self { vertex: self.vertex.clone(), reeb_value: self.reeb_value.clone() };
+    }
+}
+
+impl<TMesh: Mesh> OrderedVertex<TMesh> {
+    pub fn new(vertex: TMesh::VertexDescriptor, reeb_value: ReebValue<TMesh::ScalarType>) -> Self { 
+        return Self { vertex, reeb_value };
+    }
+
+    #[inline]
+    pub fn vertex(&self) -> &TMesh::VertexDescriptor {
+        return &self.vertex;
+    }
+
+    #[inline]
+    pub fn is_same_vertex(&self, other: &OrderedVertex<TMesh>) -> bool {
+        return self.vertex == other.vertex;
+    }
+}
+
+impl<TMesh: Mesh> PartialEq for OrderedVertex<TMesh> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        return self.reeb_value == other.reeb_value;
+    }
+}
+
+impl<TMesh: Mesh> Eq for OrderedVertex<TMesh> {}
+
+impl<TMesh: Mesh> PartialOrd for OrderedVertex<TMesh> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        return Some(self.cmp(other));
+    }
+}
+
+impl<TMesh: Mesh> Ord for OrderedVertex<TMesh> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        return self.reeb_value.cmp(&other.reeb_value);
+    }
+}
+
+
+pub struct OrderedEdge<TMesh: Mesh> {
+    start: OrderedVertex<TMesh>,
+    end: OrderedVertex<TMesh>,
+    edge: TMesh::EdgeDescriptor,
+    order: u8
+}
+
+impl<TMesh: Mesh + VertexProperties> OrderedEdge<TMesh> {
+    pub fn from_edge(
+        edge: TMesh::EdgeDescriptor, 
+        mesh: &TMesh, 
+        reeb_values: &ReebValues<TMesh>,
+        bottom_vertex: &OrderedVertex<TMesh>,
+        top_vertex: &OrderedVertex<TMesh>
+    ) -> Self {
+        let (v1, v2) = mesh.edge_vertices(&edge);
+
+        let mut start = OrderedVertex::new(v1, reeb_values[v1]);
+        let mut end = OrderedVertex::new(v2, reeb_values[v2]);
+
+        // if end < start {
+        //     swap(&mut end, &mut start);
+        // }
+
+        if end.is_same_vertex(bottom_vertex) || start.is_same_vertex(top_vertex) {
+            swap(&mut end, &mut start);
+        }
+
+        let mut order = 0;
+        
+        if start.is_same_vertex(bottom_vertex) && end.is_same_vertex(top_vertex) {
+            order = 2;
+        } else if end.is_same_vertex(top_vertex) {
+            order = 1;
+        }
+
+        let ordered_edge = Self {
+            edge,
+            start,
+            end,
+            order
+        };
+
+        return ordered_edge;
+    }
+
+    #[inline]
+    pub fn edge(&self) -> &TMesh::EdgeDescriptor {
+        return &self.edge;
+    }
+
+    #[inline]
+    pub fn start(&self) -> &OrderedVertex<TMesh> {
+        return &self.start;
+    }
+    
+    #[inline]
+    pub fn end(&self) -> &OrderedVertex<TMesh> {
+        return &self.end;
+    }
+}
+impl<TMesh: Mesh + VertexProperties> Eq for OrderedEdge<TMesh> {}
+impl<TMesh: Mesh + VertexProperties> PartialEq for OrderedEdge<TMesh> {
+    #[inline]
+    fn eq(&self, _other: &Self) -> bool {
+        return false;
+    }
+}
+
+impl<TMesh: Mesh + VertexProperties> Ord for OrderedEdge<TMesh> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        return self.order.cmp(&other.order);
+    }
+}
+
+impl<TMesh: Mesh + VertexProperties> PartialOrd for OrderedEdge<TMesh> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        return Some(self.cmp(other));
+    }
+}
+
+pub struct OrderedTriangle<TMesh: Mesh> {
+    e1: OrderedEdge<TMesh>,
+    e2: OrderedEdge<TMesh>,
+    e3: OrderedEdge<TMesh>,
+
+    bottom_vertex: OrderedVertex<TMesh>,
+    middle_vertex: OrderedVertex<TMesh>,
+    top_vertex: OrderedVertex<TMesh>
+}
+
+impl<TMesh: Mesh + TopologicalMesh + VertexProperties> OrderedTriangle<TMesh> {
+    pub fn from_face(face: &TMesh::FaceDescriptor, mesh: &TMesh, reeb_values: &ReebValues<TMesh>) -> Self {
+        let (v1, v2, v3) = mesh.face_vertices(face);
+        let mut ordered_v1 = OrderedVertex::new(v1, reeb_values[v1]);
+        let mut ordered_v2 = OrderedVertex::new(v2, reeb_values[v2]);
+        let mut ordered_v3 = OrderedVertex::new(v3, reeb_values[v3]);
+        sort3(&mut ordered_v1, &mut ordered_v2, &mut ordered_v3);
+
+        let (e1, e2, e3) = mesh.face_edges(face);
+        let mut ordered_e1 = OrderedEdge::from_edge(e1, mesh, reeb_values, &ordered_v1, &ordered_v3);
+        let mut ordered_e2 = OrderedEdge::from_edge(e2, mesh, reeb_values, &ordered_v1, &ordered_v3);
+        let mut ordered_e3 = OrderedEdge::from_edge(e3, mesh, reeb_values, &ordered_v1, &ordered_v3);
+        sort3(&mut ordered_e1, &mut ordered_e2, &mut ordered_e3);
+    
+        return  Self {
+            bottom_vertex: ordered_v1,
+            middle_vertex: ordered_v2,
+            top_vertex: ordered_v3,
+
+            e1: ordered_e1,
+            e2: ordered_e2,
+            e3: ordered_e3
+        };
+    }
+
+    /// Returns edge connecting bottom and middle vertices
+    #[inline]
+    pub fn e1(&self) -> &OrderedEdge<TMesh> {
+        return &self.e1;
+    }
+
+    /// Returns edge connecting middle and top vertices
+    #[inline]
+    pub fn e2(&self) -> &OrderedEdge<TMesh> {
+        return &self.e2;
+    }
+
+    /// Returns edge connecting top and bottom vertices
+    #[inline]
+    pub fn e3(&self) -> &OrderedEdge<TMesh> {
+        return &self.e3;
+    }
+
+    #[inline]
+    pub fn bottom_vertex(&self) -> &OrderedVertex<TMesh> {
+        return &self.bottom_vertex;
+    }
+
+    #[inline]
+    pub fn middle_vertex(&self) -> &OrderedVertex<TMesh> {
+        return &self.middle_vertex;
+    }
+
+    #[inline]
+    pub fn top_vertex(&self) -> &OrderedVertex<TMesh> {
+        return &self.top_vertex;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nalgebra::Point3;
+
+    use crate::mesh::{corner_table::prelude::CornerTableF, traits::{Mesh, VertexProperties}};
+
+    use super::{OrderedTriangle, ReebValue};
+
+    #[test]
+    fn test_create_from_face() {
+        let vertices = vec![
+            Point3::<f32>::new(0.0, 1.0, 0.0),
+            Point3::<f32>::new(0.0, 0.0, 0.0),
+            Point3::<f32>::new(0.0, 0.5, 0.0)
+        ];
+        let indices = vec![0, 1, 2];
+        let mesh =  CornerTableF::from_vertices_and_indices(&vertices, &indices);
+
+        let mut reeb_values = mesh.create_vertex_properties_map();
+        for vertex in mesh.vertices() {
+            reeb_values[vertex] = ReebValue::new(mesh.vertex_position(&vertex).y);
+        }
+
+        let ordered_face = OrderedTriangle::from_face(&mesh.faces().next().unwrap(), &mesh, &reeb_values);
+        
+        let mut vertices = mesh.vertices();
+        let v1 = vertices.next().unwrap();
+        let v2 = vertices.next().unwrap();
+        let v3 = vertices.next().unwrap();
+
+        assert_eq!(ordered_face.top_vertex().vertex(), &v1);
+        assert_eq!(ordered_face.bottom_vertex().vertex(), &v2);
+        assert_eq!(ordered_face.middle_vertex().vertex(), &v3);
+    }
+}
