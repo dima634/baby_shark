@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display, fs::OpenOptions, path::Path, io::{
 use petgraph::{prelude::{StableDiGraph, NodeIndex, EdgeIndex}, dot::Dot, visit::EdgeRef};
 use crate::mesh::traits::{TopologicalMesh, Mesh, VertexProperties, Marker, MeshMarker};
 
-use super::ordered_triangle::{OrderedTriangle, ReebValue, OrderedEdge};
+use super::ordered_triangle::{OrderedTriangle, ReebValue, OrderedEdge, ReebFunction, OrderedVertex};
 
 type ArcIdx = EdgeIndex<usize>;
 type NodeIdx = NodeIndex<usize>;
@@ -36,12 +36,12 @@ impl<TMesh: Mesh> Display for ArcData<TMesh> {
 }
 
 pub struct NodeData<TMesh: Mesh> {
-    vertex: TMesh::VertexDescriptor,
+    vertex: OrderedVertex<TMesh>,
     reeb_value: ReebValue<TMesh::ScalarType>
 }
 
 impl<TMesh: Mesh> NodeData<TMesh> {
-    fn new(vertex: TMesh::VertexDescriptor, reeb_value: TMesh::ScalarType) -> Self { 
+    fn new(vertex: OrderedVertex<TMesh>, reeb_value: TMesh::ScalarType) -> Self { 
         return Self { vertex, reeb_value: ReebValue::new(reeb_value) };
     }
 }
@@ -49,11 +49,9 @@ impl<TMesh: Mesh> NodeData<TMesh> {
 impl<TMesh: Mesh> Display for NodeData<TMesh> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{}:{}", self.vertex, self.reeb_value.value());
+        return write!(f, "{}:{}", self.vertex.vertex(), self.reeb_value.value());
     }
 }
-
-pub type ReebFunction<TMesh: Mesh> = fn(&TMesh, &TMesh::VertexDescriptor) -> TMesh::ScalarType;
 
 pub struct ReebGraph<TMesh: TopologicalMesh> {
     graph: StableDiGraph<NodeData<TMesh>, ArcData<TMesh>, usize>,
@@ -83,14 +81,21 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
         for vertex in mesh.vertices() {
             let reeb_value = (self.reeb_func)(mesh, &vertex);
             reeb_values[vertex] = ReebValue::new(reeb_value);
-            let weight = NodeData::new(vertex, reeb_value);
+        }
+
+        let vertex_order = OrderedVertex::order_mesh_vertices(mesh, &reeb_values);
+
+        for vertex in mesh.vertices() {
+            let reeb_value = reeb_values[vertex];
+            let ordered_vertex = OrderedVertex::new(vertex, reeb_value, vertex_order[vertex]);
+            let weight = NodeData::new(ordered_vertex, reeb_value.value());
             let node = self.graph.add_node(weight);
             self.vertex_node_map.insert(vertex, node);
         }
 
         let mut marker = mesh.marker();
         for face in mesh.faces() {
-            let ordered_face = OrderedTriangle::from_face(&face, mesh, &reeb_values);
+            let ordered_face = OrderedTriangle::from_face(&face, mesh, &reeb_values, &vertex_order);
 
             let a1 = self.create_arc(ordered_face.e1(), &mut marker);
             let a2 = self.create_arc(ordered_face.e2(), &mut marker);
@@ -143,7 +148,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
             let a1_start = self.bottom(a1);
             let a2_start = self.bottom(a2);
 
-            if a1_start.reeb_value < a2_start.reeb_value {
+            if a1_start.vertex < a2_start.vertex {
                 (a2_next, a1_next) = self.merge(a2, a1, e2, e1);
             } else {
                 (a1_next, a2_next) = self.merge(a1, a2, e1, e2);
