@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{hash::Hash, fmt::Display, ops::{Index, IndexMut}};
 
 use nalgebra::{Point3, Vector3};
 
@@ -24,9 +24,9 @@ pub trait Vertex {
 pub trait Mesh {
     type ScalarType: RealNumber;
 
-    type EdgeDescriptor: Ord + Clone + Copy + Hash;
-    type VertexDescriptor: Ord + Clone + Copy + Hash;
-    type FaceDescriptor: Ord + Clone + Copy + Hash;
+    type EdgeDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
+    type VertexDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
+    type FaceDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
 
     type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
     type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
@@ -180,6 +180,26 @@ pub trait MeshMarker: Mesh + Sized {
 
     /// Returns marker
     fn marker(&self) -> Self::Marker;
+}
+
+/// Property map. Can be used for fast access to properties of given entity.
+pub trait PropertyMap<TKey, TProperty>: 
+    Index<TKey, Output = TProperty> +
+    IndexMut<TKey, Output = TProperty>
+{
+    fn get(&self, key: &TKey) -> Option<&TProperty>;
+    fn get_mut(&mut self, key: &TKey) -> Option<&mut TProperty>;
+}
+
+///
+/// Mesh that supports property maps for vertices.
+/// Vertex-property map can be used to associate arbitrary data with vertices of mesh with fast access to it by vertex reference.
+/// Property map is guaranteed to be valid as far as mesh is not modified.
+/// 
+pub trait VertexProperties: Mesh {
+    type VertexPropertyMap<TProperty: Default>: PropertyMap<Self::VertexDescriptor, TProperty>;
+
+    fn create_vertex_properties_map<TProperty: Default>(&self) -> Self::VertexPropertyMap<TProperty>;
 }
 
 /// Contains constants which defines what is good mesh

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, fs::OpenOptions, path::Path, io::{BufWriter, Write}, str::FromStr};
+use std::{collections::HashMap, fmt::Display, fs::OpenOptions, path::Path, io::{BufWriter, Write}, str::FromStr, mem::swap};
 
 use petgraph::{prelude::{StableDiGraph, NodeIndex, EdgeIndex}, dot::Dot, visit::EdgeRef};
 use crate::mesh::traits::{TopologicalMesh, Mesh, VertexProperties, Marker, MeshMarker};
@@ -95,21 +95,22 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
 
         let mut marker = mesh.marker();
         for face in mesh.faces() {
-            let ordered_face = OrderedTriangle::from_face(&face, mesh, &reeb_values, &vertex_order);
+             let ordered_face = OrderedTriangle::from_face(&face, mesh, &reeb_values, &vertex_order);
 
             let a1 = self.create_arc(ordered_face.e1(), &mut marker);
             let a2 = self.create_arc(ordered_face.e2(), &mut marker);
-            let a3 = self.create_arc(ordered_face.e3(), &mut marker);
+            let mut a3 = self.create_arc(ordered_face.e3(), &mut marker);
 
-            self.save("bg.dot");
+            // self.save("bg.dot");
 
-            self.glue(a2, a3, ordered_face.e2().edge(), ordered_face.e3().edge());
+            /*a3 =*/ self.glue(a2, a3, *ordered_face.e2().edge(), *ordered_face.e3().edge());
             
-            self.save("g1.dot");
+            // self.save("g1.dot");
 
-            self.glue(a1, a3, ordered_face.e1().edge(), ordered_face.e3().edge());
+            a3 = self.edge_highest_arc_map[ordered_face.e3().edge()];
+            self.glue(a1, a3, *ordered_face.e1().edge(), *ordered_face.e3().edge());
 
-            self.save("g2.dot");
+            // self.save("g2.dot");
 
         }
 
@@ -133,7 +134,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
         return arc;
     }
     
-    fn glue(&mut self, a1: ArcIdx, a2: ArcIdx, e1: &TMesh::EdgeDescriptor, e2: &TMesh::EdgeDescriptor) {
+    fn glue(&mut self, mut a1: ArcIdx, mut a2: ArcIdx, mut e1: TMesh::EdgeDescriptor, mut e2: TMesh::EdgeDescriptor) {
         let mut a1_next = Some(a1);
         let mut a2_next = Some(a2);
 
@@ -142,16 +143,18 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
                 break;
             }
 
-            let a1 = a1_next.unwrap();
-            let a2 = a2_next.unwrap();
+            a1 = a1_next.unwrap();
+            a2 = a2_next.unwrap();
+
+            (a1, a2) = self.peek(a1, a2, &mut e1, &mut e2);
 
             let a1_start = self.bottom(a1);
             let a2_start = self.bottom(a2);
 
             if a1_start.vertex < a2_start.vertex {
-                (a2_next, a1_next) = self.merge(a2, a1, e2, e1);
+                (a2_next, a1_next) = self.merge(a2, a1, &e2, &e1);
             } else {
-                (a1_next, a2_next) = self.merge(a1, a2, e1, e2);
+                (a1_next, a2_next) = self.merge(a1, a2, &e1, &e2);
             }
         }
     }
@@ -168,15 +171,45 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
         return self.graph.node_weight(end).unwrap();
     }
 
+        
+    fn peek(&self, mut upper: ArcIdx, mut lower: ArcIdx, upper_edge: &mut TMesh::EdgeDescriptor, lower_edge: &mut TMesh::EdgeDescriptor) -> (ArcIdx, ArcIdx) {
+        if self.top(upper).vertex < self.top(lower).vertex { 
+            swap(&mut upper, &mut lower);
+            swap(upper_edge, lower_edge);
+        }
+
+        let (_, mut upper_top) = self.graph.edge_endpoints(upper).unwrap();
+        let (_, lower_top) = self.graph.edge_endpoints(lower).unwrap();
+
+        while upper_top != lower_top {
+            let arc = &self.graph[upper];
+            upper = arc.next_arc_mapped_to_edge(&upper_edge).unwrap();
+            (_, upper_top) = self.graph.edge_endpoints(upper).unwrap();
+        }
+
+        return (upper, lower);
+    }
+
     ///
     /// Merge two arcs in reeb graph
     /// 1. Remove `target` arc.
     /// 2. Add arc from `target` bottom to `source` bottom
     /// 
-    fn merge(&mut self, source: ArcIdx, target: ArcIdx, source_edge: &TMesh::EdgeDescriptor, target_edge: &TMesh::EdgeDescriptor) -> (Option<ArcIdx>, Option<ArcIdx>) {
-        let (target_bottom, target_top) = self.graph.edge_endpoints(target).unwrap();
-        let (src_bottom, src_top) = self.graph.edge_endpoints(source).unwrap();
+    fn merge(&mut self, mut source: ArcIdx, mut target: ArcIdx, source_edge: &TMesh::EdgeDescriptor, target_edge: &TMesh::EdgeDescriptor) -> (Option<ArcIdx>, Option<ArcIdx>) {
+        if source == target {
+            return (
+                self.graph[source].next_arc_mapped_to_edge(source_edge),
+                self.graph[target].next_arc_mapped_to_edge(target_edge) 
+            );
+        }
 
+        let (mut target_bottom, mut target_top) = self.graph.edge_endpoints(target).unwrap();
+        let (mut src_bottom, mut src_top) = self.graph.edge_endpoints(source).unwrap();
+
+        // while target_top != src_top {
+        //     source = self.graph[source].next_arc_mapped_to_edge(source_edge).unwrap();
+        //     (src_bottom, src_top) = self.graph.edge_endpoints(source).unwrap();
+        // }
         debug_assert!(target_top == src_top);
 
         // Remove references to removed arc
@@ -220,7 +253,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
 
         let source_arc = &mut self.graph[source];
         source_arc.edges.extend(target_edges);
-        let source_next = source_arc.next_arc_mapped_to_edge(source_edge);
+        let source_next = source_arc.next_arc_mapped_to_edge(source_edge); // Move one line up?
 
         return (source_next, target_next);
     }
@@ -259,4 +292,47 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use nalgebra::Point3;
 
+    use crate::mesh::{corner_table::prelude::CornerTableF, traits::Mesh};
+
+    use super::ReebGraph;
+
+    #[test]
+    fn test_reeb_graph1() {
+        let mesh: CornerTableF = CornerTableF::from_vertices_and_indices(
+            &vec![
+                Point3::<f32>::new(0.0,  0.0, 0.0),
+                Point3::<f32>::new(2.0,  3.0, 0.0),
+                Point3::<f32>::new(-1.0,  4.0, 0.0),
+                Point3::<f32>::new(-2.0,  2.0, 0.0),
+            ], 
+            &vec![
+                0, 1, 2,
+                0, 2, 3,
+            ]  
+        );
+
+        let _ = ReebGraph::new().scalars(|m: &CornerTableF, v| m.vertex_position(v).y).build(&mesh);
+    }
+
+    #[test]
+    fn test_reeb_graph2() {
+        let mesh: CornerTableF = CornerTableF::from_vertices_and_indices(
+            &vec![
+                Point3::<f32>::new(0.0,  0.0, 0.0),
+                Point3::<f32>::new(2.0,  3.0, 0.0),
+                Point3::<f32>::new(-1.0,  4.0, 0.0),
+                Point3::<f32>::new(-2.0,  2.0, 0.0),
+            ], 
+            &vec![
+                0, 2, 3,
+                0, 1, 2,
+            ]  
+        );
+
+        let _ = ReebGraph::new().scalars(|m: &CornerTableF, v| m.vertex_position(v).y).build(&mesh);
+    }
+}

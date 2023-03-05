@@ -1,7 +1,7 @@
 
-use std::hash::Hash;
+use std::{hash::Hash, fmt::{Display, Debug}};
 
-use crate::geometry::traits::RealNumber;
+use crate::{geometry::traits::RealNumber, mesh::traits::Edge};
 
 use super::corner_table::CornerTable;
 
@@ -9,7 +9,7 @@ use super::corner_table::CornerTable;
 /// Edge descriptor for corner table.
 /// Edge is saved as a corner opposite to it that has smaller index.
 /// 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EdgeRef {
     corner_index: usize
 }
@@ -25,5 +25,18 @@ impl EdgeRef {
     /// Returns corner index of `this` edge reference
     pub fn get_corner_index(&self) -> usize {
         return self.corner_index;
+    }
+}
+
+impl Display for EdgeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{}", self.corner_index);
+    }
+}
+
+impl Debug for EdgeRef {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "corner_index: {}", &self.corner_index);
     }
 }

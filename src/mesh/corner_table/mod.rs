@@ -6,6 +6,7 @@ pub mod connectivity;
 mod marker;
 mod editable;
 mod descriptors;
+mod property_maps;
 
 #[cfg(test)]
 mod test_helpers;

@@ -2,11 +2,23 @@ use std::cmp::{Ordering};
 
 pub type NodeIndex = usize;
 
-pub struct STTree<TWeightType: PartialOrd> {
-    nodes: Vec<Node<TWeightType>>
+
+struct Node<TEdgeWeight, TNodeWeight> {
+    parent: Option<(NodeIndex, TEdgeWeight)>,
+    weight: TNodeWeight
 }
 
-impl<TWeight: Ord + Copy> STTree<TWeight> {
+impl<TWeight, TNodeWeight> Node<TWeight, TNodeWeight> {
+    pub fn new(parent: Option<(NodeIndex, TWeight)>, weight: TNodeWeight) -> Self { 
+        return Self { parent, weight };
+    }
+}
+
+pub struct DynamicTree<TWeightType: PartialOrd, TNodeWeight> {
+    nodes: Vec<Node<TWeightType, TNodeWeight>>
+}
+
+impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight> {
     pub fn new() -> Self {
         return Self {
             nodes: Vec::new()
@@ -14,8 +26,8 @@ impl<TWeight: Ord + Copy> STTree<TWeight> {
     }
 
     #[inline]
-    pub fn create_node(&mut self) -> NodeIndex {
-        self.nodes.push(Node::new(None));
+    pub fn create_node(&mut self, weight: TNodeWeight) -> NodeIndex {
+        self.nodes.push(Node::new(None, weight));
         return self.nodes.len() - 1;
     }
 
@@ -30,18 +42,38 @@ impl<TWeight: Ord + Copy> STTree<TWeight> {
     }
 
     #[inline]
-    pub fn root_path(&self, node: NodeIndex) -> RootPath<'_, TWeight> {
+    pub fn root_path(&self, node: NodeIndex) -> RootPath<'_, TEdgeWeight, TNodeWeight> {
         return RootPath::new(self, node);
     }
 
     #[inline]
-    pub fn weight(&self, node: NodeIndex) -> Option<TWeight> {
+    pub fn edge_weight(&self, node: NodeIndex) -> Option<TEdgeWeight> {
         return self.nodes[node].parent.and_then(|(_, weight)| Some(weight));
     }
 
     #[inline]
-    pub fn min_weight(&self, node: NodeIndex) -> NodeIndex {
-        debug_assert!(self.nodes[node].parent.is_some());
+    pub fn node_weight(&self, node: NodeIndex) -> Option<&TNodeWeight> {
+        return self.nodes.get(node).and_then(|n| Some(&n.weight));
+    }
+
+    #[inline]
+    pub fn node_weight_mut(&mut self, node: NodeIndex) -> Option<&mut TNodeWeight> {
+        return self.nodes.get_mut(node).and_then(|n| Some(&mut n.weight));
+    }
+
+    #[inline]
+    pub fn weight_mut(&mut self, node: NodeIndex) -> Option<&mut TEdgeWeight> {
+        return match &mut self.nodes[node].parent {
+            Some(weight) => Some(&mut weight.1),
+            None => None,
+        };
+    }
+
+    #[inline]
+    pub fn min_weight(&self, node: NodeIndex) -> Option<NodeIndex> {
+        if self.nodes[node].parent.is_none() {
+            return None;
+        }
 
         return self.root_path(node).min_by(|n1, n2| {
             let node1 = &self.nodes[*n1];
@@ -56,11 +88,11 @@ impl<TWeight: Ord + Copy> STTree<TWeight> {
             }
 
             return node1.parent.unwrap().1.cmp(&node2.parent.unwrap().1);
-        }).unwrap();
+        });
     }
 
     #[inline]
-    pub fn link(&mut self, node1: NodeIndex, node2: NodeIndex, weight: TWeight) {
+    pub fn link(&mut self, node1: NodeIndex, node2: NodeIndex, weight: TEdgeWeight) {
         debug_assert!(self.root(node1) != self.root(node2));
 
         self.evert(node1);
@@ -90,21 +122,21 @@ impl<TWeight: Ord + Copy> STTree<TWeight> {
         self.evert_node(node, None);
     }
 
-    fn evert_node(&mut self, node: usize, new_parent: Option<(usize, TWeight)>) {
-        if let Some((_, weight)) = self.nodes[node].parent {
-            self.evert_node(node, Some((node, weight)));
+    fn evert_node(&mut self, node: usize, new_parent: Option<(usize, TEdgeWeight)>) {
+        if let Some((parent, weight)) = self.nodes[node].parent {
+            self.evert_node(parent, Some((node, weight)));
             self.nodes[node].parent = new_parent;
         }
     }
 }
 
-pub struct RootPath<'a, TWeight: PartialOrd> {
-    st_tree: &'a STTree<TWeight>,
+pub struct RootPath<'a, TEdgeWeight: PartialOrd, TNodeWeight> {
+    st_tree: &'a DynamicTree<TEdgeWeight, TNodeWeight>,
     current: Option<NodeIndex>
 }
 
-impl<'a, TCostType: PartialOrd> RootPath<'a, TCostType> {
-    pub fn new(st_tree: &'a STTree<TCostType>, from: NodeIndex) -> Self { 
+impl<'a, TEdgeWeight: PartialOrd, TNodeWeight> RootPath<'a, TEdgeWeight, TNodeWeight> {
+    pub fn new(st_tree: &'a DynamicTree<TEdgeWeight, TNodeWeight>, from: NodeIndex) -> Self { 
         return Self { 
             st_tree, 
             current: Some(from) 
@@ -112,7 +144,7 @@ impl<'a, TCostType: PartialOrd> RootPath<'a, TCostType> {
     }
 }
 
-impl<'a, TCostType: PartialOrd + Copy> Iterator for RootPath<'a, TCostType> {
+impl<'a, TEdgeWeight: PartialOrd + Copy, TNodeWeight> Iterator for RootPath<'a, TEdgeWeight, TNodeWeight> {
     type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -124,15 +156,5 @@ impl<'a, TCostType: PartialOrd + Copy> Iterator for RootPath<'a, TCostType> {
             },
             None => None,
         };
-    }
-}
-
-struct Node<TWeight> {
-    parent: Option<(NodeIndex, TWeight)>
-}
-
-impl<TWeight> Node<TWeight> {
-    pub fn new(parent: Option<(NodeIndex, TWeight)>) -> Self { 
-        return Self { parent };
     }
 }
