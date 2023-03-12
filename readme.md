@@ -1,5 +1,7 @@
 # Geometry processing library in pure Rust
 
+## :exclamation: Under development. API may change.
+
 ## Features
 - Corner table implementation for efficient mesh traversal
 - STL reader/writer
