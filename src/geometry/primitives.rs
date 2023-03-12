@@ -582,7 +582,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }    
     
     /// Test triangle - triangle intersection
-    pub fn intersects_triangle3(&self, other: &Triangle3<TScalar>) -> bool {
+    pub fn intersects_triangle3(&self, _other: &Triangle3<TScalar>) -> bool {
         todo!()
     }
 

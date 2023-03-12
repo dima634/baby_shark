@@ -1,7 +1,7 @@
 
 use std::{hash::Hash, fmt::{Display, Debug}};
 
-use crate::{geometry::traits::RealNumber, mesh::traits::Edge};
+use crate::geometry::traits::RealNumber;
 
 use super::corner_table::CornerTable;
 

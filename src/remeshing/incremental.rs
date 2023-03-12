@@ -1,7 +1,12 @@
-use std::{marker::PhantomData, path::Path};
+use std::marker::PhantomData;
 use nalgebra::Point3;
 use num_traits::{cast, Float};
-use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::{utils::tangential_relaxation, edge_collapse, vertex_shift}, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid, io::stl::StlWriter};
+use crate::{
+    mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }, 
+    algo::{utils::tangential_relaxation, edge_collapse, vertex_shift}, 
+    geometry::primitives::Triangle3, 
+    spatial_partitioning::grid::Grid
+};
 
 ///
 /// Incremental isotropic remesher. 
