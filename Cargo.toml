@@ -2,6 +2,12 @@
 name = "pancake"
 version = "0.1.0"
 edition = "2021"
+description="Geometry processing library"
+license="MIT"
+homepage = "https://github.com/dima634/pancake"
+repository = "https://github.com/dima634/pancake"
+keywords = ["mesh", "mesh-processing", "geometry", "computational-geometry", "algorithms"]
+categories = ["mathematics", "graphics", "data-structures"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
