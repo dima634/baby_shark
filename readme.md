@@ -11,6 +11,29 @@
     * Bounding volume hierarchy of axis aligned bounding boxes
     * Infinite grid
 
+## Reading/writing mesh from/to STL file
+You can read/write STL files using `StlReader` and `StlWriter` structs. Ony binary STLs are supported.
+
+### Example
+```rust
+use std::path::Path;
+
+use baby_shark::{
+    io::stl::{StlReader, StlWriter}, 
+    mesh::corner_table::prelude::CornerTableF
+};
+
+fn main() {
+    let mut reader = StlReader::new();
+    let mesh: CornerTableF = reader.read_stl_from_file(Path::new("./read.stl"))
+        .expect("Read mesh from STL file");
+
+    let writer = StlWriter::new();
+    writer.write_stl_to_file(&mesh, Path::new("./write.stl"))
+        .expect("Save mesh to STL file");
+}
+```
+
 ## Isotropic remeshing
 This algorithm incrementally performs simple operations such as edge splits, edge collapses, edge flips, and Laplacian smoothing. 
 All the vertices of the remeshed patch are reprojected to 
@@ -46,13 +69,3 @@ Several stop condition are supported:
      .min_faces_count(Some(10000));
  decimator.decimate(&mut mesh);
 ```
-
-## TODO:
-- [ ] Mesh trait: move vertex normal to topological mesh
-- [ ] Mesh trait: default implementation for edge/face position using get_edge_vertices/get_face_vertices
-- [ ] Remesher/Corner table: handle edge boundary collapses
-- [ ] CornerTable/Remesher - preallocate estimated amount of elements for internal arrays
-- [ ] Reusable vectors across app to reduce allocations for iter macro
-- [ ] Corner table: better index typing
-- [ ] AABB tree: pre allocate memory during construction
-- [ ] Grid: consider exploiting min-max distance or incremental sphere growth
