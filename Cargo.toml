@@ -1,11 +1,11 @@
 [package]
-name = "pancake"
+name = "baby_shark"
 version = "0.1.0"
 edition = "2021"
 description="Geometry processing library"
 license="MIT"
-homepage = "https://github.com/dima634/pancake"
-repository = "https://github.com/dima634/pancake"
+homepage = "https://github.com/dima634/baby_shark"
+repository = "https://github.com/dima634/baby_shark"
 keywords = ["mesh", "mesh-processing", "geometry", "computational-geom", "algorithms"]
 categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
