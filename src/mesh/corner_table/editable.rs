@@ -1,5 +1,5 @@
 use nalgebra::Point3;
-use crate::{mesh::traits::EditableMesh, geometry::traits::RealNumber};
+use crate::{mesh::traits::{EditableMesh, TopologicalMesh}, geometry::traits::RealNumber};
 use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::{traits::Flags, corner}};
 
 /// Set corner for wing vertex of collapsed edge
@@ -215,37 +215,36 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
         let c2_idx = walker.next().get_corner_index();
         let c2 = walker.get_corner();
         let v2_idx = c2.get_vertex_index();
-        let c2_opp = c2.get_opposite_corner_index().unwrap();
+        let c2_opp = c2.get_opposite_corner_index();
 
         let c0_idx = walker.next().get_corner_index();
         let c0 = walker.get_corner();
         let v0_idx = c0.get_vertex_index();
-        let c0_opp = c0.get_opposite_corner_index().unwrap();
+        let c0_opp = c0.get_opposite_corner_index();
 
         // Face 2
         let c4_idx = walker.next().opposite().get_corner_index();
         let v3_idx = walker.get_corner().get_vertex_index();
 
         let c5_idx = walker.next().get_corner_index();
-        let c5_opp = walker.get_corner().get_opposite_corner_index().unwrap();
+        let c5_opp = walker.get_corner().get_opposite_corner_index();
 
         let c3_idx = walker.next().get_corner_index();
-        let c3_opp = walker.get_corner().get_opposite_corner_index().unwrap();
-
+        let c3_opp = walker.get_corner().get_opposite_corner_index();
 
         // Update corners
         self.corners[c0_idx].set_vertex_index(v1_idx);
-        self.set_opposite_relationship(c0_idx, c5_opp);
+        make_corners_opposite(self, Some(c0_idx), c5_opp);
         self.corners[c1_idx].set_vertex_index(v2_idx);
-        self.set_opposite_relationship(c1_idx, c4_idx);
+        make_corners_opposite(self, Some(c1_idx), Some(c4_idx));
         self.corners[c2_idx].set_vertex_index(v3_idx);
-        self.set_opposite_relationship(c2_idx, c0_opp);
+        make_corners_opposite(self, Some(c2_idx), c0_opp);
 
         self.corners[c3_idx].set_vertex_index(v3_idx);
-        self.set_opposite_relationship(c3_idx, c2_opp);
+        make_corners_opposite(self, Some(c3_idx), c2_opp);
         self.corners[c4_idx].set_vertex_index(v0_idx);
         self.corners[c5_idx].set_vertex_index(v1_idx);
-        self.set_opposite_relationship(c5_idx, c3_opp);
+        make_corners_opposite(self, Some(c5_idx), c3_opp);
 
         // Make sure vertices are referencing correct corners
         self.vertices[v0_idx].set_corner_index(c4_idx);

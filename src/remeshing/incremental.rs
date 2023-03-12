@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, path::Path};
 use nalgebra::Point3;
 use num_traits::{cast, Float};
-use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::{utils::tangential_relaxation, edge_collapse}, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid};
+use crate::{mesh::{traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }}, algo::{utils::tangential_relaxation, edge_collapse, vertex_shift}, geometry::primitives::Triangle3, spatial_partitioning::grid::Grid, io::stl::StlWriter};
 
 ///
 /// Incremental isotropic remesher. 
@@ -29,6 +29,7 @@ pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     flip_edges: bool,
     project_vertices: bool,
     iterations: u16,
+    keep_boundary: bool,
 
     mesh_type: PhantomData<TMesh>
 }
@@ -42,6 +43,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             flip_edges: true,
             project_vertices: true,
             iterations: 10,
+            keep_boundary: true,
             mesh_type: PhantomData
         };
     }
@@ -85,6 +87,13 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     #[inline]
     pub fn with_iterations_count(mut self, iterations: u16) -> Self {
         self.iterations = iterations;
+        return self;
+    }
+
+    /// Set whether keep mesh boundary unchanged
+    #[inline]
+    pub fn with_keep_boundary(mut self, keep: bool) -> Self {
+        self.keep_boundary = keep;
         return self;
     }
 
@@ -154,7 +163,14 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(&v)));
             let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);   
-            mesh.shift_vertex(&vertex, &new_position);
+
+            let shift_vertex = 
+                !(self.keep_boundary && mesh.is_vertex_on_boundary(&vertex)) &&
+                vertex_shift::is_vertex_shift_safe(&vertex, &new_position, mesh);
+
+            if shift_vertex {
+                mesh.shift_vertex(&vertex, &new_position);
+            }
         }
     }
 
@@ -164,11 +180,26 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
         // Collapse long edges
         for edge in edges {
-            let edge_length_squared = mesh.edge_length_squared(&edge);
-            let (v1, v2) = mesh.edge_positions(&edge);
-            let collapse_at = (v1 + v2.coords) * cast(0.5).unwrap();
+            if !mesh.edge_exist(&edge) {
+                continue;
+            }
 
-            if edge_length_squared < min_edge_length_squared && edge_collapse::is_safe(mesh, &edge, &collapse_at, cast(0.5).unwrap()) {
+            // Keep boundary
+            let (v1, v2) = mesh.edge_vertices(&edge);
+            if self.keep_boundary && (mesh.is_vertex_on_boundary(&v1) || mesh.is_vertex_on_boundary(&v2)) {
+                continue;
+            }
+
+            // Long edge?
+            if mesh.edge_length_squared(&edge) >= min_edge_length_squared {
+                continue;
+            }
+
+            let v1_pos = mesh.vertex_position(&v1);
+            let v2_pos = mesh.vertex_position(&v2);
+            let collapse_at = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
+
+            if edge_collapse::is_safe(mesh, &edge, &collapse_at, cast(0.5).unwrap()) {
                 mesh.collapse_edge(&edge, &collapse_at);
             }
         }
@@ -179,7 +210,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
         // Flip edges to improve valence
         for edge in edges {
-            if self.will_flip_improve_quality(mesh, &edge) && self.is_flip_safe(mesh, &edge) {
+            if self.is_flip_safe(mesh, &edge) && self.will_flip_improve_quality(mesh, &edge) {
                 mesh.flip_edge(&edge);
             }
         }
@@ -213,6 +244,11 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let v3 = mesh.vertex_position(&pos.next().opposite().get_vertex());
 
         let old_normal1 = Triangle3::normal(v0, v1, v2);
+
+        if Triangle3::is_degenerate(v1, v2, v3) {
+            return false;
+        }
+
         let new_normal1 = Triangle3::normal(v1, v2, v3);
 
         let threshold = cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians();
@@ -222,6 +258,11 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
 
         let old_normal2 = Triangle3::normal(v0, v2, v3);
+
+        if Triangle3::is_degenerate(v0, v1, v3) {
+            return false;
+        }
+
         let new_normal2 = Triangle3::normal(v0, v1, v3);
 
         if old_normal2.angle(&new_normal2) > threshold || 

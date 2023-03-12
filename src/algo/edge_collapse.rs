@@ -45,17 +45,14 @@ pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
 }
 
 /// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
+#[inline]
 pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh, 
     edge: &TMesh::EdgeDescriptor, 
     collapse_at: &Point3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType
-) -> bool {        
-    if !is_topologically_safe(mesh, &edge) {
-        return false;
-    }
-
-    return is_geometrically_safe(mesh, &edge, collapse_at, min_quality);
+) -> bool {
+    return is_topologically_safe(mesh, &edge) && is_geometrically_safe(mesh, &edge, collapse_at, min_quality);
 }
 
 fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
@@ -79,6 +76,7 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
         // Quality become too bad?
         if new_quality < old_quality * min_quality {
             bad_collapse = true;
+            return;
         }
 
         let old_normal = Triangle3::normal(v1, v2, v3);

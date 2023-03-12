@@ -508,6 +508,12 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
+    pub fn is_degenerate(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> bool {
+        let cross = (b - a).cross(&(c - a));
+        return cross.norm_squared().is_zero();
+    }
+
+    #[inline]
     pub fn area(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
         return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
     }
