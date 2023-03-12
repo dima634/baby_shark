@@ -6,7 +6,7 @@ description="Geometry processing library"
 license="MIT"
 homepage = "https://github.com/dima634/pancake"
 repository = "https://github.com/dima634/pancake"
-keywords = ["mesh", "mesh-processing", "geometry", "computational-geometry", "algorithms"]
+keywords = ["mesh", "mesh-processing", "geometry", "computational-geom", "algorithms"]
 categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
     ".github/workflows/*",
