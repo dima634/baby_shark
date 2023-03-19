@@ -15,7 +15,7 @@ impl<TScalar: RealNumber> PartialEq for HashablePoint<TScalar> {
     }
 }
 
-impl<'a, TScalar: RealNumber> Eq for HashablePoint<TScalar> {}
+impl<TScalar: RealNumber> Eq for HashablePoint<TScalar> {}
 
 impl<TScalar: RealNumber> Hash for HashablePoint<TScalar> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -59,5 +59,12 @@ impl<TScalar: RealNumber> PointIndexMap<TScalar> {
     pub fn insert(&mut self, point: Point3<TScalar>, index: usize) {
         let hashable = HashablePoint(point);
         self.map.insert(hashable, index);
+    }
+}
+
+impl<TScalar: RealNumber> Default for PointIndexMap<TScalar> {
+    #[inline]
+    fn default() -> Self {
+        return Self::new();
     }
 }

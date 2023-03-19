@@ -11,7 +11,7 @@ use crate::{
         MeshMarker, 
         Marker
     }, 
-    algo::edge_collapse, geometry::primitives::plane3::Plane3
+    algo::edge_collapse
 };
 
 /// Collapse candidate
@@ -92,8 +92,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 
             // Vertex error quadric = sum of quadrics of one ring faces
             mesh.faces_around_vertex(&vertex, |face| {
-                let (p1, p2, p3) = mesh.face_positions(face);
-                let plane = Plane3::from_points(&p1, &p2, &p3);
+                let plane = mesh.face_positions(face).plane();
                 let n = plane.get_normal();
                 let d = plane.get_distance();
 
@@ -171,15 +170,9 @@ where
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
     TCollapseStrategy: CollapseStrategy<TMesh> 
 {
+    #[inline]
     pub fn new() -> Self {
-        return Self {
-            max_error: cast(0.001).unwrap(),
-            min_faces_count: 0,
-            min_face_quality: cast(0.1).unwrap(),
-            priority_queue: BinaryHeap::new(),
-            not_safe_collapses: Vec::new(),
-            collapse_strategy: TCollapseStrategy::default()
-        };
+        return Default::default();
     }
 
     ///
@@ -335,5 +328,22 @@ where
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
+    }
+}
+
+impl<TMesh, TCollapseStrategy> Default for IncrementalDecimator<TMesh, TCollapseStrategy> 
+where 
+    TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
+    TCollapseStrategy: CollapseStrategy<TMesh> 
+{
+    fn default() -> Self {
+        return Self {
+            max_error: cast(0.001).unwrap(),
+            min_faces_count: 0,
+            min_face_quality: cast(0.1).unwrap(),
+            priority_queue: BinaryHeap::new(),
+            not_safe_collapses: Vec::new(),
+            collapse_strategy: TCollapseStrategy::default()
+        };
     }
 }

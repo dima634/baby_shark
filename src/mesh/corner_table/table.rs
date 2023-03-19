@@ -20,18 +20,24 @@ use super::{
     marker::CornerTableMarker, descriptors::EdgeRef
 };
 
-
 pub struct CornerTable<TScalar: RealNumber> {
     pub(super) vertices: Vec<Vertex<TScalar>>,
     pub(super) corners: Vec<Corner>
 }
 
-impl<TScalar: RealNumber> CornerTable<TScalar> {
-    pub fn new<>() -> Self {
-        return Self {
-            corners: Vec::new(),
-            vertices: Vec::new()
+impl<TScalar: RealNumber> Default for CornerTable<TScalar> {
+    fn default() -> Self {
+        return Self { 
+            vertices: Vec::new(), 
+            corners: Vec::new() 
         };
+    }
+}
+
+impl<TScalar: RealNumber> CornerTable<TScalar> {
+    #[inline]
+    pub fn new() -> Self {
+        return Default::default();
     }
 
     #[inline]
@@ -100,18 +106,18 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         corner.set_vertex_index(vertex_index);
 
         // Find opposite corner
-        let mut opposite_corner_index: Option<&usize> = edge_opposite_corner_map.get(&opposite_edge);
+        let mut opposite_corner_index: Option<&usize> = edge_opposite_corner_map.get(opposite_edge);
 
         // Flip directed edge
         if opposite_corner_index.is_none() {
             opposite_edge.flip();
-            opposite_corner_index = edge_opposite_corner_map.get(&opposite_edge);
+            opposite_corner_index = edge_opposite_corner_map.get(opposite_edge);
         }
 
-        if opposite_corner_index.is_some() {
+        if let Some(opposite_corner_index) = opposite_corner_index {
             // Set opposite for corners
-            corner.set_opposite_corner_index(opposite_corner_index.copied());
-            let opposite_corner = self.corners.get_mut(*opposite_corner_index.unwrap()).unwrap();
+            corner.set_opposite_corner_index(Some(*opposite_corner_index));
+            let opposite_corner = self.corners.get_mut(*opposite_corner_index).unwrap();
             opposite_corner.set_opposite_corner_index(Some(corner_index));
         } else {
             // Save edge and it`s opposite corner
@@ -145,7 +151,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self {
+    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self {
         assert!(faces.len() % 3 == 0, "Invalid number of face indices: {}", faces.len());
 
         let mut edge_opposite_corner_map = HashMap::<helpers::Edge, usize>::new();
@@ -171,17 +177,17 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn faces<'a>(&'a self) -> Self::FacesIter<'a> {
+    fn faces(&self) -> Self::FacesIter<'_> {
         return Self::FacesIter::new(self);
     }
 
     #[inline]
-    fn vertices<'a>(&'a self) -> Self::VerticesIter<'a> {
+    fn vertices(&self) -> Self::VerticesIter<'_> {
         return Self::VerticesIter::new(self);
     }
 
     #[inline]
-    fn edges<'a>(&'a self) -> Self::EdgesIter<'a> {
+    fn edges(&self) -> Self::EdgesIter<'_> {
         return Self::EdgesIter::new(self);
     }
 
@@ -221,7 +227,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType> {
         let mut sum = Vector3::zeros();
-        faces_around_vertex(&self, *vertex, |face_index| sum += self.face_normal(face_index));
+        faces_around_vertex(self, *vertex, |face_index| sum += self.face_normal(face_index));
 
         return sum.normalize();
     }
@@ -231,17 +237,17 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     type Position<'a> = CornerWalker<'a, TScalar>;
     
     #[inline]
-    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
-        vertices_around_vertex(&self, *vertex, visit);
+    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+        vertices_around_vertex(self, *vertex, visit);
     }
 
     #[inline]
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
         faces_around_vertex(self, *vertex, visit);
     }
 
     #[inline]
-    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
+    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
         edges_around_vertex(self, *vertex, visit)
     }
 
@@ -295,7 +301,7 @@ impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {
 
     #[inline]
     fn marker(&self) -> Self::Marker {
-        return CornerTableMarker::new(&self);
+        return CornerTableMarker::new(self);
     }
 }
 

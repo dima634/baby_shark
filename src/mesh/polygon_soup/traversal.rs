@@ -1,6 +1,6 @@
 use crate::geometry::traits::RealNumber;
 
-use super::polygon_soup::PolygonSoup;
+use super::data_structure::PolygonSoup;
 
 /// Iterator over faces of polygon soup
 pub struct FacesIter<'a, TScalar: RealNumber> {

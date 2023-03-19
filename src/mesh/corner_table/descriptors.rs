@@ -3,7 +3,7 @@ use std::{hash::Hash, fmt::{Display, Debug}};
 
 use crate::geometry::traits::RealNumber;
 
-use super::corner_table::CornerTable;
+use super::table::CornerTable;
 
 /// 
 /// Edge descriptor for corner table.

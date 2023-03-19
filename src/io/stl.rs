@@ -6,7 +6,7 @@ use std::{
 use nalgebra::{Point3, Vector3};
 use simba::scalar::{SupersetOf, SubsetOf};
 
-use crate::{algo::merge_points::merge_points, mesh::traits::Mesh, geometry::primitives::triangle3::Triangle3};
+use crate::{algo::merge_points::merge_points, mesh::traits::Mesh};
 
 const STL_HEADER_SIZE: usize = 80;
 
@@ -68,7 +68,7 @@ impl StlReader {
         let merged_vertices = merge_points(&self.vertices);
         
         // Case points to scalar type used by mesh
-        let vertices = &merged_vertices.points
+        let vertices: Vec<_> = merged_vertices.points
                 .iter()
                 .map(|point| point.cast::<TMesh::ScalarType>())
                 .collect();
@@ -110,7 +110,14 @@ impl StlReader {
     }
 }
 
-pub struct StlWriter {}
+impl Default for StlReader {
+    #[inline]
+    fn default() -> Self {
+        return Self::new();
+    }
+}
+
+pub struct StlWriter;
 
 impl StlWriter {
     pub fn new() -> Self {
@@ -140,19 +147,19 @@ impl StlWriter {
         TMesh::ScalarType: SubsetOf<f32>
     {
         let header = [0u8; STL_HEADER_SIZE];
-        writer.write(&header)?;
+        writer.write_all(&header)?;
 
         let faces_count = mesh.faces().count();
         if faces_count > u32::max_value() as usize {
             return Err(Error::new(ErrorKind::Other, "Mesh is too big for STL"));
         } 
 
-        writer.write(&(faces_count as u32).to_le_bytes())?;
+        writer.write_all(&(faces_count as u32).to_le_bytes())?;
     
         for face in mesh.faces() {
-            let (v1, v2, v3) = mesh.face_positions(&face);
-            let normal = Triangle3::normal(&v1, &v2, &v3);
-            self.write_face(writer, &v1.cast(), &v2.cast(), &v3.cast(), &normal.cast())?;
+            let triangle = mesh.face_positions(&face);
+            let normal = triangle.get_normal();
+            self.write_face(writer, &triangle.p1().cast(), &triangle.p2().cast(), &triangle.p3().cast(), &normal.cast())?;
         }
 
         return Ok(());
@@ -163,16 +170,23 @@ impl StlWriter {
         self.write_point(writer, v1)?;
         self.write_point(writer, v2)?;
         self.write_point(writer, v3)?;
-        writer.write(&[0; 2])?;
+        writer.write_all(&[0; 2])?;
 
         return Ok(());
     }
 
     fn write_point<TBuffer: Write, TPoint: Index<usize, Output = f32>>(&self, writer: &mut BufWriter<TBuffer>, point: &TPoint) -> io::Result<()> {
-        writer.write(&point[0].to_le_bytes())?;
-        writer.write(&point[1].to_le_bytes())?;
-        writer.write(&point[2].to_le_bytes())?;
+        writer.write_all(&point[0].to_le_bytes())?;
+        writer.write_all(&point[1].to_le_bytes())?;
+        writer.write_all(&point[2].to_le_bytes())?;
 
         return Ok(());
+    }
+}
+
+impl Default for StlWriter {
+    #[inline]
+    fn default() -> Self {
+        return Self::new();
     }
 }

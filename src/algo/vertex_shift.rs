@@ -21,7 +21,7 @@ pub fn is_vertex_shift_safe<TMesh: TopologicalMesh>(
         let v2 = pos.next().get_vertex();
         let v2_pos = mesh.vertex_position(&v2);
 
-        is_safe &= !Triangle3::is_degenerate(new_position, &v1_pos, &v2_pos);
+        is_safe &= !Triangle3::is_degenerate(new_position, v1_pos, v2_pos);
     });
 
     return is_safe;

@@ -1,5 +1,5 @@
 use nalgebra::Point3;
-use crate::{mesh::traits::{Mesh}, geometry::traits::RealNumber};
+use crate::{mesh::traits::{Mesh}, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
 ///
@@ -10,16 +10,21 @@ pub struct PolygonSoup<TScalar: RealNumber> {
 }
 
 impl<TScalar: RealNumber> PolygonSoup<TScalar> {
+    #[inline]
     pub fn new() -> Self { 
-        return Self { 
-            vertices: Vec::new() 
-        } ;
+        return Default::default();
     }
 
     pub fn add_face(&mut self, v1: Point3<TScalar>, v2: Point3<TScalar>, v3: Point3<TScalar>) {
         self.vertices.push(v1);
         self.vertices.push(v2);
         self.vertices.push(v3);
+    }
+}
+
+impl<TScalar: RealNumber> Default for PolygonSoup<TScalar> {
+    fn default() -> Self {
+        return Self { vertices: Vec::new() };
     }
 }
 
@@ -34,11 +39,11 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     type VerticesIter<'iter> = VerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = EdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self {
+    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self {
         let mut soup = Vec::with_capacity(faces.len());
 
-        for i in 0..faces.len() {
-            soup.push(vertices[i]);
+        for vertex_index in faces {
+            soup.push(vertices[*vertex_index]);
         }
 
         return Self {
@@ -47,23 +52,23 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     #[inline]
-    fn faces<'a>(&'a self) -> Self::FacesIter<'a> {
+    fn faces(& self) -> Self::FacesIter<'_> {
         return FacesIter::new(self);
     }
 
     #[inline]
-    fn vertices<'a>(&'a self) -> Self::VerticesIter<'a> {
+    fn vertices(&self) -> Self::VerticesIter<'_> {
         return VerticesIter::new(self);
     }
 
     #[inline]
-    fn edges<'a>(&'a self) -> Self::EdgesIter<'a> {
+    fn edges(&self) -> Self::EdgesIter<'_> {
         return EdgesIter::new(self);
     }
 
     #[inline]
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
-        return (self.vertices[*face], self.vertices[face + 1], self.vertices[face + 2]);
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> Triangle3<TScalar> {
+        return Triangle3::new(self.vertices[*face], self.vertices[face + 1], self.vertices[face + 2]);
     }
 
     #[inline]

@@ -21,41 +21,18 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn normal(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Vector3<TScalar> {
-        let cross = (b - a).cross(&(c - a));
-        debug_assert!(cross.norm_squared() > TScalar::zero(), "Degenerate face");
-        return cross.normalize();
+    pub fn p1(&self) -> &Point3<TScalar> {
+        return &self.a;
     }
 
     #[inline]
-    pub fn is_degenerate(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> bool {
-        let cross = (b - a).cross(&(c - a));
-        return cross.norm_squared().is_zero();
+    pub fn p2(&self) -> &Point3<TScalar> {
+        return &self.b;
     }
 
     #[inline]
-    pub fn area(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
-        return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
-    }
-
-    pub fn quality(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
-        let ab = b - a;
-        let ac = c - a;
-        let double_area = ab.cross(&ac).norm();
-
-        if double_area.is_zero() {
-            return TScalar::zero();
-        }
-
-        let bc = c - b;
-        
-        let ab_len = ab.norm_squared();
-        let ac_len = ac.norm_squared();
-        let bc_len = bc.norm_squared();
-        let len_max = Float::max(Float::max(ab_len, ac_len), bc_len);
-        let equilateral_triangle_aspect_ratio = TScalar::from(1.1547005383792515).unwrap();
-
-        return equilateral_triangle_aspect_ratio * double_area / len_max;
+    pub fn p3(&self) -> &Point3<TScalar> {
+        return &self.c;
     }
 
     #[inline]
@@ -70,6 +47,16 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn plane(&self) -> Plane3<TScalar> {
         return Plane3::from_points(&self.a, &self.b, &self.c);
+    }
+
+    #[inline]
+    pub fn get_normal(&self) -> Vector3<TScalar> {
+        return Triangle3::normal(&self.a, &self.b, &self.c);
+    }
+
+    #[inline]
+    pub fn get_quality(&self) -> TScalar {
+        return Triangle3::quality(&self.a, &self.b, &self.c);
     }
 
     /// Test triangle - bbox intersection
@@ -160,6 +147,44 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn intersects_ray3(&self, ray: &Ray3<TScalar>) -> bool {
         return self.intersects_ray3_at(ray).is_some();
+    }
+
+    #[inline]
+    pub fn normal(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Vector3<TScalar> {
+        let cross = (b - a).cross(&(c - a));
+        debug_assert!(cross.norm_squared() > TScalar::zero(), "Degenerate face");
+        return cross.normalize();
+    }
+
+    #[inline]
+    pub fn is_degenerate(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> bool {
+        let cross = (b - a).cross(&(c - a));
+        return cross.norm_squared().is_zero();
+    }
+
+    #[inline]
+    pub fn area(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+        return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
+    }
+
+    pub fn quality(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+        let ab = b - a;
+        let ac = c - a;
+        let double_area = ab.cross(&ac).norm();
+
+        if double_area.is_zero() {
+            return TScalar::zero();
+        }
+
+        let bc = c - b;
+        
+        let ab_len = ab.norm_squared();
+        let ac_len = ac.norm_squared();
+        let bc_len = bc.norm_squared();
+        let len_max = Float::max(Float::max(ab_len, ac_len), bc_len);
+        let equilateral_triangle_aspect_ratio = TScalar::from(1.1547005383792515).unwrap();
+
+        return equilateral_triangle_aspect_ratio * double_area / len_max;
     }
 }
 

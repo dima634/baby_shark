@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use crate::{mesh::traits::{PropertyMap, VertexProperties}, geometry::traits::RealNumber};
 
-use super::corner_table::CornerTable;
+use super::table::CornerTable;
 
 /// Property map for corner table vertices
 pub struct VertexPropertyMap<TProperty: Default> {

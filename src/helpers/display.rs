@@ -3,7 +3,7 @@ use std::{fmt::Display, cell::UnsafeCell};
 pub fn display_option<T: Display>(o: &Option<T>) -> String {
     match o {
         Some(s) => format!("{}", s),
-        None => format!("None"),
+        None => "None".to_string(),
     }
 }
 

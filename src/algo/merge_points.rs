@@ -21,9 +21,9 @@ pub fn merge_points<TScalar: RealNumber>(vertices: &Vec<Point3<TScalar>>) -> Ind
 
     for vertex in vertices {
         let index = vertex_index_map.get_index(*vertex);
-        if index.is_some() {
+        if let Some(index) = index {
             // Insert old vertex
-            indices.push(*index.unwrap());
+            indices.push(*index);
         } else {
             // Insert new vertex and index
             let vert_idx = merged_vertices.len();

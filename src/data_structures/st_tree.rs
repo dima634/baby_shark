@@ -33,7 +33,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 
     #[inline]
     pub fn parent(&self, node: NodeIndex) -> Option<NodeIndex> {
-        return self.nodes[node].parent.and_then(|(parent_index, _)| Some(parent_index));
+        return self.nodes[node].parent.map(|(parent_index, _)| parent_index);
     }
 
     #[inline]
@@ -48,17 +48,17 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 
     #[inline]
     pub fn edge_weight(&self, node: NodeIndex) -> Option<TEdgeWeight> {
-        return self.nodes[node].parent.and_then(|(_, weight)| Some(weight));
+        return self.nodes[node].parent.map(|(_, weight)| weight);
     }
 
     #[inline]
     pub fn node_weight(&self, node: NodeIndex) -> Option<&TNodeWeight> {
-        return self.nodes.get(node).and_then(|n| Some(&n.weight));
+        return self.nodes.get(node).map(|n| &n.weight);
     }
 
     #[inline]
     pub fn node_weight_mut(&mut self, node: NodeIndex) -> Option<&mut TNodeWeight> {
-        return self.nodes.get_mut(node).and_then(|n| Some(&mut n.weight));
+        return self.nodes.get_mut(node).map(|n| &mut n.weight);
     }
 
     #[inline]
@@ -71,9 +71,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 
     #[inline]
     pub fn min_weight(&self, node: NodeIndex) -> Option<NodeIndex> {
-        if self.nodes[node].parent.is_none() {
-            return None;
-        }
+        self.nodes[node].parent?;
 
         return self.root_path(node).min_by(|n1, n2| {
             let node1 = &self.nodes[*n1];
@@ -100,11 +98,11 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
         n1.parent = Some((node2, weight));
     }
 
-    pub fn cut(&mut self, n1: NodeIndex, n2: NodeIndex) -> Result<(), ()> {
+    pub fn cut(&mut self, n1: NodeIndex, n2: NodeIndex) -> Result<(), &'static str> {
         let node1 = &self.nodes[n1];
         let node2 = &self.nodes[n1];
 
-        match (node1.parent, node2.parent) {
+        return match (node1.parent, node2.parent) {
             (Some((n1_parent, _)), _) if n1_parent == n2 => {
                 self.nodes[n1].parent = None;
                 return Ok(());
@@ -113,7 +111,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
                 self.nodes[n2].parent = None;
                 return Ok(());
             },
-            _ => Err(())
+            _ => Err("Disconnected nodes")
         }
     }
 
@@ -127,6 +125,13 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
             self.evert_node(parent, Some((node, weight)));
             self.nodes[node].parent = new_parent;
         }
+    }
+}
+
+impl<TEdgeWeight: Ord + Copy, TNodeWeight> Default for DynamicTree<TEdgeWeight, TNodeWeight> {
+    #[inline]
+    fn default() -> Self {
+        return Self::new();
     }
 }
 

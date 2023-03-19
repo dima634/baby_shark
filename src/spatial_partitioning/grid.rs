@@ -120,8 +120,8 @@ impl<TObject: HasBBox3> Grid<TObject> {
     fn calculate_cell_size(objects: &Vec<TObject>) -> Vector3<TObject::ScalarType> {
         // Compute bbox of all objects
         let mut bbox = objects[0].bbox();
-        for i in 1..objects.len() {
-            bbox.add_box3(&objects[i].bbox());
+        for object in objects {
+            bbox.add_box3(&object.bbox());
         }
 
         let number_of_cells = objects.len() as f64;
@@ -159,7 +159,7 @@ where
                     }
 
                     // Reject cells that are farther than already found closest point
-                    if !cell_bbox.contains_point(&point) && cell_bbox.squared_distance(&point) > distance_squared {
+                    if !cell_bbox.contains_point(point) && cell_bbox.squared_distance(point) > distance_squared {
                         continue;
                     }
 
@@ -191,7 +191,7 @@ where
     #[inline]
     pub fn cell_to_box(&self, cell: &Cell) -> Box3<TObject::ScalarType> {
         return Box3::new(
-            self.cell_size.component_mul(&utils::cast(&cell)).into(),
+            self.cell_size.component_mul(&utils::cast(cell)).into(),
             self.cell_size.component_mul(&utils::cast(&cell.add_scalar(1))).into(),
         );
     }
@@ -200,10 +200,9 @@ where
 impl<TScalar: RealNumber> Grid<Triangle3<TScalar>>{
     /// Create grid from faces of triangular mesh
     pub fn from_mesh<TMesh: Mesh<ScalarType = TScalar>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<TScalar>> = mesh.faces().map(|face| {
-            let (a, b, c) = mesh.face_positions(&face);
-            return Triangle3::new(a, b, c);
-        }).collect();
+        let faces: Vec<Triangle3<TScalar>> = mesh.faces()
+            .map(|face| mesh.face_positions(&face))
+            .collect();
 
         return Self::new(faces);
     }

@@ -59,7 +59,7 @@ pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
     collapse_at: &Point3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType
 ) -> bool {
-    return is_topologically_safe(mesh, &edge) && is_geometrically_safe(mesh, &edge, collapse_at, min_quality);
+    return is_topologically_safe(mesh, edge) && is_geometrically_safe(mesh, edge, collapse_at, min_quality);
 }
 
 fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
@@ -70,8 +70,8 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
 ) -> bool {
     let mut bad_collapse = false;
 
-    mesh.faces_around_vertex(&collapsed_vertex, |face| {
-        let mut pos = TMesh::Position::from_vertex_on_face(mesh, &face, &collapsed_vertex);
+    mesh.faces_around_vertex(collapsed_vertex, |face| {
+        let mut pos = TMesh::Position::from_vertex_on_face(mesh, face, collapsed_vertex);
 
         let v1 = mesh.vertex_position(&pos.get_vertex());
         let v2 = mesh.vertex_position(&pos.next().get_vertex());

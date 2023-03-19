@@ -41,16 +41,7 @@ pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
 
 impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     pub fn new() -> Self {
-        return Self {
-            split_edges: true,
-            shift_vertices: true,
-            collapse_edges: true,
-            flip_edges: true,
-            project_vertices: true,
-            iterations: 10,
-            keep_boundary: true,
-            mesh_type: PhantomData
-        };
+        return Default::default();
     }
 
     /// Set flag indicating whether edge split should be performed. Default is `true`
@@ -166,7 +157,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             let vertex_position = mesh.vertex_position(&vertex);
             let vertex_normal = mesh.vertex_normal(&vertex);
             one_ring.clear();
-            mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(&v)));
+            mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(v)));
             let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);   
 
             let shift_vertex = 
@@ -338,5 +329,20 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         } else {
             return mesh_stats::IDEAL_INTERIOR_VERTEX_VALENCE as isize;
         }
+    }
+}
+
+impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMesh> {
+    fn default() -> Self {
+        return Self {
+            split_edges: true,
+            shift_vertices: true,
+            collapse_edges: true,
+            flip_edges: true,
+            project_vertices: true,
+            iterations: 10,
+            keep_boundary: true,
+            mesh_type: PhantomData
+        };
     }
 }

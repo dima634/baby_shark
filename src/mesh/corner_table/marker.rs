@@ -1,6 +1,6 @@
 use crate::{geometry::traits::RealNumber, mesh::traits::{Marker, Mesh}};
 
-use super::{corner_table::CornerTable, connectivity::{traits::Flags, corner}};
+use super::{table::CornerTable, connectivity::{traits::Flags, corner}};
 
 /// Implementation of [Marker] API for [CornerTable] 
 pub struct CornerTableMarker<TScalar: RealNumber> {

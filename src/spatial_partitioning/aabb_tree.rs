@@ -138,7 +138,7 @@ where
         match node.node_type {
             NodeType::Leaf => {
                 let objects = &self.objects[node.left..node.right];
-                visit((&objects, &node.bbox));
+                visit((objects, &node.bbox));
             },
             NodeType::Branch => {
                 self.visit_node(node.left, visit);
@@ -211,10 +211,9 @@ impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>>{
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
     /// 
     pub fn from_mesh<TMesh: Mesh<ScalarType = TScalar>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<TScalar>> = mesh.faces().map(|face| {
-            let (a, b, c) = mesh.face_positions(&face);
-            return Triangle3::new(a, b, c);
-        }).collect();
+        let faces: Vec<Triangle3<TScalar>> = mesh.faces()
+            .map(|face| mesh.face_positions(&face))
+            .collect();
 
         return Self::new(faces);
     }
@@ -279,7 +278,7 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
     /// This method can rearrange elements with indices between `first` and `last`.
     /// But it is not allowed to mutate element outside that slice or add/remove elements to objects vector.
     /// 
-    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()>;
+    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, &'static str>;
 }
 
 ///
@@ -291,7 +290,7 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
 pub struct MedianCut {}
 
 impl MedianCut {
-    fn try_split_by_axis<TObject>(axis: usize, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> 
+    fn try_split_by_axis<TObject>(axis: usize, objects: &mut [(TObject, Box3<TObject::ScalarType>)], first: usize, last: usize) -> Result<usize, &'static str> 
     where
         TObject: HasBBox3,
         TObject::ScalarType: RealNumber
@@ -309,15 +308,14 @@ impl MedianCut {
         let all_object_intersects_plane = objects[first..last].iter().all(|(_, bbox)| bbox.intersects_plane3(&plane));
 
         if all_object_intersects_plane {
-            return Err(());
+            return Err("All objects are intersecting split plane");
         }
 
         // Test whether all objects lies on same side of plane
         let first_sign: TObject::ScalarType = plane.distance(&objects[first].1.get_center());
         let mut are_on_same_side = true;
 
-        for i in first + 1..last {
-            let (_, bbox) = &objects[i];
+        for (_, bbox) in objects.iter().take(last).skip(first + 1) {
             let sign = plane.distance(&bbox.get_center()).signum();
 
             // On different sides?
@@ -328,7 +326,7 @@ impl MedianCut {
         }
 
         if are_on_same_side {
-            return Err(());
+            return Err("All objects are on same side of plane");
         }
 
         // Return medial point
@@ -341,13 +339,16 @@ where
     TObject: HasBBox3,
     TObject::ScalarType: RealNumber
 {
-    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, ()> {
+    fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, &'static str> {
         // Split by biggest dimension first
         let mut bbox = objects[first].1;
 
-        for i in first + 1..last + 1 {
-            bbox.add_box3(&objects[i].1);
-        }
+        objects.iter()
+            .take(last + 1)
+            .skip(first + 1)
+            .for_each(|(_, obj_bbox)| { 
+                bbox.add_box3(obj_bbox); 
+            });
 
         let mut split_axises = vec![
             (bbox.size_x(), 0),

@@ -1,2 +1,2 @@
-pub mod polygon_soup;
+pub mod data_structure;
 pub mod traversal;

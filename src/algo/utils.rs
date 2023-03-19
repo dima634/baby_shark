@@ -35,7 +35,7 @@ where
 /// v3 * (v1 x v2)
 #[inline]
 pub fn triple_product<TScalar: RealNumber>(v1: &Vector3<TScalar>, v2: &Vector3<TScalar>, v3: &Vector3<TScalar>) -> TScalar {
-    return v3.dot(&(v1.cross(&v2)));
+    return v3.dot(&(v1.cross(v2)));
 }
 
 #[inline]

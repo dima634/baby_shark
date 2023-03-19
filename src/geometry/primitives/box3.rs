@@ -37,7 +37,7 @@ impl<TScalar: Number> Box3<TScalar> {
 
     #[inline]
     pub fn get_center(&self) -> Point3<TScalar> {
-        return (&self.min + &self.max.coords) * cast(0.5).unwrap();
+        return (self.min + self.max.coords) * cast(0.5).unwrap();
     }
 
     #[inline]

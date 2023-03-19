@@ -13,7 +13,7 @@ pub struct LineSegment3<TScalar: RealNumber> {
 impl<TScalar: RealNumber> LineSegment3<TScalar> {
     pub fn new(start: &Point3<TScalar>, end: &Point3<TScalar>) -> Self { 
         return Self { 
-            line: Line3::from_points(&start, &end), 
+            line: Line3::from_points(start, end), 
             length: (end - start).norm()
         }; 
     }

@@ -1,4 +1,4 @@
-pub mod corner_table;
+pub mod table;
 pub mod prelude;
 pub mod traversal;
 pub mod connectivity;

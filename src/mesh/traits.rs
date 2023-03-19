@@ -33,14 +33,14 @@ pub trait Mesh {
     type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor> where Self: 'iter;
 
     /// Creates mesh from vertices and face indices
-    fn from_vertices_and_indices(vertices: &Vec<Point3<Self::ScalarType>>, faces: &Vec<usize>) -> Self;
+    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self;
 
     /// Iterator over mesh faces
-    fn faces<'a>(&'a self) -> Self::FacesIter<'a>;
+    fn faces(&self) -> Self::FacesIter<'_>;
     /// Iterator over mesh vertices
-    fn vertices<'a>(&'a self) -> Self::VerticesIter<'a>;
+    fn vertices(&self) -> Self::VerticesIter<'_>;
     /// Iterator over mesh edges
-    fn edges<'a>(&'a self) -> Self::EdgesIter<'a>;
+    fn edges(&self) -> Self::EdgesIter<'_>;
 
     /// Return vertices of given face
     fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor);
@@ -55,10 +55,11 @@ pub trait Mesh {
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType>;
 
     /// Returns positions of face vertices in ccw order
+    #[allow(clippy::type_complexity)]
     #[inline]
-    fn face_positions(&self, face: &Self::FaceDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+    fn face_positions(&self, face: &Self::FaceDescriptor) -> Triangle3<Self::ScalarType> {
         let (v1, v2, v3) = self.face_vertices(face);
-        return (
+        return Triangle3::new(
             *self.vertex_position(&v1),
             *self.vertex_position(&v2),
             *self.vertex_position(&v3)
@@ -68,8 +69,8 @@ pub trait Mesh {
     /// Returns face normal
     #[inline]
     fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
-        let (p1, p2, p3) = self.face_positions(face);
-        return Triangle3::normal(&p1, &p2, &p3);
+        let triangle = self.face_positions(face);
+        return triangle.get_normal();
     }
 
     /// Returns edge length
@@ -123,11 +124,11 @@ pub trait TopologicalMesh: Mesh + Sized{
     type Position<'a>: Position<'a, Self>;
 
     /// Iterates over one-ring vertices of vertex
-    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
     /// Iterates over one-ring faces of vertex
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
     /// Iterates over edges incident to vertex
-    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor) -> ()>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
 
     /// Return `true` if vertex is on boundary, `false` otherwise
     fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool;

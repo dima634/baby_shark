@@ -8,7 +8,7 @@ use crate::{mesh::traits::{Mesh, VertexProperties, TopologicalMesh}, geometry::t
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct ReebValue<TScalar: RealNumber>(TScalar);
 
-pub type ReebFunction<TMesh: Mesh> = fn(&TMesh, &TMesh::VertexDescriptor) -> TMesh::ScalarType;
+pub type ReebFunction<TMesh> = fn(&TMesh, &<TMesh as Mesh>::VertexDescriptor) -> <TMesh as Mesh>::ScalarType;
 
 impl<TScalar: RealNumber> ReebValue<TScalar> {
     pub fn new(value: TScalar) -> Self {

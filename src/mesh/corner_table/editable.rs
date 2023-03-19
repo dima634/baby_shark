@@ -1,6 +1,6 @@
 use nalgebra::Point3;
 use crate::{mesh::traits::EditableMesh, geometry::traits::RealNumber};
-use super::{corner_table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::{traits::Flags, corner}};
+use super::{table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::{traits::Flags, corner}};
 
 /// Set corner for wing vertex of collapsed edge
 #[inline]
