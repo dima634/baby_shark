@@ -1,4 +1,4 @@
-use std::{mem::swap, cmp::{min, max}};
+use std::mem::swap;
 
 use crate::{mesh::traits::{Mesh, VertexProperties, TopologicalMesh}, geometry::traits::RealNumber, helpers::utils::sort3};
 
@@ -282,41 +282,5 @@ impl<TMesh: Mesh + TopologicalMesh + VertexProperties> OrderedTriangle<TMesh> {
     #[inline]
     pub fn top_vertex(&self) -> &OrderedVertex<TMesh> {
         return &self.top_vertex;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use nalgebra::Point3;
-
-    use crate::mesh::{corner_table::prelude::CornerTableF, traits::{Mesh, VertexProperties}};
-
-    use super::{OrderedTriangle, ReebValue};
-
-    #[test]
-    fn test_create_from_face() {
-        // let vertices = vec![
-        //     Point3::<f32>::new(0.0, 1.0, 0.0),
-        //     Point3::<f32>::new(0.0, 0.0, 0.0),
-        //     Point3::<f32>::new(0.0, 0.5, 0.0)
-        // ];
-        // let indices = vec![0, 1, 2];
-        // let mesh =  CornerTableF::from_vertices_and_indices(&vertices, &indices);
-
-        // let mut reeb_values = mesh.create_vertex_properties_map();
-        // for vertex in mesh.vertices() {
-        //     reeb_values[vertex] = ReebValue::new(mesh.vertex_position(&vertex).y);
-        // }
-
-        // let ordered_face = OrderedTriangle::from_face(&mesh.faces().next().unwrap(), &mesh, &reeb_values);
-        
-        // let mut vertices = mesh.vertices();
-        // let v1 = vertices.next().unwrap();
-        // let v2 = vertices.next().unwrap();
-        // let v3 = vertices.next().unwrap();
-
-        // assert_eq!(ordered_face.top_vertex().vertex(), &v1);
-        // assert_eq!(ordered_face.bottom_vertex().vertex(), &v2);
-        // assert_eq!(ordered_face.middle_vertex().vertex(), &v3);
     }
 }

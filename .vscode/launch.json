@@ -7,21 +7,57 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'pancake'",
+            "name": "Debug unit tests in library 'baby_shark'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=pancake"
+                    "--package=baby_shark"
                 ],
                 "filter": {
-                    "name": "pancake",
+                    "name": "baby_shark",
                     "kind": "lib"
                 }
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'simplification'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=simplification",
+                    "--package=baby_shark"
+                ],
+                "filter": {
+                    "name": "simplification",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Run example 'simplification'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=simplification",
+                    "--package=baby_shark",
+                    "--release"
+                ],
+                "filter": {
+                    "name": "simplification",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

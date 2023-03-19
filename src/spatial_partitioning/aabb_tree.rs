@@ -1,7 +1,21 @@
 use nalgebra::{Vector3, Point3};
 use num_traits::{Float, One};
 
-use crate::{geometry::{traits::{HasBBox3, ClosestPoint3, RealNumber}, primitives::{Box3, Plane3, Triangle3}}, mesh::traits::{Mesh}};
+use crate::{
+    geometry::{
+        traits::{
+            HasBBox3, 
+            ClosestPoint3, 
+            RealNumber
+        }, 
+        primitives::{
+            box3::Box3, 
+            triangle3::Triangle3, 
+            plane3::Plane3
+        }
+    }, 
+    mesh::traits::Mesh
+};
 
 #[derive(PartialEq)]
 enum NodeType {

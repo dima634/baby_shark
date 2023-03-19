@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, fs::OpenOptions, path::Path, io::{BufWriter, Write}, str::FromStr, mem::swap};
+use std::{collections::HashMap, fmt::Display, fs::OpenOptions, path::Path, io::{BufWriter, Write}, mem::swap};
 
 use petgraph::{prelude::{StableDiGraph, NodeIndex, EdgeIndex}, dot::Dot, visit::EdgeRef};
 use crate::mesh::traits::{TopologicalMesh, Mesh, VertexProperties, Marker, MeshMarker};
@@ -6,7 +6,6 @@ use crate::mesh::traits::{TopologicalMesh, Mesh, VertexProperties, Marker, MeshM
 use super::ordered_triangle::{OrderedTriangle, ReebValue, OrderedEdge, ReebFunction, OrderedVertex};
 
 type ArcIdx = EdgeIndex<usize>;
-type NodeIdx = NodeIndex<usize>;
 
 pub struct ArcData<TMesh: Mesh> {
     edges: Vec<(TMesh::EdgeDescriptor, Option<ArcIdx>)>
@@ -195,7 +194,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
     /// 1. Remove `target` arc.
     /// 2. Add arc from `target` bottom to `source` bottom
     /// 
-    fn merge(&mut self, mut source: ArcIdx, mut target: ArcIdx, source_edge: &TMesh::EdgeDescriptor, target_edge: &TMesh::EdgeDescriptor) -> (Option<ArcIdx>, Option<ArcIdx>) {
+    fn merge(&mut self, source: ArcIdx, target: ArcIdx, source_edge: &TMesh::EdgeDescriptor, target_edge: &TMesh::EdgeDescriptor) -> (Option<ArcIdx>, Option<ArcIdx>) {
         if source == target {
             return (
                 self.graph[source].next_arc_mapped_to_edge(source_edge),
@@ -203,8 +202,8 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
             );
         }
 
-        let (mut target_bottom, mut target_top) = self.graph.edge_endpoints(target).unwrap();
-        let (mut src_bottom, mut src_top) = self.graph.edge_endpoints(source).unwrap();
+        let (target_bottom, target_top) = self.graph.edge_endpoints(target).unwrap();
+        let (src_bottom, src_top) = self.graph.edge_endpoints(source).unwrap();
 
         // while target_top != src_top {
         //     source = self.graph[source].next_arc_mapped_to_edge(source_edge).unwrap();
@@ -258,23 +257,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
         return (source_next, target_next);
     }
 
-    fn update_highest_arc(&mut self, edge: TMesh::EdgeDescriptor, arc: ArcIdx) {
-        let new_height = self.top(arc).reeb_value;
-        let current_hightest = self.edge_highest_arc_map.get(&edge);
-
-        if current_hightest.is_none() {
-            self.edge_highest_arc_map.insert(edge, arc);
-            return;
-        }
-
-        let current_height = self.top(self.edge_highest_arc_map[&edge]).reeb_value;
-
-        if new_height > current_height {
-            self.edge_highest_arc_map.insert(edge, arc);
-        }
-    }
-
-    fn save(&self, filename: &str) {
+    fn _save(&self, filename: &str) {
         let file = OpenOptions::new()
             .write(true)
             .truncate(true)

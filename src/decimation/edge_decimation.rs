@@ -3,7 +3,16 @@ use std::{collections::{BinaryHeap, HashMap}, cmp::Ordering};
 use nalgebra::{Vector4, Matrix4, Point3};
 use num_traits::{cast, Float};
 
-use crate::{mesh::traits::{EditableMesh, Mesh, TopologicalMesh, MeshMarker, Marker}, geometry::primitives::Plane3, algo::edge_collapse};
+use crate::{
+    mesh::traits::{
+        EditableMesh, 
+        Mesh, 
+        TopologicalMesh, 
+        MeshMarker, 
+        Marker
+    }, 
+    algo::edge_collapse, geometry::primitives::plane3::Plane3
+};
 
 /// Collapse candidate
 struct Contraction<TMesh: Mesh> {

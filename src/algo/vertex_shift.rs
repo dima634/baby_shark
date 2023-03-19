@@ -1,6 +1,9 @@
 use nalgebra::Point3;
 
-use crate::{mesh::traits::{TopologicalMesh, Position}, geometry::primitives::Triangle3};
+use crate::{
+    mesh::traits::{TopologicalMesh, Position}, 
+    geometry::primitives::triangle3::Triangle3
+};
 
 pub fn is_vertex_shift_safe<TMesh: TopologicalMesh>(
     vertex: &TMesh::VertexDescriptor, 

@@ -3,9 +3,9 @@ use nalgebra::Point3;
 use num_traits::{cast, Float};
 use crate::{
     mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }, 
-    algo::{utils::tangential_relaxation, edge_collapse, vertex_shift}, 
-    geometry::primitives::Triangle3, 
-    spatial_partitioning::grid::Grid
+    algo::{utils::tangential_relaxation, edge_collapse, vertex_shift},
+    spatial_partitioning::grid::Grid, 
+    geometry::primitives::triangle3::Triangle3
 };
 
 ///

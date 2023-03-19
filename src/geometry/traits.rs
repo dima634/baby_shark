@@ -1,6 +1,7 @@
 use nalgebra::{Point3, ClosedDiv};
 use num_traits::{NumCast, Float};
-use super::primitives::Box3;
+
+use super::primitives::box3::Box3;
 
 pub trait Number: nalgebra_glm::Number + NumCast + ClosedDiv {}
 impl<T> Number for T where T: nalgebra_glm::Number + NumCast + ClosedDiv {}

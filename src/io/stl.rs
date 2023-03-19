@@ -6,7 +6,7 @@ use std::{
 use nalgebra::{Point3, Vector3};
 use simba::scalar::{SupersetOf, SubsetOf};
 
-use crate::{algo::merge_points::merge_points, mesh::traits::Mesh, geometry::primitives::Triangle3};
+use crate::{algo::merge_points::merge_points, mesh::traits::Mesh, geometry::primitives::triangle3::Triangle3};
 
 const STL_HEADER_SIZE: usize = 80;
 

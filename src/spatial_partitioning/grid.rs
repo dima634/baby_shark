@@ -3,7 +3,21 @@ use std::collections::HashMap;
 use nalgebra::{Vector3, Point3};
 use num_traits::{cast, Float, Zero};
 
-use crate::{geometry::{traits::{HasBBox3, ClosestPoint3, RealNumber}, primitives::{Box3, Sphere3, Triangle3}}, mesh::traits::Mesh, algo::utils};
+use crate::{
+    geometry::{
+        traits::{
+            HasBBox3, 
+            ClosestPoint3, 
+            RealNumber
+        }, 
+        primitives::{
+            box3::Box3, 
+            sphere3::Sphere3, 
+            triangle3::Triangle3
+        }
+    }, 
+    mesh::traits::Mesh, algo::utils
+};
 
 type Cell = Vector3<isize>;
 type CellRange = Box3<isize>;

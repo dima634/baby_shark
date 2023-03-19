@@ -2,7 +2,7 @@ use std::{hash::Hash, fmt::Display, ops::{Index, IndexMut}};
 
 use nalgebra::{Point3, Vector3};
 
-use crate::geometry::{primitives::Triangle3, traits::RealNumber};
+use crate::geometry::{traits::RealNumber, primitives::triangle3::Triangle3};
 
 pub trait Edge {
     type VertexDescriptor;

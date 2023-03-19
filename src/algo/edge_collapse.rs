@@ -3,7 +3,14 @@ use std::collections::BTreeSet;
 use nalgebra::Point3;
 use num_traits::cast;
 
-use crate::{mesh::traits::{TopologicalMesh, EditableMesh, Position}, geometry::primitives::Triangle3};
+use crate::{
+    mesh::traits::{
+        TopologicalMesh, 
+        EditableMesh, 
+        Position
+    }, 
+    geometry::primitives::triangle3::Triangle3
+};
 
 /// Returns `true` when edge collapse is topologically safe, `false` otherwise
 pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
