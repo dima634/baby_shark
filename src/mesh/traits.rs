@@ -203,16 +203,9 @@ pub trait VertexProperties: Mesh {
     fn create_vertex_properties_map<TProperty: Default>(&self) -> Self::VertexPropertyMap<TProperty>;
 }
 
-// pub enum SplitFaceResult<TMesh: Mesh> {
-    
-// }
-
-// pub trait SplitFaceAtPoint: Mesh {
-//     type TError;
-//     type TOk; 
-
-//     fn split_face_at_point(&mut self, face: & Self::FaceDescriptor, point: &Point3<Self::ScalarType>) -> Result<>
-// }
+pub trait SplitFaceAtPoint: Mesh {
+    fn split_face(&mut self, face: & Self::FaceDescriptor, point: Point3<Self::ScalarType>);
+}
 
 /// Contains constants which defines what is good mesh
 pub mod mesh_stats {

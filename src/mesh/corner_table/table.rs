@@ -77,7 +77,8 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 
     /// Creates isolated face from existing vertices vertices
-    pub fn create_face_from_vertices(&mut self, v1: usize, v2: usize, v3: usize) {
+    /// Returns first corner of face
+    pub fn create_face_from_vertices(&mut self, v1: usize, v2: usize, v3: usize) -> usize {
         let c1 = self.create_corner();
         c1.set_vertex_index(v1);
 
@@ -86,6 +87,8 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
         let c3 = self.create_corner();
         c3.set_vertex_index(v3);
+
+        return self.corners.len() - 3;
     }
 
     /// Makes give corners opposite to each other
@@ -348,7 +351,7 @@ pub(super) mod helpers {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_equals}, connectivity::{vertex::VertexF, corner::Corner}};
+    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_eq}, connectivity::{vertex::VertexF, corner::Corner}};
 
     #[test]
     fn from_vertices_and_indices() {
@@ -371,6 +374,6 @@ mod tests {
             Corner::new(None,    0, Default::default())
         ];
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 }
