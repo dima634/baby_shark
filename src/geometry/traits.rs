@@ -1,7 +1,7 @@
 use nalgebra::{Point3, ClosedDiv};
 use num_traits::{NumCast, Float};
 
-use super::primitives::box3::Box3;
+use super::primitives::{box3::Box3, triangle3::Triangle3, plane3::Plane3};
 
 pub trait Number: nalgebra_glm::Number + NumCast + ClosedDiv {}
 impl<T> Number for T where T: nalgebra_glm::Number + NumCast + ClosedDiv {}
@@ -23,4 +23,16 @@ pub trait HasBBox3: HasScalarType {
 pub trait ClosestPoint3: HasScalarType {
     /// Returns closest point on primitive to given point 
     fn closest_point(&self, point: &Point3<Self::ScalarType>) -> Point3<Self::ScalarType>;
+}
+
+pub trait IntersectsTriangle3: HasScalarType {
+    type Output;
+
+    fn intersects_triangle3_at(&self, triangle: &Triangle3<Self::ScalarType>) -> Option<Self::Output>;
+}
+
+pub trait IntersectsPlane3: HasScalarType {
+    type Output;
+
+    fn intersects_plane3_at(&self, plane: &Plane3<Self::ScalarType>) -> Option<Self::Output>;
 }

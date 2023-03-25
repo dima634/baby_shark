@@ -312,11 +312,11 @@ impl MedianCut {
         }
 
         // Test whether all objects lies on same side of plane
-        let first_sign: TObject::ScalarType = plane.distance(&objects[first].1.get_center());
+        let first_sign: TObject::ScalarType = plane.distance_to_point(&objects[first].1.get_center());
         let mut are_on_same_side = true;
 
         for (_, bbox) in objects.iter().take(last).skip(first + 1) {
-            let sign = plane.distance(&bbox.get_center()).signum();
+            let sign = plane.distance_to_point(&bbox.get_center()).signum();
 
             // On different sides?
             if first_sign != sign {

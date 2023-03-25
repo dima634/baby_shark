@@ -8,6 +8,7 @@ use crate::geometry::traits::{RealNumber, HasScalarType, ClosestPoint3};
 use super::{plane3::Plane3, box3::Box3};
 
 /// Infinite line. l(t) = p + v*t
+#[derive(PartialEq, Debug)]
 pub struct Line3<TScalar: RealNumber> {
     point: Point3<TScalar>,
     direction: Vector3<TScalar>

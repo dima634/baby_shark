@@ -1,15 +1,28 @@
+use std::mem::swap;
+
 use nalgebra::{Point3, Vector3};
 use nalgebra_glm::{min2, max2};
 use num_traits::Float;
 
-use crate::geometry::traits::{RealNumber, ClosestPoint3, HasBBox3, HasScalarType};
+use crate::{
+    geometry::traits::{
+        RealNumber, 
+        ClosestPoint3,
+        HasBBox3, 
+        HasScalarType, 
+        IntersectsTriangle3, 
+        Number, 
+        IntersectsPlane3
+    }, 
+    algo::utils::{has_same_sign, triple_product}
+};
 
-use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::Plane3};
+use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
 
 pub type BarycentricCoordinates<TScalar> = Vector3<TScalar>;
 
 /// 3D triangle
-pub struct Triangle3<TScalar: RealNumber> {
+pub struct Triangle3<TScalar: Number> {
     a: Point3<TScalar>,
     b: Point3<TScalar>,
     c: Point3<TScalar>
@@ -95,7 +108,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     /// Returns barycentric coordinates of line - triangle intersection point
     pub fn intersects_line3_at(&self, line: &Line3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
-        return internal::line_triangle_intersection_moller::<false, TScalar>(self, line);
+        return line_triangle_intersection_moller::<false, TScalar>(self, line);
     }
 
     #[inline]
@@ -129,7 +142,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     /// Face culling on
     #[inline]
     pub fn intersects_ray3_at(&self, ray: &Ray3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
-        let intersection = internal::line_triangle_intersection_moller::<true, TScalar>(self, ray.get_line());
+        let intersection = line_triangle_intersection_moller::<true, TScalar>(self, ray.get_line());
 
         match intersection {
             Some(i) => {
@@ -269,42 +282,99 @@ impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
     }
 }
 
-pub(super) mod internal {
-    use nalgebra::Vector3;
-    use num_traits::Float;
+#[derive(PartialEq, Debug)]
+pub enum Triangle3Triangle3Intersection<TScalar: RealNumber> {
+    LineSegment(LineSegment3<TScalar>),
+    Point(Point3<TScalar>),
+    Coplanar
+}
 
-    use crate::{algo::utils::{triple_product, has_same_sign}, geometry::{traits::RealNumber, primitives::line3::Line3}};
-    use super::{Triangle3, BarycentricCoordinates};
+impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
+    type Output = Triangle3Triangle3Intersection<TScalar>;
 
-    #[allow(dead_code)]
-    pub fn line_triangle_intersection<TScalar: RealNumber>(triangle: Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<BarycentricCoordinates<TScalar>> {
-        let pa = triangle.a - line.get_point();
-        let pb = triangle.b - line.get_point();
-        let pc = triangle.c - line.get_point();
+    // http://web.stanford.edu/class/cs277/resources/papers/Moller1997b.pdf
+    fn intersects_triangle3_at(&self, other: &Triangle3<Self::ScalarType>) -> Option<Self::Output> {
+        let p1 = self.plane();
+        let p2 = other.plane();
 
-        // Test if pq is inside the edges bc, ca and ab. Done by testing
-        // that the signed tetrahedral volumes, computed using scalar triple
-        // products, all have same sign
-        let mut u = triple_product(line.get_direction(), &pc, &pb);
-        let mut v = triple_product(line.get_direction(), &pa, &pc);
-        let mut w = triple_product(line.get_direction(), &pb, &pa);
+        let (d0t1, d1t1, d2t1) = distances_from_triangle_to_plane(self, &p2);
 
-        if !has_same_sign(u, v) || !has_same_sign(u, w) {
+        // Reject as trivial if all points of triangle 1 are on same side of triangle 2 plane
+        if (d0t1 > TScalar::zero() &&  d1t1 > TScalar::zero() &&  d2t1 > TScalar::zero()) ||
+           (d0t1 < TScalar::zero() &&  d1t1 < TScalar::zero() &&  d2t1 < TScalar::zero())
+        {
+            return None;
+        }
+    
+        let (d0t2, d1t2, d2t2) = distances_from_triangle_to_plane(other, &p1);
+
+        if (d0t2 > TScalar::zero() &&  d1t2 > TScalar::zero() &&  d2t2 > TScalar::zero()) ||
+           (d0t2 < TScalar::zero() &&  d1t2 < TScalar::zero() &&  d2t2 < TScalar::zero())
+        {
             return None;
         }
 
-        // Compute the barycentric coordinates (u, v, w) determining the
-        // intersection point r, r = u*a + v*b + w*c
-        let denom = TScalar::one() / (u + v + w);
-        u *= denom;
-        v *= denom;
-        w *= denom; // w = 1.0f - u - v;
+        let line = p1.intersects_plane3_at(&p2).unwrap();
 
-        return Some(BarycentricCoordinates::new(u, v, w));
+        return match line {
+            Plane3Plane3Intersection::Line(line) => {
+                let (t1t1, t2t1) = calculate_line_intervals(self, &line, d0t1, d1t1, d2t1);
+                let (t1t2, t2t2) = calculate_line_intervals(other, &line, d0t2, d1t2, d2t2);
+    
+                let intervals_do_not_overlap =
+                    (t2t1 < t1t2) ||
+                    (t2t2 < t1t1);
+
+                if  intervals_do_not_overlap {
+                    return None;
+                }
+    
+                // Intersection is intervals overlap
+                let t_min = Float::max(t1t1, t1t2);
+                let t_max = Float::min(t2t1, t2t2);
+
+                // Is interval a point (zero length)?
+                if t_min == t_max {
+                    return Some(Triangle3Triangle3Intersection::Point(line.point_at(t_min)));
+                }
+
+                let segment = LineSegment3::from_line_and_t(&line, Float::max(t1t1, t1t2), Float::min(t2t1, t2t2));
+                return Some(Triangle3Triangle3Intersection::LineSegment(segment));
+            },
+            Plane3Plane3Intersection::Plane => Some(Triangle3Triangle3Intersection::Coplanar)
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn line_triangle_intersection<TScalar: RealNumber>(triangle: Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<BarycentricCoordinates<TScalar>> {
+    let pa = triangle.a - line.get_point();
+    let pb = triangle.b - line.get_point();
+    let pc = triangle.c - line.get_point();
+
+    // Test if pq is inside the edges bc, ca and ab. Done by testing
+    // that the signed tetrahedral volumes, computed using scalar triple
+    // products, all have same sign
+    let mut u = triple_product(line.get_direction(), &pc, &pb);
+    let mut v = triple_product(line.get_direction(), &pa, &pc);
+    let mut w = triple_product(line.get_direction(), &pb, &pa);
+
+    if !has_same_sign(u, v) || !has_same_sign(u, w) {
+        return None;
     }
 
-    /// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-    pub fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumber>(triangle: &Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+    // Compute the barycentric coordinates (u, v, w) determining the
+    // intersection point r, r = u*a + v*b + w*c
+    let denom = TScalar::one() / (u + v + w);
+    u *= denom;
+    v *= denom;
+    w *= denom; // w = 1.0f - u - v;
+
+    return Some(BarycentricCoordinates::new(u, v, w));
+}
+
+/// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
+fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumber>(triangle: &Triangle3<TScalar>, line: &Line3<TScalar>) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
         let edge1 = triangle.b - triangle.a;
         let edge2 = triangle.c - triangle.a;
 
@@ -366,6 +436,53 @@ pub(super) mod internal {
             return Some((Vector3::new(w, u, v), t));
         }
     }
+
+#[inline]
+fn distances_from_triangle_to_plane<TScalar: RealNumber>(triangle: &Triangle3<TScalar>, plane: &Plane3<TScalar>) -> (TScalar, TScalar, TScalar) {
+    return (
+        plane.distance_to_point(&triangle.a),
+        plane.distance_to_point(&triangle.b),
+        plane.distance_to_point(&triangle.c)
+    );
+}
+
+fn calculate_line_intervals<TScalar: RealNumber>(triangle: &Triangle3<TScalar>, line: &Line3<TScalar>, d0: TScalar, d1: TScalar, d2: TScalar) -> (TScalar, TScalar) {
+    let p0 = line.get_direction().dot(&(triangle.a - line.get_point()));
+    let p1 = line.get_direction().dot(&(triangle.b - line.get_point()));
+    let p2 = line.get_direction().dot(&(triangle.c - line.get_point()));
+
+    let mut t1;
+    let mut t2;
+
+    if d0 * d2 > TScalar::zero() {
+        t1 = calculate_line_parameter(p0, p1, d0, d1);
+        t2 = calculate_line_parameter(p2, p1, d2, d1);
+    } else if d0 * d1 > TScalar::zero() {
+        t1 = calculate_line_parameter(p0, p2, d0, d2);
+        t2 = calculate_line_parameter(p1, p2, d1, d2);
+    } else if d1 * d2 > TScalar::zero() || d0 != TScalar::zero() {
+        t1 = calculate_line_parameter(p0, p1, d0, d1);
+        t2 = calculate_line_parameter(p0, p2, d0, d2);     
+    } else if d1 != TScalar::zero() {
+        t1 = calculate_line_parameter(p1, p0, d1, d0);
+        t2 = calculate_line_parameter(p1, p2, d1, d2);           
+    } else if d2 != TScalar::zero() {
+        t1 = calculate_line_parameter(p2, p0, d2, d0);
+        t2 = calculate_line_parameter(p2, p1, d2, d1);          
+    } else {
+        panic!("WTF");
+    }
+
+    if t1 > t2 {
+        swap(&mut t1, &mut t2);
+    }
+
+    return (t1, t2);
+}
+
+#[inline]
+fn calculate_line_parameter<TScalar: RealNumber>(p0: TScalar, p1: TScalar, d0: TScalar, d1: TScalar) -> TScalar {
+    return p0 + (p1 - p0) * (d0 / (d0 - d1));
 }
 
 #[cfg(test)]
@@ -373,7 +490,20 @@ mod tests {
     use nalgebra::{Point3, Vector3};
     use num_traits::Float;
 
-    use crate::geometry::{primitives::{line3::Line3, triangle3::Triangle3, line_segment3::LineSegment3, ray3::Ray3}, traits::ClosestPoint3};
+    use crate::geometry::{
+        primitives::{
+            line3::Line3, 
+            triangle3::Triangle3, 
+            line_segment3::LineSegment3, 
+            ray3::Ray3
+        }, 
+        traits::{
+            ClosestPoint3, 
+            IntersectsTriangle3
+        }
+    };
+
+    use super::Triangle3Triangle3Intersection;
 
     #[test]
     fn line_closest_point() {
@@ -504,5 +634,93 @@ mod tests {
         );
 
         assert!((1.0 - equilateral_quality).abs() < 0.01);
+    }
+
+    #[test]
+    fn triangle_triangle_intersection() {
+        use Triangle3Triangle3Intersection::LineSegment;
+        use Triangle3Triangle3Intersection::Point;
+        use Triangle3Triangle3Intersection::Coplanar;
+
+        let t1 = Triangle3::new(
+            Point3::new(0.0, 1.0, 0.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(1.0, 0.0, 0.0)
+        );
+        // Test intersection against itself
+        let t1t1_expected = Coplanar;
+        let t1t1_actual = t1.intersects_triangle3_at(&t1);
+        assert!(t1t1_actual.is_some());
+        assert_eq!(t1t1_expected, t1t1_actual.unwrap());
+
+        // Intersection at edge
+        let t2 = Triangle3::new(
+            Point3::new(0.0, 1.0, 0.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(0.0, 0.0, -1.0)
+        );
+        let t1t2_expected = LineSegment3::new(
+            &Point3::new(0.0, 0.0, 0.0),
+            &Point3::new(0.0, 1.0, 0.0)
+        );
+        let t1t2_actual = t1.intersects_triangle3_at(&t2);
+        assert!(t1t2_actual.is_some());
+        assert_eq!(LineSegment(t1t2_expected), t1t2_actual.unwrap());
+
+        // Intersection at point on edge
+        let t3 = Triangle3::new(
+            Point3::new(0.0, 0.5, 0.0),
+            Point3::new(0.0, 0.0, 1.0),
+            Point3::new(0.0, 1.0, 1.0)
+        );
+        let t1t3_expected = Point3::new(0.0, 0.5, 0.0);
+        let t1t3_actual = t1.intersects_triangle3_at(&t3);
+        assert!(t1t3_actual.is_some());
+        assert_eq!(Point(t1t3_expected), t1t3_actual.unwrap());
+
+        // Intersection at point on triangle
+        let t4 = Triangle3::new(
+            Point3::new(0.2, 0.2, 0.0),
+            Point3::new(0.2, 0.0, 1.0),
+            Point3::new(0.2, 1.0, 1.0)
+        );
+        let t1t4_expected = Point3::new(0.2, 0.2, 0.0);
+        let t1t4_actual = t1.intersects_triangle3_at(&t4);
+        assert!(t1t4_actual.is_some());
+        assert_eq!(Point(t1t4_expected), t1t4_actual.unwrap());
+
+        // No intersection but coplanar
+        let t5 = Triangle3::new(
+            Point3::new(5.0, 1.0, 0.0),
+            Point3::new(5.0, 0.0, 0.0),
+            Point3::new(6.0, 0.0, 0.0)
+        );
+        let t1t5_actual = t1.intersects_triangle3_at(&t5);
+        assert!(t1t5_actual.is_some());
+        assert_eq!(Coplanar, t1t5_actual.unwrap());
+
+        // No intersection
+        let t6 = Triangle3::new(
+            Point3::new(-1.0, 1.0, 0.0),
+            Point3::new(-1.0, 0.0, 0.0),
+            Point3::new(-1.0, 0.0, -1.0)
+        );
+        assert!(t1.intersects_triangle3_at(&t6).is_none());
+
+        // Line segment intersection
+        let t7 = Triangle3::new(
+            Point3::new(0.5, 5.0, -1.0),
+            Point3::new(0.5, -5.0, -1.0),
+            Point3::new(0.5, 0.0, 5.0)
+        );
+        let t1t7_expected = LineSegment(
+            LineSegment3::new(
+                &Point3::new(0.5, 0.5, 0.0),
+                &Point3::new(0.5, 0.0, 0.0)
+            )
+        );
+        let t1t7_actual = t1.intersects_triangle3_at(&t7);
+        assert!(t1t7_actual.is_some());
+        assert_eq!(t1t7_expected, t1t7_actual.unwrap());
     }
 }
