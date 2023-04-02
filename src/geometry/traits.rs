@@ -36,3 +36,9 @@ pub trait IntersectsPlane3: HasScalarType {
 
     fn intersects_plane3_at(&self, plane: &Plane3<Self::ScalarType>) -> Option<Self::Output>;
 }
+
+pub trait Intersects<TPrimitive: HasScalarType>: HasScalarType {
+    type Output;
+
+    fn intersects_at(&self, primitive: &TPrimitive) -> Option<Self::Output>;
+}

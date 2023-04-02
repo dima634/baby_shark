@@ -207,6 +207,10 @@ pub trait SplitFaceAtPoint: Mesh {
     fn split_face(&mut self, face: & Self::FaceDescriptor, point: Point3<Self::ScalarType>);
 }
 
+pub trait Concat: Mesh {
+    fn concat(&mut self, other: Self);
+}
+
 /// Contains constants which defines what is good mesh
 pub mod mesh_stats {
     pub const IDEAL_INTERIOR_VERTEX_VALENCE: usize = 6;

@@ -2,10 +2,10 @@ use std::mem::swap;
 
 use nalgebra::{Point3, Vector3};
 use nalgebra_glm::{min2, max2};
-use num_traits::Float;
+use num_traits::{Float, cast};
 
 use crate::{
-    geometry::traits::{
+    geometry::{traits::{
         RealNumber, 
         ClosestPoint3,
         HasBBox3, 
@@ -13,13 +13,38 @@ use crate::{
         IntersectsTriangle3, 
         Number, 
         IntersectsPlane3
-    }, 
+    }, basis2d::Basis2}, 
     algo::utils::{has_same_sign, triple_product}
 };
 
 use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
 
-pub type BarycentricCoordinates<TScalar> = Vector3<TScalar>;
+pub struct BarycentricCoordinates<TScalar: RealNumber>(Vector3<TScalar>);
+
+impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
+    #[inline]
+    pub fn u(&self) -> TScalar {
+        return self.0.x;
+    }
+
+    #[inline]
+    pub fn v(&self) -> TScalar {
+        return self.0.y;
+    }
+
+    #[inline]
+    pub fn w(&self) -> TScalar {
+        return self.0.z;
+    }
+
+    #[inline]
+    pub fn is_within_triangle(&self) -> bool {
+        return 
+            self.v() >= TScalar::zero() && 
+            self.w() >= TScalar::zero() && 
+            (self.v() + self.w() <= TScalar::one());
+    }
+}
 
 /// 3D triangle
 pub struct Triangle3<TScalar: Number> {
@@ -51,15 +76,48 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Point3<TScalar> {
         return Point3::new(
-            barycoords.x * self.a.x + barycoords.y * self.b.x + barycoords.z * self.c.x,
-            barycoords.x * self.a.y + barycoords.y * self.b.y + barycoords.z * self.c.y,
-            barycoords.x * self.a.z + barycoords.y * self.b.z + barycoords.z * self.c.z,
+            barycoords.u() * self.a.x + barycoords.v() * self.b.x + barycoords.w() * self.c.x,
+            barycoords.u() * self.a.y + barycoords.v() * self.b.y + barycoords.w() * self.c.y,
+            barycoords.u() * self.a.z + barycoords.v() * self.b.z + barycoords.w() * self.c.z,
         );
     }
 
     #[inline]
     pub fn plane(&self) -> Plane3<TScalar> {
         return Plane3::from_points(&self.a, &self.b, &self.c);
+    }
+
+    #[inline]
+    pub fn basis(&self) -> Basis2<TScalar> {
+        return Basis2::from_normal_and_point(self.get_normal(), self.a);
+    }
+
+    #[inline]
+    pub fn center(&self) -> Point3<TScalar> {
+        return (self.a + self.b.coords + self.c.coords) / cast(3).unwrap();
+    }
+
+    pub fn barycentric(&self, point: &Point3<TScalar>) -> BarycentricCoordinates<TScalar> {
+        let v0 = self.b - self.a;
+        let v1 = self.c - self.a;
+        let v2 = point - self.a;
+        let d00 = v0.dot(&v0);
+        let d01 = v0.dot(&v1);
+        let d11 = v1.dot(&v1);
+        let d20 = v2.dot(&v0);
+        let d21 = v2.dot(&v1);
+        let denom_inv = TScalar::one() / (d00 * d11 - d01 * d01);
+
+        let v = (d11 * d20 - d01 * d21) * denom_inv;
+        let w = (d00 * d21 - d01 * d20) * denom_inv;
+        let u = TScalar::one() - v - w;
+
+        return BarycentricCoordinates(Vector3::new(u, v, w));
+    }
+
+    #[inline]
+    pub fn is_point_within(&self, point: &Point3<TScalar>) -> bool {
+        return self.barycentric(point).is_within_triangle();
     }
 
     #[inline]
@@ -370,7 +428,7 @@ fn line_triangle_intersection<TScalar: RealNumber>(triangle: Triangle3<TScalar>,
     v *= denom;
     w *= denom; // w = 1.0f - u - v;
 
-    return Some(BarycentricCoordinates::new(u, v, w));
+    return Some(BarycentricCoordinates(Vector3::new(u, v, w)));
 }
 
 /// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
@@ -408,7 +466,7 @@ fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumb
             v *= inv_det;
             let w = TScalar::one() - u - v;
 
-            return Some((Vector3::new(w, u, v), t));
+            return Some((BarycentricCoordinates(Vector3::new(w, u, v)), t));
         } else {
             if Float::abs(det) < TScalar::epsilon() {
                 return None;
@@ -433,7 +491,7 @@ fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumb
             let t = edge2.dot(&qvec) * inv_det;
             let w = TScalar::one() - u - v;
 
-            return Some((Vector3::new(w, u, v), t));
+            return Some((BarycentricCoordinates(Vector3::new(w, u, v)), t));
         }
     }
 

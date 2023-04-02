@@ -8,6 +8,7 @@ pub mod geometry;
 pub mod decimation;
 pub mod boolean;
 pub mod tunnel_handle_detection;
+pub mod triangulation;
 
 #[allow(clippy::all)]
 pub mod reeb_graph;
