@@ -16,6 +16,11 @@ impl<TScalar: RealNumber> Ray2<TScalar> {
     pub fn line(&self) -> &Line2<TScalar> {
         return &self.0;
     }
+
+    #[inline]
+    pub fn point_at(&self, t: TScalar) -> Point2<TScalar> {
+        return self.0.point_at(t);
+    }
 }
 
 impl<TScalar: RealNumber> HasScalarType for Ray2<TScalar> {
@@ -27,13 +32,18 @@ impl<TScalar: RealNumber> Intersects<LineSegment2<TScalar>> for Ray2<TScalar> {
 
     #[inline]
     fn intersects_at(&self, segment: &LineSegment2<TScalar>) -> Option<Self::Output> {
-        let p = segment.intersects_at(self.line());
-        return p.and_then(|p| {
-            if self.line().parameter_at(p) >= TScalar::zero() 
-                { Some(p) }
-            else 
-                { None }
-        })
+        let t = self.line().intersects_line2_at_t(segment.line());
+        return t.and_then(|(t1, t2)| {
+            let not_intersecting =
+                t1 < TScalar::zero() ||                         // outside ray
+                t2 < TScalar::zero() || t2 > TScalar::one();    // outside segment
+            
+            if not_intersecting {
+                return None;
+            }
+
+            return Some(self.point_at(t1));
+        });
     }
 }
 

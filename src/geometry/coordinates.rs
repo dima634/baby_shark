@@ -1,20 +1,21 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, panic};
 
 use nalgebra::Point2;
 use num_traits::Float;
 
 use super::traits::RealNumber;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct PolarPoint2<TScalar: RealNumber>(Point2<TScalar>);
 
 impl<TScalar: RealNumber> PolarPoint2<TScalar> {
     pub fn new(radius: TScalar, angle: TScalar) -> Self {
-        let mut angle = angle % TScalar::pi();
+        // let mut angle = angle % TScalar::two_pi();
 
-        if angle < TScalar::zero() {
-            angle += TScalar::two_pi();
-        }
+        // if angle < TScalar::zero() {
+        //     angle += TScalar::two_pi();
+        //     panic!();
+        // }
 
         return Self(Point2::new(radius, angle));
     }
@@ -47,14 +48,28 @@ impl<TScalar: RealNumber> PolarPoint2<TScalar> {
 pub fn polar2<TScalar: RealNumber>(pole: &Point2<TScalar>, point: &Point2<TScalar>) -> PolarPoint2<TScalar> {
     let radius = (point - pole).norm();
 
-    if pole.y == point.y {
-        return PolarPoint2::new(radius, TScalar::zero());
-    } 
+    if radius.is_zero() {
+        panic!();
+    }
 
-    let mut acos = Float::acos((point.x - pole.x) / radius);
+    // if pole.y == point.y {
+    //     if pole.x > point.x {
+    //         return PolarPoint2::new(radius, TScalar::zero());
+    //     } else {
+    //         return PolarPoint2::new(radius, TScalar::pi());
+    //     }
+    // } 
 
-    if point.y < pole.y {
-        acos += TScalar::pi();
+    // let mut acos = Float::acos((point.x - pole.x) / radius);
+
+    // if point.y < pole.y {
+    //     acos += TScalar::pi();
+    // }
+
+    let mut acos = Float::atan2(point.y - pole.y, point.x - pole.x);
+
+    if acos.is_negative() {
+        acos += TScalar::two_pi();
     }
 
     return PolarPoint2::new(radius, acos);

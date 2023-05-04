@@ -6,10 +6,12 @@ use baby_shark::{
     mesh::corner_table::prelude::CornerTableF
 };
 
+
+
 fn main() {
     let mut reader = StlReader::new();
     let mut mesh: CornerTableF = reader.read_stl_from_file(Path::new("./test_files/violin.stl")).expect("Read mesh from STL");
-
+    
     let mut decimator = EdgeDecimator::new().max_error(Some(0.01f32));
     decimator.decimate(&mut mesh);
 
