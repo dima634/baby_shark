@@ -32,9 +32,9 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         let mut group = c.benchmark_group(format!("{} points", points_count));
         
-        group.bench_function("delaunator-rs", |b| b.iter(|| {
-            triangulate(&points_delaunator);
-        }));
+        // group.bench_function("delaunator-rs", |b| b.iter(|| {
+        //     triangulate(&points_delaunator);
+        // }));
 
         group.bench_function("baby_shark", |b| b.iter(|| {
             let mut triangulation = Triangulation2::new();

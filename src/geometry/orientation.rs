@@ -26,7 +26,7 @@ pub fn orientation2d<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScala
         return Orientation::Colinear;
     }
 }
-
+ 
 #[inline]
 pub fn signed_angle<TScalar: RealNumber>(v1: &Vector2<TScalar>, v2: &Vector2<TScalar>) -> TScalar {
     let mut angle = Float::atan2(v1.perp(&v2), v1.dot(&v2));

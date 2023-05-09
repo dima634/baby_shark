@@ -1,4 +1,4 @@
-use std::{mem::swap, collections::{HashMap, VecDeque}, path::Path, cmp::Ordering};
+use std::{mem::swap, collections::{HashMap, VecDeque, LinkedList}, path::Path, cmp::Ordering};
 
 use nalgebra::{Point2, Vector2, Point, Point3};
 use nalgebra_glm::{min2, max2};
@@ -11,7 +11,7 @@ use crate::{
     orientation::{orientation2d, Orientation, signed_angle}},
     mesh::polygon_soup::data_structure::PolygonSoup, 
     io::stl::StlWriter, 
-    helpers::utils::{sort3, sort3_by}
+    helpers::utils::{sort3, sort3_by}, data_structures::linked_vec::{LinkedVec, Link}
 };
 
 // struct Vertex<TScalar: RealNumber>{
@@ -72,8 +72,8 @@ pub fn polar2<TScalar: RealNumber>(pole: &Point2<TScalar>, point: &Point2<TScala
 #[derive(Debug)]
 struct FrontierEdge {
     halfedge: usize,
-    f_start: usize,
-    f_end: usize
+    f_start: Link,
+    f_end: Link
 }
 
 #[inline]
@@ -90,7 +90,7 @@ fn prev_halfedge(he: usize) -> usize {
 struct Vertex<TScalar: RealNumber> {
     cartesian: Point2<TScalar>,
     radius_squared: TScalar,
-    angle: TScalar
+    angle: TScalar              // [0; 2*PI)
 }
 
 impl<TScalar: RealNumber> Vertex<TScalar> {
@@ -111,25 +111,29 @@ impl<TScalar: RealNumber> Vertex<TScalar> {
 /// 
 #[derive(Debug)]
 pub struct Triangulation2<TScalar: RealNumber> {
-    pole: Point2<TScalar>,              // origin if polar coordinates, center of bbox
-    frontier: VecDeque<usize>,
-    vertices: Vec<Vertex<TScalar>>,
+    pole: Point2<TScalar>,                  // origin of polar coordinates, center of bbox
+    vertices: Vec<Vertex<TScalar>>, 
     outgoing_he: Vec<usize>,                // halfedges outgoing from vertex
     triangles: Vec<usize>,                  // list of triangle indices
     he_twins: Vec<Option<usize>>,           // list of halfedge twins
-    stack: Vec<usize>
+    stack: Vec<usize>,
+
+    list: LinkedVec<usize>,
+    hash: Vec<Option<Link>>
 }
 
 impl<TScalar: RealNumber> Triangulation2<TScalar> {
     pub fn new() -> Self {
         return Self {
             pole: Point2::origin(),
-            frontier: VecDeque::new(),
             vertices: Vec::new(),
             he_twins: Vec::new(),
             outgoing_he: Vec::new(),
             triangles: Vec::new(),
-            stack: Vec::new()
+            stack: Vec::new(),
+
+            hash: Vec::new(),
+            list: LinkedVec::new()
         };
     }
 
@@ -148,15 +152,17 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         self.he_twins.clear();
         self.outgoing_he.clear();
         self.vertices.clear();
-        self.frontier.clear();
+        self.hash.clear();
+        self.list.clear();
 
         let estimated_halfedges_count = points.len() * 6;
         self.triangles.reserve(estimated_halfedges_count);
         self.he_twins.reserve(estimated_halfedges_count);
         self.outgoing_he.resize(points.len(), usize::MAX);
         // self.vertices.resize(points.len(), value);
-        self.frontier.reserve(points.len() / 10);
-
+        let hash_size = (points.len() as f32).sqrt() as usize;
+        self.hash.resize(hash_size, None);
+        self.list.reserve(points.len() / 10);
 
         self.initialize(points);
         self.triangulation();
@@ -191,24 +197,25 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
 
         // println!("{:?}", self.mesh.vertices);
 
-        self.pole = (self.vertices[a].cartesian + self.vertices[b].cartesian.coords + self.vertices[c].cartesian.coords) / cast(3).unwrap();
+        let new_pole = (self.vertices[a].cartesian + self.vertices[b].cartesian.coords + self.vertices[c].cartesian.coords) / cast(3).unwrap();
         
         for vertex in &mut self.vertices {
-            let mut angle = Float::atan2(vertex.cartesian.y - self.pole.y, vertex.cartesian.x - self.pole.x);
+            let mut angle = Float::atan2(vertex.cartesian.y - new_pole.y, vertex.cartesian.x - new_pole.x);
 
             if angle.is_negative() {
                 angle += TScalar::two_pi();
             }
 
             vertex.angle = angle;
+            // vertex.radius_squared = (vertex.cartesian - self.pole).norm_squared();
         }
 
         sort3_by(&mut a, &mut b, &mut c, |v| self.vertices[*v].angle());
 
         // println!("{:?}\t{:?}\t{:?}", self.vertices[a],self.vertices[b],self.vertices[c]);
-        self.frontier.push_back(a);
-        self.frontier.push_back(b);
-        self.frontier.push_back(c);
+        self.list.push_back(a);
+        self.list.push_back(b);
+        self.list.push_back(c);
 
         // self.save_svg("it.svg".into());
 
@@ -224,25 +231,29 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         for point in 3..self.vertices.len() {
 
             // self.save("init.stl".into());
-            // self.save_svg("it.svg".into());
-            let edge = self.project_on_frontier(point);
+            self.save_svg(format!("it{point}.svg").into());
+            let edge = self.project_on_frontier(point); 
 
-            self.add_triangle(self.frontier[edge.f_start], point, self.frontier[edge.f_end], None, None, Some(edge.halfedge));
+            self.add_triangle(self.list[edge.f_start], point, self.list[edge.f_end], None, None, Some(edge.halfedge));
 
-            if edge.f_end == 0 {
-                if self.vertices[point].angle() <= self.vertices[self.frontier[0]].angle() {
-                    self.frontier.push_front(point);
+            // TODO: try to insert before end
+            let f_point = 
+                if edge.f_end == self.list.head().unwrap() {
+                    if self.vertices[point].angle() <= self.vertices[self.list[edge.f_end]].angle() {
+                        self.list.push_front(point)
+                    } else {
+                        self.list.push_back(point)
+                    }
                 } else {
-                    self.frontier.push_back(point);
-                }
-            } else {
-                self.frontier.insert(edge.f_end, point);
-            }
+                    self.list.insert_before(edge.f_end, point)
+                };
+            self.update_hash_insert(point, f_point);
             
 
             // let a: Vec<_> = self.frontier.iter().map(|f| self.polars[*f].angle()).collect();
             // println!("{:?}", a);
-            // assert!(self.frontier.windows(2).all(|w| self.polars[w[0]].angle() <= self.polars[w[1]].angle()));
+            // debug_assert!(self.list.iter().zip(self.list.iter().skip(1))
+            //     .all(|(w1, w2)| self.vertices[*w1].angle() <= self.vertices[*w2].angle()));
             // self.replace_halfedge_in_frontier(edge.halfedge, he1, he2);
 
 
@@ -250,22 +261,21 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
             // self.is_delaunay();
 
             // self.save("legal.stl".into());
-            let mut f_point = edge.f_end;
 
             // println!("walk");
 
-            self.walf_left(&mut f_point);
+            self.walf_left(f_point);
             // self.save("walk1.stl".into());
 
             // self.is_delaunay();
 
-            self.walk_right(&mut f_point);
+            self.walk_right(f_point);
             // self.save("walk2.stl".into());
 
             // self.is_delaunay();
 
-            self.remove_basin_left(&mut f_point);
-            self.remove_basin_right(f_point);
+            self.remove_basin_left(f_point);
+            // self.remove_basin_right(f_point);
 
             
             // self.save("end.stl".into());
@@ -295,43 +305,34 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     // }
 
     fn finalize(&mut self) {
-        self.remove_basin::<true>(0);
-    }
-
-    fn remove_basin<const WALK_LEFT: bool>(&mut self, f: usize) {
+        let mut f = self.list.head().unwrap();
         let mut f1 = f;
 
         loop {
-            let f2 = next_vertex::<WALK_LEFT>(f1, self.frontier.len());
-            let f3 = next_vertex::<WALK_LEFT>(f2, self.frontier.len());
+            let f2 = self.list.next_circular(f1).unwrap();
+            let f3 = self.list.next_circular(f2).unwrap();
             
-            let v1 = self.frontier[f1];
-            let v2 = self.frontier[f2];
-            let v3 = self.frontier[f3];
+            let v1 = self.list[f1];
+            let v2 = self.list[f2];
+            let v3 = self.list[f3];
 
             let v1_pos = &self.vertices[v1].cartesian;
             let v2_pos = &self.vertices[v2].cartesian;
             let v3_pos = &self.vertices[v3].cartesian;
 
             if orientation2d(v1_pos, v2_pos, v3_pos) == Orientation::Clockwise {
-                if WALK_LEFT {
-                    let v1v2 = self.outgoing_border_halfedge(v1);
-                    let v2v3 = self.outgoing_border_halfedge(v2);
-                    self.add_triangle(v3, v2, v1, v2v3, v1v2, None);
+                let v1v2 = self.outgoing_border_halfedge(v1);
+                let v2v3 = self.outgoing_border_halfedge(v2);
+                self.add_triangle(v3, v2, v1, v2v3, v1v2, None);
 
-                    self.legalize(v1v2.unwrap());
-                    self.legalize(v2v3.unwrap());
-                } else {
-                    let v2v1 = self.outgoing_border_halfedge(v2);
-                    let v3v2 = self.outgoing_border_halfedge(v3);
-                    self.add_triangle(v1, v2, v3, v2v1, v3v2, None);
+                self.legalize(v1v2.unwrap());
+                self.legalize(v2v3.unwrap());
 
-                    self.legalize(v2v1.unwrap());
-                    self.legalize(v3v2.unwrap());
-                }
+                // self.update_hash_remove(f2);
+                self.list.remove(f2);
 
-                self.frontier.remove(f2);
-                f1 = next_vertex::<false>(f1, self.frontier.len());
+                f1 = self.list.prev_circular(f1).unwrap();
+                f = f1;
             } else {
                 f1 = f2;
             }
@@ -343,15 +344,15 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     }
 
     #[inline(never)]
-    fn walf_left(&mut self, start_point: &mut usize) {
+    fn walf_left(&mut self, start_point: Link) {
         loop {
-            let f1 = *start_point;
-            let f2 = (*start_point + 1) % self.frontier.len();
-            let f3 = (*start_point + 2) % self.frontier.len();
+            let f1 = start_point;
+            let f2 = self.list.next_circular(f1).unwrap();
+            let f3 = self.list.next_circular(f2).unwrap();
 
-            let v1 = self.frontier[f1];
-            let v2 = self.frontier[f2];
-            let v3 = self.frontier[f3];
+            let v1 = self.list[f1];
+            let v2 = self.list[f2];
+            let v3 = self.list[f3];
 
             let v1_pos = &self.vertices[v1].cartesian;
             let v2_pos = &self.vertices[v2].cartesian;
@@ -375,11 +376,12 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
             debug_assert!(next_he.is_some());
 
             self.add_triangle(v3, v2, v1, next_he, current_he, None);
-            self.frontier.remove(f2);
+            self.update_hash_remove(f2);
+            self.list.remove(f2);
 
-            if *start_point > f2 {
-                *start_point -= 1;
-            }
+            // if *start_point > f2 {
+            //     *start_point -= 1;
+            // }
 
             self.legalize(current_he.unwrap());
             self.legalize(next_he.unwrap());
@@ -388,15 +390,16 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
             //current_he = face + 2;
         }
     }
-
-    fn walk_right(&mut self, mut f1: &mut usize) {
+    
+    #[inline(never)]
+    fn walk_right(&mut self, f1: Link) {
         loop {
-            let f2 = (*f1 + self.frontier.len() - 1) % self.frontier.len();
-            let f3 = (*f1 + self.frontier.len() - 2) % self.frontier.len();
+            let f2 = self.list.prev_circular(f1).unwrap();
+            let f3 = self.list.prev_circular(f2).unwrap();
 
-            let v1 = self.frontier[*f1];
-            let v2 = self.frontier[f2];
-            let v3 = self.frontier[f3];
+            let v1 = self.list[f1];
+            let v2 = self.list[f2];
+            let v3 = self.list[f3];
 
             let v1_pos = &self.vertices[v1].cartesian;
             let v2_pos = &self.vertices[v2].cartesian;
@@ -418,11 +421,12 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
 
             self.add_triangle(v1, v2, v3, current_he, prev_he, None);
 
-            self.frontier.remove(f2);
+            self.update_hash_remove(f2);
+            self.list.remove(f2);
 
-            if *f1 > f2 {
-                *f1 -= 1;
-            }
+            // if *f1 > f2 {
+            //     *f1 -= 1;
+            // }
 
             self.legalize(current_he.unwrap());
             self.legalize(prev_he.unwrap());
@@ -432,62 +436,172 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         }
     }
 
-    fn remove_basin_right(&mut self, f1: usize) {
-        let f3 = (f1 + self.frontier.len() - 2) % self.frontier.len();
+    // fn remove_basin_right(&mut self, f1: usize) {
+    //     let f3 = (f1 + self.frontier.len() - 2) % self.frontier.len();
         
-        let f1_p = &self.vertices[self.frontier[f1]];
-        let f3_p = &self.vertices[self.frontier[f3]];
+    //     let f1_p = &self.vertices[self.frontier[f1]];
+    //     let f3_p = &self.vertices[self.frontier[f3]];
 
-        let delta_r = f1_p.radius_squared() - f3_p.radius_squared();
-        let delta_o = f1_p.angle() - f3_p.angle();
+    //     let delta_r = f1_p.radius_squared() - f3_p.radius_squared();
+    //     let delta_o = f1_p.angle() - f3_p.angle();
 
-        let basin_factor = delta_r / (f3_p.radius_squared() * delta_o);
-        let is_basin = basin_factor > num_traits::cast(2).unwrap();
+    //     let basin_factor = delta_r / (f3_p.radius_squared() * delta_o);
+    //     let is_basin = basin_factor > num_traits::cast(2).unwrap();
+
+    //     if is_basin {
+    //         // println!("Found basin right");
+
+    //         let f_basin_start = f3;
+    //         // let mut f_basin_bottom = (f_basin_start + self.frontier.len() - 1) % self.frontier.len();
+    //         // let mut f_basin_bottom_next = (f_basin_bottom + self.frontier.len() - 1) % self.frontier.len();
+
+    //         // while self.polars[self.frontier[f_basin_bottom]].radius() > self.polars[self.frontier[f_basin_bottom_next]].radius() {
+    //         //     f_basin_bottom = f_basin_bottom_next;
+    //         //     f_basin_bottom_next = (f_basin_bottom_next + self.frontier.len() - 1) % self.frontier.len();
+    //         // }
+
+    //         let mut f_basin_end = f3;
+    //         let mut f_start = f3;
+
+    //         loop {
+    //             let f_mid = (f_start + self.frontier.len() - 1) % self.frontier.len();
+    //             let f_end = (f_start + self.frontier.len() - 2) % self.frontier.len();
+
+    //             let f_start_p = &self.vertices[self.frontier[f_start]].cartesian;
+    //             let f_mid_p = &self.vertices[self.frontier[f_mid]].cartesian;
+    //             let f_end_p = &self.vertices[self.frontier[f_end]].cartesian;
+
+    //             if orientation2d(f_start_p, f_mid_p, f_end_p) == Orientation::Clockwise {
+    //                 f_basin_end = f_mid;
+    //                 break;
+    //             }
+        
+    //             f_start = f_mid;
+    //         }
+
+    //         let mut f_mid = (f_basin_start + self.frontier.len() - 1) % self.frontier.len();
+    //         if f_mid == f_basin_end {
+    //             return;
+    //         }
+        
+    //         let mut f_end = (f_basin_start + self.frontier.len() - 2) % self.frontier.len();
+    //         let mut f_start = f_basin_start;
+
+    //         // self.save("basin1.stl".into());
+    //         loop {
+    //             let v1 = self.frontier[f_start];
+    //             let v2 = self.frontier[f_mid];
+    //             let v3 = self.frontier[f_end];
+
+    //             let v2v1 = self.outgoing_border_halfedge(v2);
+    //             let v3v2 = self.outgoing_border_halfedge(v3);
+
+    //             debug_assert!(v2v1.is_some());
+    //             debug_assert!(v3v2.is_some());
+
+    //             // println!("add");
+    //             self.add_triangle(v1, v2, v3, v2v1, v3v2, None);
+    //             self.frontier.remove(f_mid);
+                
+    //             if f_basin_end >= f_mid {
+    //                 f_basin_end -= 1;
+    //             }
+
+    //             if f_end > f_mid {
+    //                 f_end -= 1;
+    //             }
+
+    //             if f_start > f_mid {
+    //                 f_start -= 1;
+    //             }
+
+    //             f_mid = f_end;
+    //             f_end = (f_end + self.frontier.len() - 1) % self.frontier.len();
+
+    //             self.legalize(v2v1.unwrap());
+    //             self.legalize(v3v2.unwrap());
+
+    //             if f_mid == f_basin_end {
+    //                 break;
+    //             }
+    //         }
+    //         // self.save("basin2.stl".into());
+    //     } 
+    // }
+
+    #[inline(never)]
+    fn remove_basin_left(&mut self, f1: Link) {
+        let f3 = self.list.next_circular(self.list.next_circular(f1).unwrap()).unwrap();
+        //let f3 = self.list.next_circular(f1).unwrap();
+        
+        // let f1_p = &self.vertices[self.list[f1]];
+        // let f3_p = &self.vertices[self.list[f3]];
+
+        // let delta_r = Float::sqrt(f1_p.radius_squared()) - Float::sqrt(f3_p.radius_squared());
+        // let delta_o = f1_p.angle() - f3_p.angle();
+
+
+        // let basin_factor = delta_r / (Float::sqrt(f3_p.radius_squared()) * delta_o);
+        // let is_basin = basin_factor > num_traits::cast(2).unwrap();
+
+        // if is_basin {
+        //     println!("Sqrt basin");
+        // }
+
+        // if delta_o * delta_r <= TScalar::zero() {
+        //     return;
+        // }
+        
+        // let basin_factor = (delta_r * delta_r) / (f3_p.radius_squared() * delta_o * delta_o);
+        let is_basin = true;
 
         if is_basin {
-            // println!("Found basin right");
+            println!("Found basin left");
 
             let f_basin_start = f3;
-            // let mut f_basin_bottom = (f_basin_start + self.frontier.len() - 1) % self.frontier.len();
-            // let mut f_basin_bottom_next = (f_basin_bottom + self.frontier.len() - 1) % self.frontier.len();
+            let mut f_basin_bottom = self.list.next_circular(f3).unwrap();
+            let mut f_basin_bottom_next = self.list.next_circular(f_basin_bottom).unwrap();
 
-            // while self.polars[self.frontier[f_basin_bottom]].radius() > self.polars[self.frontier[f_basin_bottom_next]].radius() {
-            //     f_basin_bottom = f_basin_bottom_next;
-            //     f_basin_bottom_next = (f_basin_bottom_next + self.frontier.len() - 1) % self.frontier.len();
-            // }
-
-            let mut f_basin_end = f3;
-            let mut f_start = f3;
-
-            loop {
-                let f_mid = (f_start + self.frontier.len() - 1) % self.frontier.len();
-                let f_end = (f_start + self.frontier.len() - 2) % self.frontier.len();
-
-                let f_start_p = &self.vertices[self.frontier[f_start]].cartesian;
-                let f_mid_p = &self.vertices[self.frontier[f_mid]].cartesian;
-                let f_end_p = &self.vertices[self.frontier[f_end]].cartesian;
-
-                if orientation2d(f_start_p, f_mid_p, f_end_p) == Orientation::Clockwise {
-                    f_basin_end = f_mid;
-                    break;
-                }
-        
-                f_start = f_mid;
+            while self.vertices[self.list[f_basin_bottom_next]].radius_squared() < self.vertices[self.list[f_basin_bottom]].radius_squared() {
+                f_basin_bottom = f_basin_bottom_next;
+                f_basin_bottom_next = self.list.next_circular(f_basin_bottom).unwrap();
             }
 
-            let mut f_mid = (f_basin_start + self.frontier.len() - 1) % self.frontier.len();
-            if f_mid == f_basin_end {
+            let mut f_basin_end = f_basin_bottom;
+
+            loop {
+                let f_start = f_basin_end;
+                let f_mid = self.list.next_circular(f_start).unwrap();
+                let f_end = self.list.next_circular(f_mid).unwrap();
+
+                let f_start_p   = &self.vertices[self.list[f_start]].cartesian;
+                let f_mid_p     = &self.vertices[self.list[f_mid]].cartesian;
+                let f_end_p     = &self.vertices[self.list[f_end]].cartesian;
+
+                f_basin_end = f_mid;
+
+                if orientation2d(f_start_p, f_mid_p, f_end_p) == Orientation::CounterClockwise {
+                    break;
+                }
+            }
+
+            if f_basin_bottom == f_basin_end {
                 return;
             }
         
-            let mut f_end = (f_basin_start + self.frontier.len() - 2) % self.frontier.len();
-            let mut f_start = f_basin_start;
+            // Start from basin end and add triangles one by one until basin start is reached
+            let f_start = f_basin_end;
+            let mut f_mid = self.list.prev_circular(f_start).unwrap();
+            let mut f_end = self.list.prev_circular(f_mid).unwrap();
 
             // self.save("basin1.stl".into());
+            // self.save_svg("basin1.svg".into());
             loop {
-                let v1 = self.frontier[f_start];
-                let v2 = self.frontier[f_mid];
-                let v3 = self.frontier[f_end];
+                println!("add");
+
+                let v1 = self.list[f_start];
+                let v2 = self.list[f_mid];
+                let v3 = self.list[f_end];
 
                 let v2v1 = self.outgoing_border_halfedge(v2);
                 let v3v2 = self.outgoing_border_halfedge(v3);
@@ -495,127 +609,17 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 debug_assert!(v2v1.is_some());
                 debug_assert!(v3v2.is_some());
 
-                // println!("add");
                 self.add_triangle(v1, v2, v3, v2v1, v3v2, None);
-                self.frontier.remove(f_mid);
-                
-                if f_basin_end >= f_mid {
-                    f_basin_end -= 1;
-                }
-
-                if f_end > f_mid {
-                    f_end -= 1;
-                }
-
-                if f_start > f_mid {
-                    f_start -= 1;
-                }
-
-                f_mid = f_end;
-                f_end = (f_end + self.frontier.len() - 1) % self.frontier.len();
-
+                self.update_hash_remove(f_mid);
+                self.list.remove(f_mid);
+    
                 self.legalize(v2v1.unwrap());
                 self.legalize(v3v2.unwrap());
-
-                if f_mid == f_basin_end {
-                    break;
-                }
-            }
-            // self.save("basin2.stl".into());
-        } 
-    }
-
     
-    fn remove_basin_left(&mut self, f1: &mut usize) {
-        let f3 = (*f1 + 2) % self.frontier.len();
-        
-        let f1_p = &self.vertices[self.frontier[*f1]];
-        let f3_p = &self.vertices[self.frontier[f3]];
-
-        let delta_r = f1_p.radius_squared() - f3_p.radius_squared();
-        let delta_o = f1_p.angle() - f3_p.angle();
-
-        let basin_factor = delta_r / (f3_p.radius_squared() * delta_o);
-        let is_basin = basin_factor > num_traits::cast(2).unwrap();
-
-        if is_basin {
-            // println!("Found basin left");
-
-            let f_basin_start = f3;
-            // let mut f_basin_bottom = (f_basin_start + self.frontier.len() - 1) % self.frontier.len();
-            // let mut f_basin_bottom_next = (f_basin_bottom + self.frontier.len() - 1) % self.frontier.len();
-
-            // while self.polars[self.frontier[f_basin_bottom]].radius() > self.polars[self.frontier[f_basin_bottom_next]].radius() {
-            //     f_basin_bottom = f_basin_bottom_next;
-            //     f_basin_bottom_next = (f_basin_bottom_next + self.frontier.len() - 1) % self.frontier.len();
-            // }
-
-            let mut f_basin_end = f3;
-            let mut f_start = f3;
-
-            loop {
-                let f_mid = (f_start + 1) % self.frontier.len();
-                let f_end = (f_start + 2) % self.frontier.len();
-
-                let f_start_p = &self.vertices[self.frontier[f_start]].cartesian;
-                let f_mid_p = &self.vertices[self.frontier[f_mid]].cartesian;
-                let f_end_p = &self.vertices[self.frontier[f_end]].cartesian;
-
-                if orientation2d(f_start_p, f_mid_p, f_end_p) == Orientation::CounterClockwise {
-                    f_basin_end = f_mid;
-                    break;
-                }
-        
-                f_start = f_mid;
-            }
-
-            let mut f_mid = (f_basin_start + 1) % self.frontier.len();
-            if f_mid == f_basin_end {
-                return;
-            }
-        
-            let mut f_end = (f_basin_start + 2) % self.frontier.len();
-            let mut f_start = f_basin_start;
-
-            // self.save("basin1.stl".into());
-            loop {
-                let v1 = self.frontier[f_start];
-                let v2 = self.frontier[f_mid];
-                let v3 = self.frontier[f_end];
-
-                let v2v3 = self.outgoing_border_halfedge(v2);
-                let v1v2 = self.outgoing_border_halfedge(v1);
-
-                debug_assert!(v2v3.is_some());
-                debug_assert!(v1v2.is_some());
-
-                // println!("add");
-                self.add_triangle(v3, v2, v1, v2v3, v1v2, None);
-                self.frontier.remove(f_mid);
-                
-                if f_basin_end >= f_mid {
-                    f_basin_end -= 1;
-                }
-
-                if f_end > f_mid {
-                    f_end -= 1;
-                }
-
-                if f_start > f_mid {
-                    f_start -= 1;
-                }
-
-                if *f1 > f_mid {
-                    *f1 -= 1;
-                }
-
                 f_mid = f_end;
-                f_end = (f_end + 1) % self.frontier.len();
+                f_end = self.list.prev_circular(f_end).unwrap();
 
-                self.legalize(v2v3.unwrap());
-                self.legalize(v1v2.unwrap());
-
-                if f_mid == f_basin_end {
+                if f_mid == f_basin_start {
                     break;
                 }
             }
@@ -623,13 +627,10 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         }
     }
 
-
     fn legalize(&mut self, he: usize) {
         self.stack.push(he);
 
-        while !self.stack.is_empty() {
-            let he = self.stack.pop().unwrap();
-
+        while let Some(he) = self.stack.pop() {
             let opposite_he = self.opposite_halfedge(he);
 
             if opposite_he.is_none() {
@@ -676,21 +677,140 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     }
 
     /// Returns index of intersected halfedge
+    #[inline(never)]
     fn project_on_frontier(&self, point_idx: usize) -> FrontierEdge {
-        let ang = self.vertices[point_idx].angle();
-        let edge_end = self.frontier.partition_point(|probe| self.vertices[*probe].angle() < ang) % self.frontier.len();
-        let edge_start = (edge_end + self.frontier.len() - 1) % self.frontier.len();
+        // self.print_frontier();
 
-        // println!("{:?}\t{:?}\t{:?}", 
-        //     self.mesh.vertices[self.frontier[edge_start]],
-        //     self.mesh.vertices[point_idx],
-        //     self.mesh.vertices[self.frontier[edge_end]]);
+        let ang = self.vertices[point_idx].angle();
+        let hash_key = self.hash(ang);
+        let mut f_start = self.hash[hash_key];
+
+        if f_start.is_none() {
+            let mut left = hash_key as isize;
+            let mut right = hash_key;
+
+            loop {
+                if left >= 0 && self.hash[left as usize].is_some() {
+                    f_start = self.hash[left as usize];
+                    break;
+                }
+
+                if right < self.hash.len() && self.hash[right].is_some() {
+                    f_start = self.hash[right];
+                    break;
+                }
+
+                left -= 1;
+                right += 1;
+
+                if left < 0 && right > self.hash.len() {
+                    break;
+                }
+            }
+        }
+
+        let f_start = f_start.unwrap_or(self.list.head().unwrap());
+
+        let v_start = &self.vertices[self.list[f_start]];
+
+        let mut i = 0;
+        if ang < v_start.angle() {
+            for f_end in self.list.before(f_start) {
+                i += 1;
+                
+                let f_start = self.list.prev_circular(f_end).unwrap();
+                let v_start = &self.vertices[self.list[f_start]];
+                let v_end = &self.vertices[self.list[f_end]];
+                
+                if v_start.angle() < ang && v_end.angle() > ang {
+                    // println!("len/search: {}-{}", self.list.len(), i);
+                    return FrontierEdge {
+                        f_end,
+                        f_start,
+                        halfedge: self.outgoing_border_halfedge(self.list[f_start]).unwrap()
+                    };
+                }
+            }
+        } else {
+            for f_start in self.list.after(f_start) {
+                i += 1;
+            
+                let f_end = self.list.next_circular(f_start).unwrap();
+                let v_start = &self.vertices[self.list[f_start]];
+                let v_end = &self.vertices[self.list[f_end]];
+                
+                if v_start.angle() < ang && v_end.angle() > ang {
+                    // println!("len/search: {}-{}", self.list.len(), i);
+                    return FrontierEdge {
+                        f_end,
+                        f_start,
+                        halfedge: self.outgoing_border_halfedge(self.list[f_start]).unwrap()
+                    };
+                }
+            }
+        }
 
         return FrontierEdge {
-            halfedge: self.outgoing_border_halfedge(self.frontier[edge_start]).unwrap(),
-            f_end: edge_end,
-            f_start: edge_start
+            f_end: self.list.head().unwrap(),
+            f_start: self.list.tail().unwrap(),
+            halfedge: self.outgoing_border_halfedge(self.list[self.list.tail().unwrap()]).unwrap()
         };
+
+        // let ang = self.vertices[point_idx].angle();
+        // let hash_key = self.hash(ang);
+        // let mut start = self.hash[hash_key].or(self.list.head());
+
+        // if self.vertices[self.list[start.unwrap()]].angle() > ang {
+        //     return FrontierEdge {
+        //         f_end: start.unwrap(),
+        //         f_start: self.list.prev_circular(start.unwrap()).unwrap(),
+        //         halfedge: self.outgoing_border_halfedge(self.list[start.unwrap()]).unwrap()
+        //     };
+        // }
+
+        // let mut i = 0;
+        // while let Some(edge_start) = start {
+        //     i += 1;
+        //     let v = self.list[edge_start];
+        //     let edge_end = self.list.next_circular(edge_start).unwrap();
+        //     let v_start = &self.vertices[self.list[edge_start]];
+        //     let v_end = &self.vertices[self.list[edge_end]];
+
+        //     if v_start.angle() < ang && v_end.angle() > ang {
+        //         println!("edge: {}-{}", self.list[edge_start], self.list[edge_end]);
+        //         println!("len/search: {}-{}", self.list.len(), i);
+        //         return FrontierEdge {
+        //             f_end: edge_end,
+        //             f_start: edge_start,
+        //             halfedge: self.outgoing_border_halfedge(v).unwrap()
+        //         };
+        //     }
+
+        //     start = self.list.next(edge_start);
+        // }
+
+        // println!("{}-{}", self.list.len(), i);
+        // println!("tail-head");
+        // return FrontierEdge {
+        //     f_end: self.list.head().unwrap(),
+        //     f_start: self.list.tail().unwrap(),
+        //     halfedge: self.outgoing_border_halfedge(self.list[self.list.tail().unwrap()]).unwrap()
+        // };
+
+        // let ang = self.vertices[point_idx].angle();
+        // let edge_end = self.frontier.partition_point(|probe| self.vertices[*probe].angle() < ang) % self.frontier.len();
+        // let edge_start = (edge_end + self.frontier.len() - 1) % self.frontier.len();
+
+        // // println!("{:?}\t{:?}\t{:?}", 
+        // //     self.mesh.vertices[self.frontier[edge_start]],
+        // //     self.mesh.vertices[point_idx],
+        // //     self.mesh.vertices[self.frontier[edge_end]]);
+
+        // return FrontierEdge {
+        //     halfedge: self.outgoing_border_halfedge(self.frontier[edge_start]).unwrap(),
+        //     f_end: edge_end,
+        //     f_start: edge_start
+        // };
 
 
         // let projection = LineSegment2::new(self.mesh.vertices[point_idx], self.pole);
@@ -718,6 +838,46 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         unreachable!();
     }
 
+    #[inline]
+    fn vertex(&self, element: Link) -> usize {
+        return self.list[element];
+    }
+
+
+
+    #[inline]
+    fn update_hash_insert(&mut self, v: usize, l: Link) {
+        let vertex = &self.vertices[v];
+        let hash_key = self.hash(vertex.angle());
+        let old = self.hash[hash_key];
+
+        if let Some(old) = old {
+            let old_vertex = &self.vertices[self.list[old]];
+            
+            if old_vertex.angle() < vertex.angle() {
+                return;
+            }
+        }
+
+        self.hash[hash_key] = Some(l);
+    }
+
+    #[inline]
+    fn update_hash_remove(&mut self, l: Link) {
+        let vertex = &self.vertices[self.list[l]];
+        let hash_key = self.hash(vertex.angle());
+        let old = self.hash[hash_key];
+
+        if old == Some(l) {
+            self.hash[hash_key] = None;
+        }
+    }
+
+    #[inline]
+    fn hash(&self, angle: TScalar) -> usize {
+        return (angle / TScalar::two_pi() * cast(self.hash.len()).unwrap()).to_usize().unwrap() % self.hash.len();
+    }
+
     fn print_frontier(&self) {
         // let start_edge = self.mesh.border.iter().next().unwrap().1.1;
         // let mut current_edge = start_edge;
@@ -733,14 +893,9 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         //     }
         // }
 
-        for start in 0..self.frontier.len() {
-            let end = (start + 1) % self.frontier.len();
-            let current_edge = self.outgoing_border_halfedge(self.frontier[start]).unwrap();
-            println!("{}:{}-{}", current_edge, self.frontier[start], self.frontier[end]);
+        for start in self.list.values() {
+            println!("{}-{:?}", start, self.vertices[*start]);
         }
-
-        println!();
-        println!();
     }
 
     fn save(&self, p: String) {
@@ -756,15 +911,14 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     }
 
     fn save_svg(&self, p: String) {
-        let scale = 500.0;
-        let height = 500.0;
+        let scale = 1000.0;
+        let height = 1000.0;
 
-        let lines = self.frontier.iter()
-            .enumerate()
-            .map(|(i, e_s)| {
-                let e_e = self.frontier[(i + 1) % self.frontier.len()];
+        let lines = self.list.values()
+            .zip(self.list.values().skip(1).chain([self.list[self.list.head().unwrap()]].iter()))
+            .map(|(e_s, e_e)| {
                 let p_s = self.vertices[*e_s].cartesian;
-                let p_e = self.vertices[e_e].cartesian;
+                let p_e = self.vertices[*e_e].cartesian;
 
                 return (p_s, p_e);
             })
@@ -1001,14 +1155,14 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     // }
 }
 
-#[inline]
-fn next_vertex<const WALK_LEFT: bool>(vertex: usize, vertices_count: usize) -> usize {
-    if WALK_LEFT {
-        return (vertex + 1) % vertices_count;
-    } else {
-        return (vertex + vertices_count - 1) % vertices_count;
-    }
-}
+// #[inline]
+// fn next_vertex<const WALK_LEFT: bool>(vertex: usize, vertices_count: usize) -> usize {
+//     if WALK_LEFT {
+//         return (vertex + 1) % vertices_count;
+//     } else {
+//         return (vertex + vertices_count - 1) % vertices_count;
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

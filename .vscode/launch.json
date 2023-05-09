@@ -40,7 +40,8 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        },        {
+        },        
+        {
             "type": "lldb",
             "request": "launch",
             "name": "Run example 'simplification'",
@@ -53,6 +54,43 @@
                 ],
                 "filter": {
                     "name": "simplification",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'triangulation2'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=triangulation2",
+                    "--package=baby_shark"
+                ],
+                "filter": {
+                    "name": "triangulation2",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },        
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Run example 'triangulation2'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=triangulation2",
+                    "--package=baby_shark",
+                    "--release"
+                ],
+                "filter": {
+                    "name": "triangulation2",
                     "kind": "example"
                 }
             },
