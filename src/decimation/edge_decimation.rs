@@ -202,7 +202,7 @@ where
     pub fn min_faces_count(mut self, min_edges_count: Option<usize>) -> Self {
         match min_edges_count {
             Some(count) => { 
-                debug_assert!(count != 0, "Min faces count should be non-zero. If you was intended to disable faces count check pass None rather than zero.");
+                debug_assert!(count != 0, "Min faces count must be positive. If you was intended to disable faces count check pass None rather than zero.");
                 self.min_faces_count = count;
             },
             None => self.min_faces_count = 0,

@@ -101,7 +101,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     fn corner_from(
         &mut self,
         edge_opposite_corner_map: &mut HashMap<Edge, usize>,
-        opposite_edge: &mut Edge,
+        mut edge: Edge,
         vertex_index: usize
     ) {
         let corner_index = self.corners.len();
@@ -109,26 +109,25 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         corner.set_vertex_index(vertex_index);
 
         // Find opposite corner
-        let mut opposite_corner_index: Option<&usize> = edge_opposite_corner_map.get(opposite_edge);
-
-        // Flip directed edge
-        if opposite_corner_index.is_none() {
-            opposite_edge.flip();
-            opposite_corner_index = edge_opposite_corner_map.get(opposite_edge);
-        }
+        edge.flip();
+        let opposite_corner_index = edge_opposite_corner_map.get(&edge);
+        edge.flip();
 
         if let Some(opposite_corner_index) = opposite_corner_index {
             // Set opposite for corners
             corner.set_opposite_corner_index(Some(*opposite_corner_index));
-            let opposite_corner = self.corners.get_mut(*opposite_corner_index).unwrap();
+            let opposite_corner = &mut self.corners[*opposite_corner_index];
+
             opposite_corner.set_opposite_corner_index(Some(corner_index));
+    
+            edge_opposite_corner_map.insert(edge, corner_index);
         } else {
-            // Save edge and it`s opposite corner
-            edge_opposite_corner_map.insert(*opposite_edge, corner_index);
+            // Save directed edge and it`s opposite corner
+            edge_opposite_corner_map.insert(edge, corner_index);
         }
 
         // Set corner index for vertex
-        let vertex = self.get_vertex_mut(vertex_index).unwrap();
+        let vertex = &mut self.vertices[vertex_index];
         vertex.set_corner_index(corner_index);
     }
 }
@@ -171,9 +170,21 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             let v2_index = faces[face_idx + 1];
             let v3_index = faces[face_idx + 2];
 
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v2_index, v3_index), v1_index);
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v3_index, v1_index), v2_index);
-            corner_table.corner_from(&mut edge_opposite_corner_map, &mut Edge::new(v1_index, v2_index), v3_index);
+            let edge1 = Edge::new(v2_index, v3_index);
+            let edge2 = Edge::new(v3_index, v1_index);
+            let edge3 = Edge::new(v1_index, v2_index);
+
+            // If edge already exist in map then it is non manifold. For now we will skip faces that introduces non-manifoldness.
+            if edge_opposite_corner_map.contains_key(&edge1) ||
+               edge_opposite_corner_map.contains_key(&edge2) ||
+               edge_opposite_corner_map.contains_key(&edge3) 
+            {
+                continue;        
+            }
+
+            corner_table.corner_from(&mut edge_opposite_corner_map, edge1, v1_index);
+            corner_table.corner_from(&mut edge_opposite_corner_map, edge2, v2_index);
+            corner_table.corner_from(&mut edge_opposite_corner_map, edge3, v3_index);
         }
 
         return corner_table;
@@ -351,7 +362,14 @@ pub(super) mod helpers {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::corner_table::{test_helpers::{create_unit_square_mesh, assert_mesh_eq}, connectivity::{vertex::VertexF, corner::Corner}};
+    use crate::mesh::{
+        corner_table::{
+            test_helpers::{create_unit_square_mesh, assert_mesh_equals}, 
+            connectivity::{vertex::VertexF, corner::Corner}, 
+            prelude::CornerTableF
+        }, 
+        traits::Mesh
+    };
 
     #[test]
     fn from_vertices_and_indices() {
@@ -375,5 +393,25 @@ mod tests {
         ];
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
+    }
+
+    #[test]
+    fn should_remove_face_that_introduces_non_manifold_edge() {
+        let mesh = CornerTableF::from_vertices_and_indices(&[
+            Point3::new(0.0, 1.0, 0.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(1.0, 0.0, 0.0),
+            Point3::new(-1.0, 0.0, 0.0),
+            Point3::new(0.0, 0.0, -1.0),
+            Point3::new(0.0, 0.0, -1.0),
+        ], &[
+            0, 1, 2,
+            0, 1, 4,
+            0, 3, 1,
+            3, 5, 1,
+            1, 5, 2,
+        ]);
+
+        assert!(mesh.faces().count() == 4);
     }
 }

@@ -12,3 +12,4 @@
 - [ ] Triangle-triangle intersection: check sign by product that can be reused later
 - [ ] Reexport `triangle3`, `plane3`... in `primitives` module, replace static methods with regular functions
 - [ ] Generic `intersects` trait, replacement for all `intersects_primitive` traits
+- [ ] Corner table: improve handling of non-manifold edges by duplication vertices instead of removing whole face
