@@ -364,7 +364,7 @@ mod tests {
 
     use crate::mesh::{
         corner_table::{
-            test_helpers::{create_unit_square_mesh, assert_mesh_equals}, 
+            test_helpers::{create_unit_square_mesh, assert_mesh_eq}, 
             connectivity::{vertex::VertexF, corner::Corner}, 
             prelude::CornerTableF
         }, 
