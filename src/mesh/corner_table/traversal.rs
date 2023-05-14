@@ -1,4 +1,6 @@
-use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber};
+use std::path::Path;
+
+use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber, io::stl::StlWriter};
 
 use super::{table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face, next, previous, face_contains_corner}, traits::Flags}, descriptors::EdgeRef};
 
@@ -189,19 +191,30 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
 }
 
 impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
-    #[inline]
     fn from_vertex_on_face(
         mesh: &'a CornerTable<TScalar>, 
         corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor, 
         vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor
     ) -> Self { 
-        let mut walker = CornerWalker::from_corner(mesh, first_corner(face(*corner)));
+        let mut walker = CornerWalker::from_corner(mesh, *corner);
 
-        while walker.get_corner().get_vertex_index() != *vertex {
-            walker.next();
-        } 
+        if walker.get_corner().get_vertex_index() == *vertex {
+            return walker;
+        }
 
-        return walker;
+        walker.next();
+        
+        if walker.get_corner().get_vertex_index() == *vertex {
+            return walker;
+        }
+
+        walker.next();
+
+        if walker.get_corner().get_vertex_index() == *vertex {
+            return walker;
+        }
+
+        unreachable!("Input must be invalid or non-manifold");
     }
 
     #[inline]
@@ -523,7 +536,7 @@ pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize)>(corner_tab
     if border_reached && walker.get_corner().get_opposite_corner_index().is_some() {
         walker.opposite();
 
-        loop {
+        loop {    
             visit(&walker.get_corner_index());
 
             walker.next();

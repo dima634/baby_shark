@@ -4,9 +4,9 @@ use std::{
     fs::{OpenOptions, File}, path::Path, ops::Index
 };
 use nalgebra::{Point3, Vector3};
-use simba::scalar::{SupersetOf, SubsetOf};
+use simba::scalar::SupersetOf;
 
-use crate::{algo::merge_points::merge_points, mesh::traits::Mesh};
+use crate::{algo::{merge_points::merge_points, utils::cast}, mesh::traits::Mesh};
 
 const STL_HEADER_SIZE: usize = 80;
 
@@ -124,11 +124,7 @@ impl StlWriter {
         return StlWriter {};
     }
 
-    pub fn write_stl_to_file<TMesh>(&self, mesh: &TMesh, path: &Path) -> io::Result<()> 
-    where 
-        TMesh: Mesh,
-        TMesh::ScalarType: SubsetOf<f32>
-    {
+    pub fn write_stl_to_file<TMesh: Mesh>(&self, mesh: &TMesh, path: &Path) -> io::Result<()> {
         let file = OpenOptions::new()
             .write(true)
             .truncate(true)
@@ -143,8 +139,7 @@ impl StlWriter {
     pub fn write_stl<TBuffer, TMesh>(&self, mesh: &TMesh, writer: &mut BufWriter<TBuffer>) -> io::Result<()> 
     where 
         TBuffer: Write, 
-        TMesh: Mesh,
-        TMesh::ScalarType: SubsetOf<f32>
+        TMesh: Mesh
     {
         let header = [0u8; STL_HEADER_SIZE];
         writer.write_all(&header)?;
@@ -159,7 +154,13 @@ impl StlWriter {
         for face in mesh.faces() {
             let triangle = mesh.face_positions(&face);
             let normal = triangle.get_normal();
-            self.write_face(writer, &triangle.p1().cast(), &triangle.p2().cast(), &triangle.p3().cast(), &normal.cast())?;
+            
+            let p1 = cast(&triangle.p1().coords).into();
+            let p2 = cast(&triangle.p2().coords).into();
+            let p3 = cast(&triangle.p3().coords).into();
+            let n = cast(&normal);
+
+            self.write_face(writer, &p1, &p2, &p3, &n)?;
         }
 
         return Ok(());
