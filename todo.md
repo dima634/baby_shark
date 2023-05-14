@@ -9,3 +9,4 @@
 - [ ] AABB tree: pre allocate memory during construction
 - [ ] Grid: consider exploiting min-max distance or incremental sphere growth
 - [ ] Reeb graph cleanup
+- [ ] Corner table: improve handling of non-manifold edges by duplication vertices instead of removing whole face
