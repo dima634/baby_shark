@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber, io::stl::StlWriter};
+use crate::{mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position}, geometry::traits::RealNumber};
 
 use super::{table::CornerTable, connectivity::{flags::clear_visited, vertex::Vertex, corner::{Corner, first_corner, face, next, previous, face_contains_corner}, traits::Flags}, descriptors::EdgeRef};
 
