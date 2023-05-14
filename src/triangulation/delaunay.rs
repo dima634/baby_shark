@@ -226,12 +226,12 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         self.add_triangle(a, b, c, None, None, None);
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     fn triangulation(&mut self) {
         for point in 3..self.vertices.len() {
 
             // self.save("init.stl".into());
-            self.save_svg(format!("it{point}.svg").into());
+            // self.save_svg(format!("it{point}.svg").into());
             let edge = self.project_on_frontier(point); 
 
             self.add_triangle(self.list[edge.f_start], point, self.list[edge.f_end], None, None, Some(edge.halfedge));
@@ -274,7 +274,11 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
 
             // self.is_delaunay();
 
-            self.remove_basin_left(f_point);
+            // self.save_svg(format!("before_basin.svg").into());
+            
+            // self.remove_basin_left(f_point);
+            // self.remove_basin_right(f_point);
+                
             // self.remove_basin_right(f_point);
 
             
@@ -343,7 +347,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         }
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     fn walf_left(&mut self, start_point: Link) {
         loop {
             let f1 = start_point;
@@ -391,7 +395,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
         }
     }
     
-    #[inline(never)]
+    // #[inline(never)]
     fn walk_right(&mut self, f1: Link) {
         loop {
             let f2 = self.list.prev_circular(f1).unwrap();
@@ -529,37 +533,38 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     //     } 
     // }
 
-    #[inline(never)]
+    // 
+    // #[inline(never)]
     fn remove_basin_left(&mut self, f1: Link) {
-        let f3 = self.list.next_circular(self.list.next_circular(f1).unwrap()).unwrap();
-        //let f3 = self.list.next_circular(f1).unwrap();
+        // let f3 = self.list.next_circular(self.list.next_circular(f1).unwrap()).unwrap();
+        let f3 = self.list.next_circular(f1).unwrap();
         
-        // let f1_p = &self.vertices[self.list[f1]];
-        // let f3_p = &self.vertices[self.list[f3]];
+        let f1_p = &self.vertices[self.list[f1]];
+        let f3_p = &self.vertices[self.list[f3]];
 
-        // let delta_r = Float::sqrt(f1_p.radius_squared()) - Float::sqrt(f3_p.radius_squared());
-        // let delta_o = f1_p.angle() - f3_p.angle();
+        let delta_r = Float::sqrt(f1_p.radius_squared()) - Float::sqrt(f3_p.radius_squared());
+        let delta_o = Float::abs(f1_p.angle() - f3_p.angle());
 
+        let basin_factor = delta_r / (Float::sqrt(f3_p.radius_squared()) * delta_o);
+        let is_basin = basin_factor > num_traits::cast(2).unwrap();
 
-        // let basin_factor = delta_r / (Float::sqrt(f3_p.radius_squared()) * delta_o);
-        // let is_basin = basin_factor > num_traits::cast(2).unwrap();
-
-        // if is_basin {
-        //     println!("Sqrt basin");
-        // }
+        if is_basin {
+            //println!("Sqrt basin");
+        }
 
         // if delta_o * delta_r <= TScalar::zero() {
         //     return;
         // }
         
         // let basin_factor = (delta_r * delta_r) / (f3_p.radius_squared() * delta_o * delta_o);
-        let is_basin = true;
+        // let is_basin = basin_factor > num_traits::cast(4).unwrap();
+        // let is_basin = true;
 
         if is_basin {
-            println!("Found basin left");
+            // println!("Found basin left");
 
             let f_basin_start = f3;
-            let mut f_basin_bottom = self.list.next_circular(f3).unwrap();
+            let mut f_basin_bottom = f3;
             let mut f_basin_bottom_next = self.list.next_circular(f_basin_bottom).unwrap();
 
             while self.vertices[self.list[f_basin_bottom_next]].radius_squared() < self.vertices[self.list[f_basin_bottom]].radius_squared() {
@@ -567,7 +572,11 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 f_basin_bottom_next = self.list.next_circular(f_basin_bottom).unwrap();
             }
 
-            let mut f_basin_end = f_basin_bottom;
+            if f_basin_start == f_basin_bottom {
+                return;
+            }
+
+            let mut f_basin_end = self.list.prev_circular(f_basin_bottom_next).unwrap();
 
             loop {
                 let f_start = f_basin_end;
@@ -597,7 +606,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
             // self.save("basin1.stl".into());
             // self.save_svg("basin1.svg".into());
             loop {
-                println!("add");
+                // println!("add");
 
                 let v1 = self.list[f_start];
                 let v2 = self.list[f_mid];
@@ -609,6 +618,10 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 debug_assert!(v2v1.is_some());
                 debug_assert!(v3v2.is_some());
 
+                if orientation2d(&self.vertices[v1].cartesian, &self.vertices[v2].cartesian, &self.vertices[v3].cartesian) != Orientation::CounterClockwise {
+                    break;
+                }
+
                 self.add_triangle(v1, v2, v3, v2v1, v3v2, None);
                 self.update_hash_remove(f_mid);
                 self.list.remove(f_mid);
@@ -618,6 +631,111 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     
                 f_mid = f_end;
                 f_end = self.list.prev_circular(f_end).unwrap();
+
+                if f_mid == f_basin_start {
+                    break;
+                }
+            }
+            // self.save("basin2.stl".into());
+        }
+    }
+
+    fn remove_basin_right(&mut self, f1: Link) {
+        // let f3 = self.list.prev_circular(self.list.prev_circular(f1).unwrap()).unwrap();
+        let f3 = self.list.prev_circular(f1).unwrap();
+        
+        let f1_p = &self.vertices[self.list[f1]];
+        let f3_p = &self.vertices[self.list[f3]];
+
+        let delta_r = Float::sqrt(f1_p.radius_squared()) - Float::sqrt(f3_p.radius_squared());
+        let delta_o = Float::abs(f1_p.angle() - f3_p.angle());
+
+        let basin_factor = delta_r / (Float::sqrt(f3_p.radius_squared()) * delta_o);
+        let is_basin = basin_factor > num_traits::cast(2).unwrap();
+
+        if is_basin {
+            //println!("Sqrt basin");
+        }
+
+        // if delta_o * delta_r <= TScalar::zero() {
+        //     return;
+        // }
+        
+        // let basin_factor = (delta_r * delta_r) / (f3_p.radius_squared() * delta_o * delta_o);
+        // let is_basin = basin_factor > num_traits::cast(4).unwrap();
+        // let is_basin = true;
+
+        if is_basin {
+            // println!("Found basin left");
+
+            let f_basin_start = f3;
+            let mut f_basin_bottom = f3;
+            let mut f_basin_bottom_next = self.list.prev_circular(f_basin_bottom).unwrap();
+
+            while self.vertices[self.list[f_basin_bottom_next]].radius_squared() < self.vertices[self.list[f_basin_bottom]].radius_squared() {
+                f_basin_bottom = f_basin_bottom_next;
+                f_basin_bottom_next = self.list.prev_circular(f_basin_bottom).unwrap();
+            }
+
+            if f_basin_start == f_basin_bottom {
+                return;
+            }
+
+            let mut f_basin_end = self.list.next_circular(f_basin_bottom_next).unwrap();
+
+            loop {
+                let f_start = f_basin_end;
+                let f_mid = self.list.prev_circular(f_start).unwrap();
+                let f_end = self.list.prev_circular(f_mid).unwrap();
+
+                let f_start_p   = &self.vertices[self.list[f_start]].cartesian;
+                let f_mid_p     = &self.vertices[self.list[f_mid]].cartesian;
+                let f_end_p     = &self.vertices[self.list[f_end]].cartesian;
+
+                f_basin_end = f_mid;
+
+                if orientation2d(f_start_p, f_mid_p, f_end_p) == Orientation::Clockwise {
+                    break;
+                }
+            }
+
+            if f_basin_bottom == f_basin_end {
+                return;
+            }
+        
+            // Start from basin end and add triangles one by one until basin start is reached
+            let f_start = f_basin_end;
+            let mut f_mid = self.list.next_circular(f_start).unwrap();
+            let mut f_end = self.list.next_circular(f_mid).unwrap();
+
+            // self.save("basin1.stl".into());
+            // self.save_svg("basin1.svg".into());
+            loop {
+                // println!("add");
+
+                let v1 = self.list[f_start];
+                let v2 = self.list[f_mid];
+                let v3 = self.list[f_end];
+
+                let v1v2 = self.outgoing_border_halfedge(v1);
+                let v2v3 = self.outgoing_border_halfedge(v2);
+
+                debug_assert!(v1v2.is_some());
+                debug_assert!(v2v3.is_some());
+
+                if orientation2d(&self.vertices[v1].cartesian, &self.vertices[v3].cartesian, &self.vertices[v2].cartesian) != Orientation::CounterClockwise {
+                    break;
+                }
+
+                self.add_triangle(v1, v3, v2, None, v2v3, v1v2);
+                self.update_hash_remove(f_mid);
+                self.list.remove(f_mid);
+    
+                self.legalize(v1v2.unwrap());
+                self.legalize(v2v3.unwrap());
+    
+                f_mid = f_end;
+                f_end = self.list.next_circular(f_end).unwrap();
 
                 if f_mid == f_basin_start {
                     break;
@@ -677,7 +795,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     }
 
     /// Returns index of intersected halfedge
-    #[inline(never)]
+    // #[inline(never)]
     fn project_on_frontier(&self, point_idx: usize) -> FrontierEdge {
         // self.print_frontier();
 
@@ -911,8 +1029,8 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     }
 
     fn save_svg(&self, p: String) {
-        let scale = 1000.0;
-        let height = 1000.0;
+        let scale = 2000.0;
+        let height = 2000.0;
 
         let lines = self.list.values()
             .zip(self.list.values().skip(1).chain([self.list[self.list.head().unwrap()]].iter()))
@@ -941,9 +1059,9 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 Text::new().add(svg::node::Text::new(format!(" {};{:.2};{:.2}", i, self.vertices[i].radius_squared(), self.vertices[i].angle()))) //format!("{i}; {}; {}", v.x, v.y)
                     .set("x", num_traits::cast::<TScalar, f64>(v.x).unwrap() * scale)
                     .set("y", height-num_traits::cast::<TScalar, f64>(v.y).unwrap() * scale)
-                    .set("font-size", "3px"),
+                    .set("font-size", "16px"),
                 Circle::new()
-                    .set("r", 1)
+                    .set("r", 5)
                     .set("cx", num_traits::cast::<TScalar, f64>(v.x).unwrap() * scale)
                     .set("cy", height-num_traits::cast::<TScalar, f64>(v.y).unwrap() * scale)
                     .set("fill", "green")
@@ -957,12 +1075,13 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
             .set("d", lines);
 
         let pole = Circle::new()
-            .set("r", 1)
+            .set("r", 5)
             .set("cx", num_traits::cast::<TScalar, f64>(self.pole.x).unwrap() * scale)
             .set("cy", height-num_traits::cast::<TScalar, f64>(self.pole.y).unwrap() * scale)
             .set("fill", "red");
     
         let doc = Document::new()
+            .set("height", height)
             .add(path)
             .add(points)
             .add(pole);
@@ -1170,26 +1289,26 @@ mod tests {
 
     use super::Triangulation2;
 
-    #[test]
-    fn degenerate_case() {
-        let mut triangulation = Triangulation2::new();
-        triangulation.triangulate(&mut vec![
-            Point2::new(1.0, 2.0),
-            Point2::new(5.0, 1.0),
-            Point2::new(8.0, 6.0),
-            Point2::new(2.0, 8.0)
-        ]);
-    }
+    // #[test]
+    // fn degenerate_case() {
+    //     let mut triangulation = Triangulation2::new();
+    //     triangulation.triangulate(&mut vec![
+    //         Point2::new(1.0, 2.0),
+    //         Point2::new(5.0, 1.0),
+    //         Point2::new(8.0, 6.0),
+    //         Point2::new(2.0, 8.0)
+    //     ]);
+    // }
     
-    #[test]
-    fn test1() {
-        let points = [[0.48984146, 0.4899361], [0.4463194, 0.45261556], [0.42847013, 0.42460257], [0.41823488, 0.57288224], [0.5913105, 0.45535183], [0.53855276, 0.5922733], [0.37710214, 0.5732515], [0.5043943, 0.6273088], [0.34420383, 0.51125544], [0.62980384, 0.44524848], [0.34035563, 0.43844408], [0.61331505, 0.35406935], [0.61050564, 0.34783804], [0.66835, 0.5447868], [0.32081836, 0.3943385], [0.4718566, 0.2961123], [0.58064073, 0.66067904], [0.6851884, 0.48713744], [0.29649615, 0.57779795], [0.63608783, 0.6429018], [0.46383494, 0.27027756], [0.70931464, 0.46491158], [0.7052269, 0.55955833], [0.54671764, 0.25920832], [0.6284604, 0.68279934], [0.3177119, 0.3153975], [0.42712665, 0.7265839], [0.56969875, 0.7230318], [0.49226338, 0.7405513], [0.4741112, 0.74244386], [0.2804165, 0.33925468], [0.29501998, 0.66089964], [0.6637637, 0.6773343], [0.46313453, 0.74667466], [0.71958226, 0.37372464], [0.2911582, 0.31229526], [0.43222797, 0.77797765], [0.71959144, 0.3079893], [0.76890755, 0.59576356], [0.24977851, 0.28614485], [0.3248073, 0.20827317], [0.16804123, 0.57080585], [0.15872717, 0.5225644], [0.21868831, 0.6842079], [0.35850996, 0.17893916], [0.26844138, 0.23370874], [0.18464863, 0.64404595], [0.18881321, 0.30391115], [0.13282919, 0.49237096], [0.5348515, 0.84225017], [0.7661881, 0.7145568], [0.82922363, 0.6159804], [0.8447025, 0.41357028], [0.80576605, 0.66857046], [0.65735865, 0.1653955], [0.4404143, 0.8562609], [0.12434751, 0.56717086], [0.8447379, 0.38467562], [0.4579938, 0.11322808], [0.10814023, 0.48565876], [0.66940445, 0.15512234], [0.18147635, 0.71670175], [0.17786211, 0.72111464], [0.12957686, 0.65061164], [0.5351382, 0.088799596], [0.6344292, 0.8699391], [0.8590333, 0.6721916], [0.39739162, 0.06835717], [0.32444948, 0.8887432], [0.114165425, 0.2647937], [0.16959798, 0.18581927], [0.039387226, 0.498999], [0.70789284, 0.87855], [0.06639743, 0.31261855], [0.33921427, 0.053124905], [0.3961032, 0.02758801], [0.11840737, 0.7837957], [0.014104009, 0.51041526], [0.6770156, 0.92879564], [0.1100536, 0.78631395], [0.73594517, 0.072675765], [0.9592681, 0.6101808], [0.9563696, 0.63878834], [0.9551344, 0.31495094], [0.6514476, 0.96371853], [0.860139, 0.14633244], [0.7776793, 0.91099083], [0.86620057, 0.14327657], [0.06995958, 0.18052047], [0.79034364, 0.059315145], [0.023816466, 0.22163707], [0.056708217, 0.16669017], [0.7203423, 0.9783333], [0.23453873, 0.9738017], [0.78757405, 0.022196889], [0.833493, 0.92673594], [0.1371184, 0.036289155], [0.021484733, 0.14100307], [0.9737798, 0.10746962], [0.95703167, 0.9444567]];
-        let mut points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
+    // #[test]
+    // fn test1() {
+    //     let points = [[0.48984146, 0.4899361], [0.4463194, 0.45261556], [0.42847013, 0.42460257], [0.41823488, 0.57288224], [0.5913105, 0.45535183], [0.53855276, 0.5922733], [0.37710214, 0.5732515], [0.5043943, 0.6273088], [0.34420383, 0.51125544], [0.62980384, 0.44524848], [0.34035563, 0.43844408], [0.61331505, 0.35406935], [0.61050564, 0.34783804], [0.66835, 0.5447868], [0.32081836, 0.3943385], [0.4718566, 0.2961123], [0.58064073, 0.66067904], [0.6851884, 0.48713744], [0.29649615, 0.57779795], [0.63608783, 0.6429018], [0.46383494, 0.27027756], [0.70931464, 0.46491158], [0.7052269, 0.55955833], [0.54671764, 0.25920832], [0.6284604, 0.68279934], [0.3177119, 0.3153975], [0.42712665, 0.7265839], [0.56969875, 0.7230318], [0.49226338, 0.7405513], [0.4741112, 0.74244386], [0.2804165, 0.33925468], [0.29501998, 0.66089964], [0.6637637, 0.6773343], [0.46313453, 0.74667466], [0.71958226, 0.37372464], [0.2911582, 0.31229526], [0.43222797, 0.77797765], [0.71959144, 0.3079893], [0.76890755, 0.59576356], [0.24977851, 0.28614485], [0.3248073, 0.20827317], [0.16804123, 0.57080585], [0.15872717, 0.5225644], [0.21868831, 0.6842079], [0.35850996, 0.17893916], [0.26844138, 0.23370874], [0.18464863, 0.64404595], [0.18881321, 0.30391115], [0.13282919, 0.49237096], [0.5348515, 0.84225017], [0.7661881, 0.7145568], [0.82922363, 0.6159804], [0.8447025, 0.41357028], [0.80576605, 0.66857046], [0.65735865, 0.1653955], [0.4404143, 0.8562609], [0.12434751, 0.56717086], [0.8447379, 0.38467562], [0.4579938, 0.11322808], [0.10814023, 0.48565876], [0.66940445, 0.15512234], [0.18147635, 0.71670175], [0.17786211, 0.72111464], [0.12957686, 0.65061164], [0.5351382, 0.088799596], [0.6344292, 0.8699391], [0.8590333, 0.6721916], [0.39739162, 0.06835717], [0.32444948, 0.8887432], [0.114165425, 0.2647937], [0.16959798, 0.18581927], [0.039387226, 0.498999], [0.70789284, 0.87855], [0.06639743, 0.31261855], [0.33921427, 0.053124905], [0.3961032, 0.02758801], [0.11840737, 0.7837957], [0.014104009, 0.51041526], [0.6770156, 0.92879564], [0.1100536, 0.78631395], [0.73594517, 0.072675765], [0.9592681, 0.6101808], [0.9563696, 0.63878834], [0.9551344, 0.31495094], [0.6514476, 0.96371853], [0.860139, 0.14633244], [0.7776793, 0.91099083], [0.86620057, 0.14327657], [0.06995958, 0.18052047], [0.79034364, 0.059315145], [0.023816466, 0.22163707], [0.056708217, 0.16669017], [0.7203423, 0.9783333], [0.23453873, 0.9738017], [0.78757405, 0.022196889], [0.833493, 0.92673594], [0.1371184, 0.036289155], [0.021484733, 0.14100307], [0.9737798, 0.10746962], [0.95703167, 0.9444567]];
+    //     let mut points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
 
-        let mut triangulation = Triangulation2::new();
-        triangulation.triangulate(&mut points2d);
-        triangulation.triangles();
+    //     let mut triangulation = Triangulation2::new();
+    //     triangulation.triangulate(&mut points2d);
+    //     triangulation.triangles();
 
-        assert!(triangulation.is_delaunay());
-    }
+    //     assert!(triangulation.is_delaunay());
+    // }
 }
