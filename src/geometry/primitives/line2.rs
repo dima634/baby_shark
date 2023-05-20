@@ -1,4 +1,4 @@
-use nalgebra::{Point2, Vector2};
+use nalgebra::Point2;
 use num_traits::Float;
 
 use crate::geometry::traits::{RealNumber, Intersects, HasScalarType};
