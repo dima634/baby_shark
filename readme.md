@@ -74,6 +74,8 @@ Several stop condition are supported:
 ## 2D triangulation
 `Triangulation2` struct implements fast 2D delaunay triangulation of points set.
 
+<img width="1210" alt="image" src="https://github.com/dima634/baby_shark/assets/48240075/93d18c48-f2da-4b82-88af-7d4bd15d37a5">
+
 ### Example
 ```rust
 let mut triangulation = Triangulation2::new();
