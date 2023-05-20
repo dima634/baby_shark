@@ -44,7 +44,7 @@ struct Vertex<TScalar: RealNumber> {
 /// ## Example
 /// ```ignore
 /// let mut triangulation = Triangulation2::new();
-/// triangulation.triangulate(&mut vec![
+/// triangulation.triangulate(&vec![
 ///     Point2::new(1.0, 2.0),
 ///     Point2::new(5.0, 1.0),
 ///     Point2::new(8.0, 6.0),
@@ -659,7 +659,7 @@ mod debugging {
     }
 
     #[allow(dead_code)]
-    fn save_to_stl<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, p: String) {
+    pub fn save_to_stl<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, p: String) {
         let points: Vec<_> = triangulation.vertices.iter()
             .map(|p| p.cartesian)
             .collect();

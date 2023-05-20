@@ -7,6 +7,7 @@
 - STL reader/writer
 - Remeshing
 - Mesh simplification (decimation)
+- 2D triangulation
 - Spatial index
     * Bounding volume hierarchy of axis aligned bounding boxes
     * Infinite grid
@@ -69,3 +70,16 @@ Several stop condition are supported:
      .min_faces_count(Some(10000));
  decimator.decimate(&mut mesh);
 ```
+
+## 2D triangulation
+`Triangulation2` struct implements fast 2D delaunay triangulation of points set.
+
+### Example
+```rust
+let mut triangulation = Triangulation2::new();
+triangulation.triangulate(&vec![
+    Point2::new(1.0, 2.0),
+    Point2::new(5.0, 1.0),
+    Point2::new(8.0, 6.0),
+    Point2::new(2.0, 8.0)
+]);
