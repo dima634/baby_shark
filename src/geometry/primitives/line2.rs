@@ -5,6 +5,7 @@ use crate::geometry::traits::{RealNumber, Intersects, HasScalarType};
 
 use super::line_segment2::LineSegment2;
 
+/// 2d line
 #[derive(Debug)]
 pub struct Line2<TScalar: RealNumber> {
     p1: Point2<TScalar>,
@@ -16,16 +17,22 @@ impl<TScalar: RealNumber> Line2<TScalar> {
         return Self { p1, p2 };
     }
 
+    // Returns start of the line
     #[inline]
     pub fn origin(&self) -> Point2<TScalar> {
         return self.p1;
     }
     
+    /// Returns point at parameter `t`
     #[inline]
     pub fn point_at(&self, t: TScalar) -> Point2<TScalar> {
         return self.p1 + (self.p2 - self.p1) * t;
     }
 
+    ///
+    /// Returns intersection of line with another line.
+    /// (intersection parameter at `self`, intersection parameter at `other`)
+    /// 
     pub fn intersects_line2_at_t(&self, other: &Line2<TScalar>) -> Option<(TScalar, TScalar)> {
         // Graphic Gems III p. 199-202
         let by = other.p1.y - other.p2.y;

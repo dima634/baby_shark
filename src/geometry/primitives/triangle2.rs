@@ -2,6 +2,7 @@ use nalgebra::Point2;
 
 use crate::geometry::{traits::{Number, RealNumber}, orientation::{Orientation, orientation2d}};
 
+/// 2d triangle
 #[derive(Debug)]
 pub struct Triangle2<TScalar: Number> {
     a: Point2<TScalar>,
@@ -17,13 +18,13 @@ impl<TScalar: Number> Triangle2<TScalar> {
 
 impl<TScalar: RealNumber> Triangle2<TScalar> {
     #[inline]
-    pub fn circumcenter(&self) -> Point2<TScalar> {
-        return circumcenter(&self.a, &self.b, &self.c);
+    pub fn circumcircle_center(&self) -> Point2<TScalar> {
+        return circumcircle_center(&self.a, &self.b, &self.c);
     }
 
     #[inline]
-    pub fn circumradius_squared(&self) -> TScalar {
-        let c = self.circumcenter();
+    pub fn circumcircle_radius_squared(&self) -> TScalar {
+        let c = self.circumcircle_center();
         return (c - self.a).norm_squared()
     }
 
@@ -32,16 +33,15 @@ impl<TScalar: RealNumber> Triangle2<TScalar> {
         return orientation2d(&self.a, &self.b, &self.c);
     }
 
+    /// Checks whether point is inside of triangle's circumscribed circle
     #[inline]
-    pub fn is_inside_circum(&self, point: &Point2<TScalar>) -> bool {
-        let c = self.circumcenter();
-        let c_r_sq = (c - self.a).norm_squared();
-        let p_sq = (c - point).norm_squared();
-        return p_sq < c_r_sq;
+    pub fn is_inside_circumcircle(&self, point: &Point2<TScalar>) -> bool {
+        return is_inside_circumcircle(&self.a, &self.b, &self.c, point);
     }
 }
 
-pub fn circumcenter<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar>, c: &Point2<TScalar>) -> Point2<TScalar> {
+/// Returns center of triangle's circumscribed circle
+pub fn circumcircle_center<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar>, c: &Point2<TScalar>) -> Point2<TScalar> {
     let ab = b - a;
     let ac = c - a;
     let norm_pq = ab.norm_squared();
@@ -54,25 +54,10 @@ pub fn circumcenter<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar
     return Point2::new(x, y);
 }
 
+/// Checks whether point is inside of triangle's circumscribed circle
 #[inline]
 pub fn is_inside_circumcircle<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar>, c: &Point2<TScalar>, p: &Point2<TScalar>) -> bool {
-    let ax = a.x - p.x;
-    let ay = a.y - p.y;
-    let bx = b.x - p.x;
-    let by = b.y - p.y;
-    let cx = c.x - p.x;
-    let cy = c.y - p.y;
-    let det = 
-        (ax*ax + ay*ay) * (bx*cy-cx*by) -
-        (bx*bx + by*by) * (ax*cy-cx*ay) +
-        (cx*cx + cy*cy) * (ax*by-bx*ay);
-    
-    return det > TScalar::zero();
-}
-
-#[inline]
-pub fn is_inside_circumcircle2<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar>, c: &Point2<TScalar>, p: &Point2<TScalar>) -> bool {
-    let c = circumcenter(a, b, c);
+    let c = circumcircle_center(a, b, c);
     let c_r_sq = (c - a).norm_squared();
     let p_sq = (c - p).norm_squared();
 

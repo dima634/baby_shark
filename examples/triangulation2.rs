@@ -1,6 +1,6 @@
 use std::{path::Path, iter::repeat_with};
 
-use nalgebra::{Point2, Point3};
+use nalgebra::Point2;
 use rand::{rngs::StdRng, SeedableRng, Rng};
 
 use baby_shark::{

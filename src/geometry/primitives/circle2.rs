@@ -2,6 +2,7 @@ use nalgebra::Point2;
 
 use crate::geometry::traits::Number;
 
+/// 2d circle
 pub struct Circle2<TScalar: Number> {
     radius: TScalar,
     center: Point2<TScalar>

@@ -23,6 +23,7 @@ pub struct LinkedList<T> {
 }
 
 impl<T> LinkedList<T> {
+    /// Creates empty linked list
     pub fn new() -> Self {
         return Self { 
             head: None, 
@@ -33,16 +34,19 @@ impl<T> LinkedList<T> {
         };
     }
 
+    /// Returns number of elements in list
     #[inline]
     pub fn len(&self) -> usize {
         return self.len;
     }
 
+    /// Reserve storage for additional number of elements 
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         self.vec.reserve(additional);
     }
-
+    
+    /// Removes all elements from list
     #[inline]
     pub fn clear(&mut self) {
         self.head = None;
@@ -50,46 +54,54 @@ impl<T> LinkedList<T> {
         self.vec.clear();
     }
 
+    /// Returns head (first element) of linked list
     #[inline]
     pub fn head(&self) -> Option<Link> {
         return self.head;
     }
 
+    /// Returns tail (last element) of linked list
     #[inline]
     pub fn tail(&self) -> Option<Link> {
         return self.tail;
     }
 
+    /// Returns element after `element`
     #[inline]
     pub fn next(&self, element: Link) -> Option<Link> {
         debug_assert!(!self.is_free(element));
         return self.node(element).next;
     }
     
+    /// Returns element after `element`. If `element` is last element in the list returns head.
     #[inline]
     pub fn next_circular(&self, element: Link) -> Option<Link> {
         debug_assert!(!self.is_free(element));
         return self.node(element).next.or(self.head);
     }
 
+    /// Returns element before `element`
     #[inline]
     pub fn prev(&self, element: Link) -> Option<Link> {
         debug_assert!(!self.is_free(element));
         return self.node(element).prev;
     }
 
+    /// Returns element before `element`. If `element` is first element in the list returns tail.
     #[inline]
     pub fn prev_circular(&self, element: Link) -> Option<Link> {
         debug_assert!(!self.is_free(element));
         return self.node(element).prev.or(self.tail);
     }
     
+    /// Returns value saved in `element`
     #[inline]
     pub fn value(&self, element: Link) -> &T {
         debug_assert!(!self.is_free(element));
         return &self.node(element).value;
     }
 
+    /// Insert new element at the beginning of the list. Returns link to created element
     pub fn push_front(&mut self, value: T) -> Link {
         let node = self.new_node(self.head, None, value);
 
@@ -104,6 +116,7 @@ impl<T> LinkedList<T> {
         return node;
     }
 
+    /// Remove first element in the list
     pub fn pop_front(&mut self) -> Option<&T> {
         return self.head.map(|head| {
             self.head = self.node(head).next;
@@ -120,6 +133,7 @@ impl<T> LinkedList<T> {
         });
     }    
     
+    /// Insert new element at the end of the list. Returns link to created element
     pub fn push_back(&mut self, value: T) -> Link {
         let node = self.new_node(None, self.tail, value);
 
@@ -134,6 +148,7 @@ impl<T> LinkedList<T> {
         return node;
     }
 
+    /// Remove last element in the list
     pub fn pop_back(&mut self) -> Option<&T> {
         return self.tail.map(|tail| {
             self.tail = self.node(tail).prev;
@@ -150,6 +165,7 @@ impl<T> LinkedList<T> {
         });
     }
 
+    /// Insert new element right after `element`. Returns link to created element
     pub fn insert_after(&mut self, after: Link, value: T) -> Link {
         debug_assert!(!self.is_free(after));
         
@@ -163,6 +179,7 @@ impl<T> LinkedList<T> {
         }
     }
 
+    /// Insert new element right before `element`. Returns link to created element
     pub fn insert_before(&mut self, before: Link, value: T) -> Link {
         debug_assert!(!self.is_free(before));
         
@@ -176,6 +193,8 @@ impl<T> LinkedList<T> {
         }
     }
 
+
+    /// Remove `element` from the list
     pub fn remove(&mut self, element: Link) -> &T {
         debug_assert!(!self.is_free(element));
  
@@ -200,23 +219,28 @@ impl<T> LinkedList<T> {
         return &self.node(element).value;
     }
 
+
+    /// Returns iterator over all element in the list. From head to tail
     #[inline]
-    pub fn iter(&self) -> LinkedVecIter<T, FORWARD> {
+    pub fn iter(&self) -> ForwardIter<T> {
         return LinkedVecIter::from_head(self);
     }
 
+    /// Returns iterator over all values in the list. From head to tail
     #[inline]
     pub fn values(&self) -> impl Iterator<Item = &T> {
         return self.iter().map(|l| &self[l]);
     }
 
+    /// Returns iterator over all element before `element` (including it). From `element` to head
     #[inline]
-    pub fn before(&self, element: Link) -> LinkedVecIter<T, BACKWARD> {
+    pub fn before(&self, element: Link) -> BackwardIter<T> {
         return LinkedVecIter::from_node(self, Some(element));
     }
 
+    /// Returns iterator over all element after `element` (including it). From `element` to tail
     #[inline]
-    pub fn after(&self, element: Link) -> LinkedVecIter<T, FORWARD> {
+    pub fn after(&self, element: Link) -> ForwardIter<T> {
         return LinkedVecIter::from_node(self, Some(element));
     }
 
@@ -230,6 +254,7 @@ impl<T> LinkedList<T> {
         return &mut self.vec[link.0];
     }
 
+    /// Create new node between `prev` and `next`
     fn new_node(&mut self, next: Option<Link>, prev: Option<Link>,  value: T) -> Link {
         let new_node = Node {
             next,
@@ -251,7 +276,9 @@ impl<T> LinkedList<T> {
         }
     }
 
+    /// Release given node
     fn release(&mut self, link: Link) {
+        // Remove element from the list and insert into free nodes list
         let free = self.free;
         let node = self.node_mut(link);
         node.next = None;
@@ -288,6 +315,7 @@ impl<T> Index<Link> for LinkedList<T> {
 const FORWARD: bool = true;
 const BACKWARD: bool = false;
 
+/// Directional iterator over linked list
 pub struct LinkedVecIter<'a, T, const FORWARD: bool> {
     linked_vec: &'a LinkedList<T>,
     current: Option<Link>
@@ -332,6 +360,9 @@ impl<'a, T, const FORWARD: bool> ExactSizeIterator for LinkedVecIter<'a, T, FORW
         return self.linked_vec.len();
     }
 }
+
+pub type ForwardIter<'a, T> = LinkedVecIter<'a, T, FORWARD>;
+pub type BackwardIter<'a, T> = LinkedVecIter<'a, T, BACKWARD>;
 
 #[cfg(test)]
 mod tests {

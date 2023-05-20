@@ -19,6 +19,7 @@ use crate::{
 
 use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
 
+/// Barycentric coordinates on triangle
 pub struct BarycentricCoordinates<TScalar: RealNumber>(Vector3<TScalar>);
 
 impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
@@ -37,6 +38,7 @@ impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
         return self.0.z;
     }
 
+    /// Checks whether `self` is on triangle
     #[inline]
     pub fn is_within_triangle(&self) -> bool {
         return 
@@ -97,6 +99,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         return (self.a + self.b.coords + self.c.coords) / cast(3).unwrap();
     }
 
+    /// Computes barycentric coordinates of `point`
     pub fn barycentric(&self, point: &Point3<TScalar>) -> BarycentricCoordinates<TScalar> {
         let v0 = self.b - self.a;
         let v1 = self.c - self.a;

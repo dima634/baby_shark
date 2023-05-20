@@ -4,6 +4,7 @@ use crate::geometry::traits::{RealNumber, HasScalarType, Intersects};
 
 use super::line2::Line2;
 
+// 2d line segment
 #[derive(Debug)]
 pub struct LineSegment2<TScalar: RealNumber>(Line2<TScalar>);
 
