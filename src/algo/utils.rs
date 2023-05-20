@@ -40,7 +40,7 @@ pub fn triple_product<TScalar: RealNumber>(v1: &Vector3<TScalar>, v2: &Vector3<T
 
 #[inline]
 pub fn has_same_sign<TScalar: RealNumber>(a: TScalar, b: TScalar) -> bool {
-    return Float::signum(a) == Float::signum(b) || a.is_zero() || b.is_zero();
+    return Float::signum(a) == Float::signum(b) || (a.is_zero() && b.is_zero());
 }
 
 #[inline]

@@ -1,6 +1,12 @@
 use nalgebra::Point3;
-use crate::{mesh::traits::EditableMesh, geometry::traits::RealNumber};
-use super::{table::CornerTable, traversal::{CornerWalker, collect_corners_around_vertex}, connectivity::{traits::Flags, corner}};
+use crate::{
+    mesh::traits::{EditableMesh, SplitFaceAtPoint}, 
+    geometry::traits::RealNumber};
+use super::{
+    table::CornerTable, 
+    traversal::{CornerWalker, collect_corners_around_vertex}, 
+    connectivity::{traits::Flags, corner}
+};
 
 /// Set corner for wing vertex of collapsed edge
 #[inline]
@@ -275,6 +281,51 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     }
 }
 
+impl<TScalar: RealNumber> SplitFaceAtPoint for CornerTable<TScalar> {
+    fn split_face(&mut self, face: &Self::FaceDescriptor, point: Point3<Self::ScalarType>) {
+        let mut walker = CornerWalker::from_corner(self, *face);
+
+        // Splitted face
+        let c0_idx = walker.get_corner_index();
+        let v0_idx = walker.get_corner().get_vertex_index();
+        let c0_opp = walker.get_corner().get_opposite_corner_index();
+
+        let c1_idx = walker.next().get_corner_index();
+        let v1_idx = walker.get_corner().get_vertex_index();
+        let c1_opp = walker.get_corner().get_opposite_corner_index();
+        
+        let c2_idx = walker.next().get_corner_index();
+        let v2_idx = walker.get_corner().get_vertex_index();
+        
+        // Create new vertex at split point
+        let new_vertex_idx = self.vertices.len();
+        let new_vertex = self.create_vertex();
+        new_vertex.set_corner_index(c2_idx);
+        new_vertex.set_position(point);
+
+        // New faces required for split
+        let c3_idx = self.create_face_from_vertices(v1_idx, v2_idx, new_vertex_idx);
+        let c4_idx = corner::next(c3_idx);
+        let c5_idx = corner::next(c4_idx);
+
+        let c6_idx = self.create_face_from_vertices(v2_idx, v0_idx, new_vertex_idx);
+        let c7_idx = corner::next(c6_idx);
+        let c8_idx = corner::next(c7_idx);
+
+        // Corners relationship between internal faces
+        self.set_opposite_relationship(c0_idx, c4_idx);
+        self.set_opposite_relationship(c3_idx, c7_idx);
+        self.set_opposite_relationship(c6_idx, c1_idx);
+
+        // Corners relationship with external faces
+        make_corners_opposite(self, Some(c8_idx), c1_opp);
+        make_corners_opposite(self, Some(c5_idx), c0_opp);
+
+        self.corners[c2_idx].set_vertex_index(new_vertex_idx);
+        self.vertices[v2_idx].set_corner_index(c4_idx);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nalgebra::Point3;
@@ -283,7 +334,7 @@ mod tests {
         corner_table::{
             test_helpers::{
                 create_unit_square_mesh, 
-                assert_mesh_equals, 
+                assert_mesh_eq, 
                 create_single_face_mesh, 
                 create_unit_cross_square_mesh, 
                 create_collapse_edge_sample_mesh1, 
@@ -292,7 +343,7 @@ mod tests {
                 create_collapse_edge_sample_mesh3
             }, 
         connectivity::{vertex::VertexF, corner::Corner}, descriptors::EdgeRef}, 
-        traits::EditableMesh
+        traits::{EditableMesh, SplitFaceAtPoint}
     };
 
     #[test]
@@ -328,7 +379,7 @@ mod tests {
 
         mesh.split_edge(&EdgeRef::new(1, &mesh), &Point3::<f32>::new(0.5, 0.5, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -373,7 +424,7 @@ mod tests {
 
         mesh.split_edge(&EdgeRef::new(6, &mesh), &Point3::<f32>::new(0.75, 0.75, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -400,7 +451,7 @@ mod tests {
 
         mesh.split_edge(&EdgeRef::new(1, &mesh), &Point3::<f32>::new(0.5, 0.5, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -465,7 +516,7 @@ mod tests {
 
         mesh.collapse_edge(&EdgeRef::new(9, &mesh), &Point3::new(0.5, 0.5, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -511,7 +562,7 @@ mod tests {
 
         mesh.collapse_edge(&EdgeRef::new(12, &mesh), &Point3::new(0.5, 0.5, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -543,7 +594,7 @@ mod tests {
 
         mesh.collapse_edge(&EdgeRef::new(5, &mesh), &Point3::new(2.0, 0.0, 0.0));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
     #[test]
@@ -590,6 +641,42 @@ mod tests {
 
         mesh.flip_edge(&EdgeRef::new(1, &mesh));
 
-        assert_mesh_equals(&mesh, &expected_corners, &expected_vertices);
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
+    }
+
+    #[test]
+    fn split_face() {
+        let mut mesh = create_unit_square_mesh();
+
+        let expected_vertices = vec![
+            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(7, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(2, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 4
+        ];
+
+        let expected_corners = vec![
+            // opposite, vertex, flags
+            Corner::new(Some(7), 0, Default::default()), // 0
+            Corner::new(Some(9), 1, Default::default()), // 1
+            Corner::new(None,    4, Default::default()), // 2
+        
+            Corner::new(None,     2, Default::default()), // 3
+            Corner::new(Some(11), 3, Default::default()), // 4
+            Corner::new(None,     0, Default::default()), // 5
+
+            Corner::new(Some(10), 1, Default::default()), // 6
+            Corner::new(Some(0),  2, Default::default()), // 7
+            Corner::new(None,     4, Default::default()), // 8
+
+            Corner::new(Some(1), 2, Default::default()), // 9
+            Corner::new(Some(6), 0, Default::default()), // 10
+            Corner::new(Some(4), 4, Default::default()), // 11
+        ];
+
+        mesh.split_face(&0, Point3::new(0.5, 0.5, 0.0));
+
+        assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 }

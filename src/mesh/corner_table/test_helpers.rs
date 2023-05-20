@@ -144,7 +144,7 @@ pub fn create_flip_edge_sample_mesh() -> CornerTableF {
     return CornerTableF::from_vertices_and_indices(&vertices, &indices);
 }
 
-pub fn assert_mesh_equals(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {
+pub fn assert_mesh_eq(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {
     // Assert equality for each element separately for readability
 
     assert_eq!(expected_vertices.len(), mesh.vertices.len());
@@ -155,6 +155,6 @@ pub fn assert_mesh_equals(mesh: &CornerTableF, expected_corners: &Vec<Corner>, e
     }
 
     for i in 0..expected_corners.len() {
-        assert_eq!(expected_corners[i], mesh.corners[i]);
+        assert_eq!(expected_corners[i], mesh.corners[i], "Testing corner: {}", i);
     }
 }

@@ -1,12 +1,18 @@
 use nalgebra::{Point3, Vector3};
 use num_traits::Float;
 
-use crate::geometry::traits::{RealNumber, HasScalarType, ClosestPoint3};
+use crate::geometry::traits::{
+    RealNumber, 
+    HasScalarType, 
+    ClosestPoint3, 
+    Number, 
+    IntersectsPlane3
+};
 
-use super::box3::Box3;
+use super::{box3::Box3, line3::Line3};
 
 /// n * x - d = 0
-pub struct Plane3<TScalar: RealNumber> {
+pub struct Plane3<TScalar: Number> {
     normal: Vector3<TScalar>,
     distance: TScalar
 }
@@ -36,7 +42,7 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
 
     /// Returns signed distance from point to plane
     #[inline]
-    pub fn distance(&self, point: &Point3<TScalar>) -> TScalar {
+    pub fn distance_to_point(&self, point: &Point3<TScalar>) -> TScalar {
         return (self.normal.dot(&point.coords) - self.distance) / self.normal.dot(&self.normal); 
     }
 
@@ -61,7 +67,42 @@ impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
     /// Returns closest point on plane to given point
     #[inline]
     fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        let t = self.distance(point);
+        let t = self.distance_to_point(point);
         return point - self.normal.scale(t); 
+    }
+}
+
+pub enum Plane3Plane3Intersection<TScalar: RealNumber> {
+    Line(Line3<TScalar>),
+    Plane
+}
+
+impl<TScalar: RealNumber> IntersectsPlane3 for Plane3<TScalar> {
+    type Output = Plane3Plane3Intersection<TScalar>;
+
+    fn intersects_plane3_at(&self, other: &Plane3<Self::ScalarType>) -> Option<Self::Output> {
+        let n00 = self.normal.dot(&self.normal);
+        let n01 = self.normal.dot(&other.normal);
+        let n11 = other.normal.dot(&other.normal);
+        let det = n00 * n11 - n01 * n01;
+
+        if det == TScalar::zero() {
+            if self.distance == other.distance || self.distance == -other.distance {
+                return Some(Plane3Plane3Intersection::Plane);
+            } else {
+                return None;
+            }
+        }
+
+        let inv_det = TScalar::one() / det;
+        let c0 = n11 * self.distance - n01 * other.distance * inv_det;
+        let c1 = n00 * other.distance - n01 * self.distance * inv_det;
+
+        let line = Line3::new(
+            (self.normal * c0 + other.normal * c1).into(),
+            self.normal.cross(&other.normal)
+        );
+
+        return Some(Plane3Plane3Intersection::Line(line));
     }
 }

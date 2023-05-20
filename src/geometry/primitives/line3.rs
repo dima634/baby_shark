@@ -8,6 +8,7 @@ use crate::geometry::traits::{RealNumber, HasScalarType, ClosestPoint3};
 use super::{plane3::Plane3, box3::Box3};
 
 /// Infinite line. l(t) = p + v*t
+#[derive(PartialEq, Debug)]
 pub struct Line3<TScalar: RealNumber> {
     point: Point3<TScalar>,
     direction: Vector3<TScalar>
@@ -139,5 +140,14 @@ mod tests {
 
         let point2 = Point3::new(0.25, 5.0, 0.0);
         assert_eq!(Point3::new(0.25, 0.0, 0.0), line.closest_point(&point2));
+    }
+
+    #[test]
+    fn line_parameter_at() {
+        let line = Line3::<f32>::new(Point3::origin(), Vector3::new(1.0, 1.0, 0.0).normalize());
+
+        assert_eq!(1.4142135, line.parameter_at(&Point3::new(1.0, 1.0, 0.0)));
+        assert_eq!(2.828427, line.parameter_at(&Point3::new(2.0, 2.0, 0.0)));
+        assert_eq!(-1.4142135, line.parameter_at(&Point3::new(-1.0, -1.0, 0.0)));
     }
 }
