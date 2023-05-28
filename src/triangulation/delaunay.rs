@@ -12,7 +12,7 @@ use crate::{
     data_structures::linked_list::{LinkedList, Link}
 };
 
-use super::halfedge::{Halfedge, next_halfedge, prev_halfedge};
+use super::halfedge::{HalfedgeMesh, next_halfedge, prev_halfedge};
 
 #[derive(Debug)]
 struct FrontierEdge {
@@ -30,24 +30,28 @@ struct Vertex<TScalar: RealNumber> {
 
 ///
 /// 2D delaunay triangulation.
-/// Based on "A faster circle-sweep Delaunay triangulation algorithm" by Ahmad Biniaz and Gholamhossein Dastghaibyfard
-/// https://cglab.ca/~biniaz/papers/Sweep%20Circle.pdf
 /// 
 /// ## Example
-/// ```ignore
-/// let mut triangulation = Triangulation2::new();
+/// ```
+/// use nalgebra::Point2;
+/// use baby_shark::triangulation::delaunay::Triangulation2;
+/// 
 /// let points = vec![
 ///     Point2::new(1.0, 2.0),
 ///     Point2::new(5.0, 1.0),
 ///     Point2::new(8.0, 6.0),
 ///     Point2::new(2.0, 8.0)
-/// ]
-/// triangulation.triangulate(&points);
+/// ];
+/// let mut triangulation = Triangulation2::new().with_points(&points);
+/// triangulation.triangulate();
 /// ```
+/// 
+/// Based on "A faster circle-sweep Delaunay triangulation algorithm" by Ahmad Biniaz and Gholamhossein Dastghaibyfard:
+/// https://cglab.ca/~biniaz/papers/Sweep%20Circle.pdf
 /// 
 #[derive(Debug)]
 pub struct Triangulation2<'points, TScalar: RealNumber> {
-    pub(super) halfedge: Halfedge,  // mesh
+    pub(super) halfedge: HalfedgeMesh,  // mesh
     pole: Point2<TScalar>,          // origin of polar coordinates, center of bbox
     vertices: Vec<Vertex<TScalar>>, 
     stack: Vec<usize>,
@@ -63,7 +67,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         return Self {
             pole: Point2::origin(),
             vertices: Vec::new(),
-            halfedge: Halfedge::new(),
+            halfedge: HalfedgeMesh::new(),
             stack: Vec::new(),
             points: &[],
             hash: Vec::new(),
@@ -77,24 +81,38 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
     }
 
     #[inline]
+    pub fn points(&self) -> &[Point2<TScalar>] {
+        return &self.points;
+    }
+
+    #[inline]
+    pub fn set_points(&mut self, points: &'points [Point2<TScalar>]) {
+        self.points = points;
+    }
+
+    #[inline]
+    pub fn with_points(mut self, points: &'points [Point2<TScalar>]) -> Self {
+        self.points = points;
+        return self
+    }
+
+    #[inline]
     pub fn vertex_position(&self, idx: usize) -> &Point2<TScalar> {
         return &self.points[idx];
     }
 
     /// Triangulate set of 2d points
-    pub fn triangulate(&mut self, points: &'points [Point2<TScalar>]) {
-        self.points = points;
-
+    pub fn triangulate(&mut self) {
         self.halfedge.clear();
         self.vertices.clear();
         self.hash.clear();
         self.frontier.clear();
 
         // Preallocate memory
-        self.halfedge.reserve(points.len() * 2, points.len());
-        let hash_size = (points.len() as f32).sqrt() as usize;
+        self.halfedge.reserve(self.points.len() * 2, self.points.len());
+        let hash_size = (self.points.len() as f32).sqrt() as usize;
         self.hash.resize(hash_size, None);
-        self.frontier.reserve(points.len() / 10);
+        self.frontier.reserve(self.points.len() / 10);
 
         self.initialize();
         self.triangulation();
@@ -583,13 +601,14 @@ mod tests {
 
     #[test]
     fn test_triangulate_degenerate_case() {
-        let mut triangulation = Triangulation2::new();
-        triangulation.triangulate(&mut vec![
+        let points = vec![
             Point2::new(1.0, 2.0),
             Point2::new(5.0, 1.0),
             Point2::new(8.0, 6.0),
             Point2::new(2.0, 8.0)
-        ]);
+        ];
+        let mut triangulation = Triangulation2::new().with_points(&points);
+        triangulation.triangulate();
     }
     
     #[test]
@@ -623,8 +642,8 @@ mod tests {
         ];
 
         let mut points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
-        let mut triangulation = Triangulation2::new();
-        triangulation.triangulate(&mut points2d);
+        let mut triangulation = Triangulation2::new().with_points(&points2d);
+        triangulation.triangulate();
         triangulation.triangles();
 
         assert!(triangulation.is_delaunay());

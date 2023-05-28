@@ -19,6 +19,15 @@ impl<TScalar: RealNumber> LineSegment2<TScalar> {
     }
 
     #[inline]
+    pub fn contains_point(&self, p: &Point2<TScalar>) -> bool {
+        let len = 
+            (self.0.origin() - p).norm() + 
+            (self.0.end() - p).norm() - 
+            (self.0.origin() - self.0.end()).norm();
+        return len < TScalar::epsilon();
+    }
+
+    #[inline]
     pub fn at(&self, t: TScalar) -> Point2<TScalar> {
         return self.0.point_at(t);
     }

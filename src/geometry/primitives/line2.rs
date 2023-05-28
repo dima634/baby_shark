@@ -19,8 +19,13 @@ impl<TScalar: RealNumber> Line2<TScalar> {
 
     // Returns start of the line
     #[inline]
-    pub fn origin(&self) -> Point2<TScalar> {
-        return self.p1;
+    pub fn origin(&self) -> &Point2<TScalar> {
+        return &self.p1;
+    }
+
+    #[inline]
+    pub fn end(&self) -> &Point2<TScalar> {
+        return &self.p2;
     }
     
     /// Returns point at parameter `t`
@@ -31,7 +36,7 @@ impl<TScalar: RealNumber> Line2<TScalar> {
 
     ///
     /// Returns intersection of line with another line.
-    /// (intersection parameter at `self`, intersection parameter at `other`)
+    /// `(intersection parameter at self, intersection parameter at other)`
     /// 
     pub fn intersects_line2_at_t(&self, other: &Line2<TScalar>) -> Option<(TScalar, TScalar)> {
         // Graphic Gems III p. 199-202

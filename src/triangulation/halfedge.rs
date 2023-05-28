@@ -1,14 +1,11 @@
-use crate::geometry::traits::RealNumber;
-
-
 #[derive(Debug)]
-pub struct Halfedge {
+pub struct HalfedgeMesh {
     outgoing_he: Vec<usize>,      // halfedges outgoing from vertex
     triangles: Vec<usize>,        // list of triangle indices
     he_twins: Vec<Option<usize>>, // list of halfedge twins
 }
 
-impl Halfedge {
+impl HalfedgeMesh {
     pub fn new() -> Self {
         return Self { outgoing_he: Vec::new(), triangles: Vec::new(), he_twins: Vec::new() };
     }
@@ -119,6 +116,48 @@ impl Halfedge {
         self.outgoing_he[v4] = he_opposite_next_next;
 
         return he_next;
+    }
+
+    /// Returns halfedge going from vertex with index `v_start` to `v_end`
+    pub fn connection_halfedge(&self, v_start: usize, v_end: usize) -> Option<usize> {
+        let start_he = self.outgoing_halfedge(v_start);
+        let mut current_he = start_he;
+
+        loop {
+            let (_, v2) = self.halfedge_vertices(current_he);
+
+            if v2 == v_end {
+                return Some(current_he);
+            }
+
+            if let Some(opp) = self.opposite_halfedge(current_he) {
+                current_he = next_halfedge(opp);
+
+                if current_he == start_he {
+                    return None;
+                }
+            } else {
+                break;
+            }
+        }
+
+        current_he = prev_halfedge(start_he);
+
+        loop {
+            let (v1, _) = self.halfedge_vertices(current_he);
+
+            if v1 == v_end {
+                return Some(current_he);
+            }
+
+            if let Some(opp) = self.opposite_halfedge(current_he) {
+                current_he = prev_halfedge(opp);
+            } else {
+                break;
+            }
+        }
+
+        return None;
     }
 
     #[inline]
