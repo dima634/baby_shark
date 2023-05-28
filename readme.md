@@ -85,3 +85,26 @@ triangulation.triangulate(&vec![
     Point2::new(8.0, 6.0),
     Point2::new(2.0, 8.0)
 ]);
+```
+
+## Constrained 2D triangulation
+`ConstrainedTriangulation2` struct implements constrained triangulation of points set. Triangulation is build on top of unconstrained delaunay triangulation by inserting constrained edges. Therefore it is not necessarily a delaunay triangulation.
+
+<img width="500" alt="image" src="https://github.com/dima634/baby_shark/assets/48240075/8a082313-69de-478b-ae2d-20a3d4d3b7c7">
+
+### Example
+```rust
+let points = vec![
+    Point2::new(-3.0, 1.0),
+    Point2::new(0.0, 0.0),
+    Point2::new(0.0, 4.0),
+    Point2::new(3.0, 2.0),
+    Point2::new(6.0, 0.0),
+    Point2::new(6.0, 4.0),
+    Point2::new(9.0, 2.0)
+];
+let mut tri = ConstrainedTriangulation2::new();
+tri.set_points(&points);
+tri.add_constrained_edge(0, 6);
+tri.triangulate();
+```
