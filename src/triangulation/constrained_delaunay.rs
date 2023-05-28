@@ -165,8 +165,6 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
             return;
         }
 
-        let halfedge = &self.delaunay.halfedge;
-
         // Find first intersection edge
         let mut intersected_edge = None;
 
@@ -174,14 +172,14 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
         let edge_end_pos = self.delaunay.vertex_position(edge.end);
         let edge_segment = LineSegment2::new(*edge_start_pos, *edge_end_pos);
 
-        let start = halfedge.outgoing_halfedge(edge.start);
+        let start = self.mesh().outgoing_halfedge(edge.start);
         let mut he = start;
         let mut border = false;
         
         // Find first edge intersected by constrained
         loop {
             let e = next_halfedge(he);
-            let (v1, v2) = halfedge.halfedge_vertices(e);
+            let (v1, v2) = self.mesh().halfedge_vertices(e);
             let v1_pos = self.delaunay.vertex_position(v1);
             let v2_pos = self.delaunay.vertex_position(v2);
             let segment = LineSegment2::new(*v1_pos, *v2_pos);
@@ -191,7 +189,7 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
                 break;
             }
 
-            if let Some(next) = halfedge.opposite_halfedge(prev_halfedge(he)) {
+            if let Some(next) = self.mesh().opposite_halfedge(prev_halfedge(he)) {
                 if next == start {
                     break;
                 }
@@ -203,13 +201,13 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
             }
         }
 
-        if border && halfedge.opposite_halfedge(start).is_some() {
-            he = halfedge.opposite_halfedge(start).unwrap();
+        if border && self.mesh().opposite_halfedge(start).is_some() {
+            he = self.mesh().opposite_halfedge(start).unwrap();
             he = next_halfedge(he);
             
             loop {
                 let e = next_halfedge(he);
-                let (v1, v2) = halfedge.halfedge_vertices(e);
+                let (v1, v2) = self.mesh().halfedge_vertices(e);
                 let v1_pos = self.delaunay.vertex_position(v1);
                 let v2_pos = self.delaunay.vertex_position(v2);
                 let segment = LineSegment2::new(*v1_pos, *v2_pos);
@@ -219,7 +217,7 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
                     break;
                 }
                 
-                if let Some(opp) = halfedge.opposite_halfedge(he) {
+                if let Some(opp) = self.mesh().opposite_halfedge(he) {
                     he = next_halfedge(opp);
                 } else {
                     break;
@@ -309,13 +307,13 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
     /// Returns reference to underlying mesh representation
     #[inline]
     fn mesh(&self) -> &HalfedgeMesh {
-        return &self.delaunay.halfedge;
+        return &self.delaunay.mesh;
     }
 
     /// Returns mutable reference to underlying mesh representation
     #[inline]
     fn mesh_mut(&mut self) -> &mut HalfedgeMesh {
-        return &mut self.delaunay.halfedge;
+        return &mut self.delaunay.mesh;
     }
 }
 

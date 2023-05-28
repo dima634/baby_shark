@@ -51,7 +51,7 @@ struct Vertex<TScalar: RealNumber> {
 /// 
 #[derive(Debug)]
 pub struct Triangulation2<'points, TScalar: RealNumber> {
-    pub(super) halfedge: HalfedgeMesh,  // mesh
+    pub(super) mesh: HalfedgeMesh,  // mesh
     pole: Point2<TScalar>,          // origin of polar coordinates, center of bbox
     vertices: Vec<Vertex<TScalar>>, 
     stack: Vec<usize>,
@@ -67,7 +67,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         return Self {
             pole: Point2::origin(),
             vertices: Vec::new(),
-            halfedge: HalfedgeMesh::new(),
+            mesh: HalfedgeMesh::new(),
             stack: Vec::new(),
             points: &[],
             hash: Vec::new(),
@@ -77,7 +77,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
 
     #[inline]
     pub fn triangles(&self) -> &Vec<usize> {
-        return &self.halfedge.triangles();
+        return &self.mesh.triangles();
     }
 
     #[inline]
@@ -103,13 +103,13 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
 
     /// Triangulate set of 2d points
     pub fn triangulate(&mut self) {
-        self.halfedge.clear();
+        self.mesh.clear();
         self.vertices.clear();
         self.hash.clear();
         self.frontier.clear();
 
         // Preallocate memory
-        self.halfedge.reserve(self.points.len() * 2, self.points.len());
+        self.mesh.reserve(self.points.len() * 2, self.points.len());
         let hash_size = (self.points.len() as f32).sqrt() as usize;
         self.hash.resize(hash_size, None);
         self.frontier.reserve(self.points.len() / 10);
@@ -122,15 +122,15 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
     /// Return `true` if triangulation satisfies delaunay condition, `false` otherwise
     pub fn is_delaunay(&self) -> bool {
         for he in 0..self.triangles().len() {
-            let opposite_he = self.halfedge.opposite_halfedge(he);
+            let opposite_he = self.mesh.opposite_halfedge(he);
 
             if opposite_he.is_none() {
                 continue;
             }
 
-            let (v1, v2) = self.halfedge.halfedge_vertices(he);
-            let (_, v3) = self.halfedge.halfedge_vertices(next_halfedge(he));
-            let (_, v4) = self.halfedge.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
+            let (v1, v2) = self.mesh.halfedge_vertices(he);
+            let (_, v3) = self.mesh.halfedge_vertices(next_halfedge(he));
+            let (_, v4) = self.mesh.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
 
             let t1 = Triangle2::new(self.points[v1], self.points[v2], self.points[v3]);
             let t2 = Triangle2::new(self.points[v2], self.points[v1], self.points[v4]);
@@ -235,8 +235,8 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let v3_pos = &self.points[self.vertices[v3].original_index];
 
             if orientation2d(v1_pos, v2_pos, v3_pos) == Orientation::Clockwise {
-                let v1v2 = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v1));
-                let v2v3 = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v2));
+                let v1v2 = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v1));
+                let v2v3 = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v2));
                 self.add_triangle(v3, v2, v1, v2v3, v1v2, None);
 
                 self.legalize(v1v2.unwrap());
@@ -280,8 +280,8 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
                 break;
             }
 
-            let next_he = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v2));
-            let current_he = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v1));
+            let next_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v2));
+            let current_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v1));
 
             // Update frontier
             self.add_triangle(v3, v2, v1, next_he, current_he, None);
@@ -316,8 +316,8 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
                 break;
             }
 
-            let current_he = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v2));
-            let prev_he = self.halfedge.outgoing_border_halfedge(self.vertex_point_index(v3));
+            let current_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v2));
+            let prev_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v3));
 
             self.add_triangle(v1, v2, v3, current_he, prev_he, None);
 
@@ -335,15 +335,15 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         self.stack.push(he);
 
         while let Some(he) = self.stack.pop() {
-            let opposite_he = self.halfedge.opposite_halfedge(he);
+            let opposite_he = self.mesh.opposite_halfedge(he);
 
             if opposite_he.is_none() {
                 continue;
             }
 
-            let (v1, v2) = self.halfedge.halfedge_vertices(he);
-            let (_, v3) = self.halfedge.halfedge_vertices(next_halfedge(he));
-            let (_, v4) = self.halfedge.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
+            let (v1, v2) = self.mesh.halfedge_vertices(he);
+            let (_, v3) = self.mesh.halfedge_vertices(next_halfedge(he));
+            let (_, v4) = self.mesh.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
 
             let is_illegal =
                 triangle2::is_inside_circumcircle(&self.points[v1], &self.points[v2], &self.points[v3], &self.points[v4]) ||
@@ -351,10 +351,10 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
 
             if is_illegal {
                 let he1 = prev_halfedge(he);
-                let he2 = self.halfedge.opposite_halfedge(he).unwrap();
+                let he2 = self.mesh.opposite_halfedge(he).unwrap();
                 let he3 = prev_halfedge(he2);
 
-                self.halfedge.flip_edge(he);
+                self.mesh.flip_edge(he);
 
                 self.stack.push(he);
                 self.stack.push(he1);
@@ -410,7 +410,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
                     return FrontierEdge {
                         f_end,
                         f_start,
-                        halfedge: self.halfedge.outgoing_border_halfedge(self.vertex_point_index(self.frontier[f_start])).unwrap()
+                        halfedge: self.mesh.outgoing_border_halfedge(self.vertex_point_index(self.frontier[f_start])).unwrap()
                     };
                 }
             }
@@ -424,7 +424,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
                     return FrontierEdge {
                         f_end,
                         f_start,
-                        halfedge: self.halfedge.outgoing_border_halfedge(self.vertex_point_index(self.frontier[f_start])).unwrap()
+                        halfedge: self.mesh.outgoing_border_halfedge(self.vertex_point_index(self.frontier[f_start])).unwrap()
                     };
                 }
             }
@@ -433,7 +433,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         return FrontierEdge {
             f_end: self.frontier.head().unwrap(),
             f_start: self.frontier.tail().unwrap(),
-            halfedge: self.halfedge.outgoing_border_halfedge(self.vertex_point_index(self.frontier[self.frontier.tail().unwrap()])).unwrap()
+            halfedge: self.mesh.outgoing_border_halfedge(self.vertex_point_index(self.frontier[self.frontier.tail().unwrap()])).unwrap()
         };
     }
 
@@ -485,7 +485,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         let orient = t.orientation();
         debug_assert!(orient == Orientation::CounterClockwise);
         
-        return self.halfedge.add_triangle(
+        return self.mesh.add_triangle(
             self.vertices[v1].original_index, 
             self.vertices[v2].original_index, 
             self.vertices[v3].original_index, he1, he2, he3);
