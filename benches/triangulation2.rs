@@ -26,8 +26,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         }));
 
         group.bench_function("baby_shark", |b| b.iter(|| {
-            let mut triangulation = Triangulation2::new();
-            triangulation.triangulate(&points2d);
+            let mut triangulation = Triangulation2::new().with_points(&points2d);
+            triangulation.triangulate();
         }));
     }
 }

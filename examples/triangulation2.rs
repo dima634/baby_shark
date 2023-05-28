@@ -11,13 +11,13 @@ use baby_shark::{
 
 fn main() {
     let mut rng = StdRng::seed_from_u64(rand::random());
-    let mut points2d: Vec<Point2<f64>> = repeat_with(|| rng.gen())
+    let points2d: Vec<Point2<f64>> = repeat_with(|| rng.gen())
         .map(|(x, y)| Point2::new(x, y))
         .take(100_000)
         .collect();
 
-    let mut triangulation = Triangulation2::new();
-    triangulation.triangulate(&mut points2d);
+    let mut triangulation = Triangulation2::new().with_points(&points2d);
+    triangulation.triangulate();
     let tri = triangulation.triangles().clone();
 
 
