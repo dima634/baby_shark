@@ -50,26 +50,24 @@ struct Vertex<TScalar: RealNumber> {
 /// https://cglab.ca/~biniaz/papers/Sweep%20Circle.pdf
 /// 
 #[derive(Debug)]
-pub struct Triangulation2<'points, TScalar: RealNumber> {
+pub struct Triangulation2<TScalar: RealNumber> {
     pub(super) mesh: HalfedgeMesh,  // mesh
     pole: Point2<TScalar>,          // origin of polar coordinates, center of bbox
     vertices: Vec<Vertex<TScalar>>, 
     stack: Vec<usize>,
-    points: &'points [Point2<TScalar>],
 
     // Frontier
     frontier: LinkedList<usize>,
     hash: Vec<Option<Link>>
 }
 
-impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
+impl<TScalar: RealNumber> Triangulation2<TScalar> {
     pub fn new() -> Self {
         return Self {
             pole: Point2::origin(),
             vertices: Vec::new(),
             mesh: HalfedgeMesh::new(),
             stack: Vec::new(),
-            points: &[],
             hash: Vec::new(),
             frontier: LinkedList::new()
         };
@@ -80,47 +78,26 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         return &self.mesh.triangles();
     }
 
-    #[inline]
-    pub fn points(&self) -> &[Point2<TScalar>] {
-        return &self.points;
-    }
-
-    #[inline]
-    pub fn set_points(&mut self, points: &'points [Point2<TScalar>]) {
-        self.points = points;
-    }
-
-    #[inline]
-    pub fn with_points(mut self, points: &'points [Point2<TScalar>]) -> Self {
-        self.points = points;
-        return self
-    }
-
-    #[inline]
-    pub fn vertex_position(&self, idx: usize) -> &Point2<TScalar> {
-        return &self.points[idx];
-    }
-
     /// Triangulate set of 2d points
-    pub fn triangulate(&mut self) {
+    pub fn triangulate(&mut self, points: &[Point2<TScalar>]) {
         self.mesh.clear();
         self.vertices.clear();
         self.hash.clear();
         self.frontier.clear();
 
         // Preallocate memory
-        self.mesh.reserve(self.points.len() * 2, self.points.len());
-        let hash_size = (self.points.len() as f32).sqrt() as usize;
+        self.mesh.reserve(points.len() * 2, points.len());
+        let hash_size = (points.len() as f32).sqrt() as usize;
         self.hash.resize(hash_size, None);
-        self.frontier.reserve(self.points.len() / 10);
+        self.frontier.reserve(points.len() / 10);
 
-        self.initialize();
-        self.triangulation();
-        self.finalize();
+        self.initialize(points);
+        self.triangulation(points);
+        self.finalize(points);
     }
 
     /// Return `true` if triangulation satisfies delaunay condition, `false` otherwise
-    pub fn is_delaunay(&self) -> bool {
+    pub fn is_delaunay(&self, points: &[Point2<TScalar>]) -> bool {
         for he in 0..self.triangles().len() {
             let opposite_he = self.mesh.opposite_halfedge(he);
 
@@ -132,12 +109,12 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let (_, v3) = self.mesh.halfedge_vertices(next_halfedge(he));
             let (_, v4) = self.mesh.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
 
-            let t1 = Triangle2::new(self.points[v1], self.points[v2], self.points[v3]);
-            let t2 = Triangle2::new(self.points[v2], self.points[v1], self.points[v4]);
+            let t1 = Triangle2::new(points[v1], points[v2], points[v3]);
+            let t2 = Triangle2::new(points[v2], points[v1], points[v4]);
 
             let is_illegal =
-                t1.is_inside_circumcircle(&self.points[v4]) ||
-                t2.is_inside_circumcircle(&self.points[v3]);
+                t1.is_inside_circumcircle(&points[v4]) ||
+                t2.is_inside_circumcircle(&points[v3]);
 
             if is_illegal {
                 return false;
@@ -148,12 +125,12 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
     }
 
     /// Pick initial triangle and pole, compute polar coordinates (pseudo)
-    fn initialize(&mut self) {
+    fn initialize(&mut self, points: &[Point2<TScalar>]) {
         // Compute initial pole and distances from vertices to it
         // Vertices are going to be inserted in order of increasing radius
-        let (min, max) = self.points.iter().fold((Vector2::zeros(), Vector2::zeros()), |(min, max), p| (min2(&min, &p.coords), max2(&max, &p.coords)));
+        let (min, max) = points.iter().fold((Vector2::zeros(), Vector2::zeros()), |(min, max), p| (min2(&min, &p.coords), max2(&max, &p.coords)));
         self.pole = ((min + max) * cast::<_, TScalar>(0.5).unwrap()).into();
-        self.vertices = self.points.iter()
+        self.vertices = points.iter()
             .enumerate()
             .map(|(i, p)| Vertex { 
                 angle: TScalar::zero(),
@@ -169,14 +146,14 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         let mut c = 2;
 
         // Move pole to center of first triangle
-        let a_pos = self.points[self.vertices[a].original_index];
-        let b_pos = self.points[self.vertices[b].original_index];
-        let c_pos = self.points[self.vertices[c].original_index];
+        let a_pos = points[self.vertices[a].original_index];
+        let b_pos = points[self.vertices[b].original_index];
+        let c_pos = points[self.vertices[c].original_index];
         let new_pole = (a_pos + b_pos.coords + c_pos.coords) / cast(3).unwrap();
         
         // Compute angles, they are used to project vertices on frontier
         for vertex in &mut self.vertices {
-            let v_pos = self.points[vertex.original_index];
+            let v_pos = points[vertex.original_index];
             vertex.angle = signed_diamond_angle(v_pos.y - new_pole.y, v_pos.x - new_pole.x);
         }
 
@@ -186,15 +163,15 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
         self.frontier.push_back(b);
         self.frontier.push_back(c);
 
-        self.add_triangle(a, b, c, None, None, None);
+        self.add_triangle(a, b, c, None, None, None, points);
     }
 
     /// Triangulation step
-    fn triangulation(&mut self) {
+    fn triangulation(&mut self, points: &[Point2<TScalar>]) {
         for point in 3..self.vertices.len() {
             let edge = self.project_on_frontier(point); 
 
-            self.add_triangle(self.frontier[edge.f_start], point, self.frontier[edge.f_end], None, None, Some(edge.halfedge));
+            self.add_triangle(self.frontier[edge.f_start], point, self.frontier[edge.f_end], None, None, Some(edge.halfedge), points);
 
             // Insert new point to frontier and update hash
             let f_point = 
@@ -209,15 +186,15 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
                 };
             self.insert_to_hash(point, f_point);
 
-            self.legalize(edge.halfedge);
+            self.legalize(edge.halfedge, points);
 
-            self.walk_left(f_point);
-            self.walk_right(f_point);
+            self.walk_left(f_point, points);
+            self.walk_right(f_point, points);
         }
     }
 
     /// Finalization step
-    fn finalize(&mut self) {
+    fn finalize(&mut self, points: &[Point2<TScalar>]) {
         // Walk over frontier and add triangle for left turn
         let mut f = self.frontier.head().unwrap();
         let mut f1 = f;
@@ -230,17 +207,17 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let v2 = self.frontier[f2];
             let v3 = self.frontier[f3];
 
-            let v1_pos = &self.points[self.vertices[v1].original_index];
-            let v2_pos = &self.points[self.vertices[v2].original_index];
-            let v3_pos = &self.points[self.vertices[v3].original_index];
+            let v1_pos = &points[self.vertices[v1].original_index];
+            let v2_pos = &points[self.vertices[v2].original_index];
+            let v3_pos = &points[self.vertices[v3].original_index];
 
             if orientation2d(v1_pos, v2_pos, v3_pos) == Orientation::Clockwise {
                 let v1v2 = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v1));
                 let v2v3 = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v2));
-                self.add_triangle(v3, v2, v1, v2v3, v1v2, None);
+                self.add_triangle(v3, v2, v1, v2v3, v1v2, None, points);
 
-                self.legalize(v1v2.unwrap());
-                self.legalize(v2v3.unwrap());
+                self.legalize(v2v3.unwrap(), points);
+                self.legalize(v1v2.unwrap(), points);
 
                 self.frontier.remove(f2);
 
@@ -258,7 +235,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
     }
 
     /// Add triangles while angle between edge outgoing from `f1` and next edge is smaller that 90
-    fn walk_left(&mut self, f1: Link) {
+    fn walk_left(&mut self, f1: Link, points: &[Point2<TScalar>]) {
         loop {
             let f2 = self.frontier.next_circular(f1).unwrap();
             let f3 = self.frontier.next_circular(f2).unwrap();
@@ -267,9 +244,9 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let v2 = self.frontier[f2];
             let v3 = self.frontier[f3];
 
-            let v1_pos = &self.points[self.vertices[v1].original_index];
-            let v2_pos = &self.points[self.vertices[v2].original_index];
-            let v3_pos = &self.points[self.vertices[v3].original_index];
+            let v1_pos = &points[self.vertices[v1].original_index];
+            let v2_pos = &points[self.vertices[v2].original_index];
+            let v3_pos = &points[self.vertices[v3].original_index];
 
             let v2v1 = v1_pos - v2_pos;
             let v2v3 = v3_pos - v2_pos;
@@ -284,17 +261,17 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let current_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v1));
 
             // Update frontier
-            self.add_triangle(v3, v2, v1, next_he, current_he, None);
+            self.add_triangle(v3, v2, v1, next_he, current_he, None, points);
             self.remove_from_hash(f2);
             self.frontier.remove(f2);
 
-            self.legalize(current_he.unwrap());
-            self.legalize(next_he.unwrap());
+            self.legalize(current_he.unwrap(), points);
+            self.legalize(next_he.unwrap(), points);
         }
     }
     
     /// Add triangles while angle between edge ingoing to `f1` and previous edge is smaller that 90
-    fn walk_right(&mut self, f1: Link) {
+    fn walk_right(&mut self, f1: Link, points: &[Point2<TScalar>]) {
         loop {
             let f2 = self.frontier.prev_circular(f1).unwrap();
             let f3 = self.frontier.prev_circular(f2).unwrap();
@@ -303,9 +280,9 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let v2 = self.frontier[f2];
             let v3 = self.frontier[f3];
 
-            let v1_pos = &self.points[self.vertices[v1].original_index];
-            let v2_pos = &self.points[self.vertices[v2].original_index];
-            let v3_pos = &self.points[self.vertices[v3].original_index];
+            let v1_pos = &points[self.vertices[v1].original_index];
+            let v2_pos = &points[self.vertices[v2].original_index];
+            let v3_pos = &points[self.vertices[v3].original_index];
 
             let v2v1 = v1_pos - v2_pos;
             let v2v3 = v3_pos - v2_pos;
@@ -319,19 +296,19 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let current_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v2));
             let prev_he = self.mesh.outgoing_border_halfedge(self.vertex_point_index(v3));
 
-            self.add_triangle(v1, v2, v3, current_he, prev_he, None);
+            self.add_triangle(v1, v2, v3, current_he, prev_he, None, points);
 
             // Update frontier
             self.remove_from_hash(f2);
             self.frontier.remove(f2);
 
-            self.legalize(current_he.unwrap());
-            self.legalize(prev_he.unwrap());
+            self.legalize(current_he.unwrap(), points);
+            self.legalize(prev_he.unwrap(), points);
         }
     }
 
     /// Legalize triangle that shares `he` edge by recursive flip
-    fn legalize(&mut self, he: usize) {
+    fn legalize(&mut self, he: usize, points: &[Point2<TScalar>]) {
         self.stack.push(he);
 
         while let Some(he) = self.stack.pop() {
@@ -346,8 +323,8 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
             let (_, v4) = self.mesh.halfedge_vertices(next_halfedge(opposite_he.unwrap()));
 
             let is_illegal =
-                triangle2::is_inside_circumcircle(&self.points[v1], &self.points[v2], &self.points[v3], &self.points[v4]) ||
-                triangle2::is_inside_circumcircle(&self.points[v2], &self.points[v1], &self.points[v4], &self.points[v3]);
+                triangle2::is_inside_circumcircle(&points[v1], &points[v2], &points[v3], &points[v4]) ||
+                triangle2::is_inside_circumcircle(&points[v2], &points[v1], &points[v4], &points[v3]);
 
             if is_illegal {
                 let he1 = prev_halfedge(he);
@@ -476,11 +453,11 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
     }
 
     #[inline]
-    fn add_triangle(&mut self, v1: usize, v2: usize, v3: usize, he1: Option<usize>, he2: Option<usize>, he3: Option<usize>) -> usize {
+    fn add_triangle(&mut self, v1: usize, v2: usize, v3: usize, he1: Option<usize>, he2: Option<usize>, he3: Option<usize>, points: &[Point2<TScalar>]) -> usize {
         let t = Triangle2::new(
-            self.points[self.vertices[v1].original_index], 
-            self.points[self.vertices[v2].original_index], 
-            self.points[self.vertices[v3].original_index]
+            points[self.vertices[v1].original_index], 
+            points[self.vertices[v2].original_index], 
+            points[self.vertices[v3].original_index]
         );
         let orient = t.orientation();
         debug_assert!(orient == Orientation::CounterClockwise);
@@ -501,6 +478,7 @@ impl<'points, TScalar: RealNumber> Triangulation2<'points, TScalar> {
 pub(super) mod debugging {
     use std::path::Path;
 
+    use nalgebra::Point2;
     use svg::{
         node::element::{
             path::Data, 
@@ -515,7 +493,7 @@ pub(super) mod debugging {
     use super::Triangulation2;
 
     #[allow(dead_code)]
-    pub fn save_to_svg<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, p: String) {
+    pub fn save_to_svg<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, points: &[Point2<TScalar>], p: String) {
         let scale = 2000.0;
         let height = 2000.0;
 
@@ -525,8 +503,8 @@ pub(super) mod debugging {
                     .chain([triangulation.frontier[triangulation.frontier.head().unwrap()]]
                     .iter()))
             .map(|(e_s, e_e)| {
-                let p_s = triangulation.points[*e_s];
-                let p_e = triangulation.points[*e_e];
+                let p_s = points[*e_s];
+                let p_e = points[*e_e];
 
                 return (p_s, p_e);
             })
@@ -542,7 +520,7 @@ pub(super) mod debugging {
                     ));
             });
 
-        let points = triangulation.points.iter()
+        let points = points.iter()
             .enumerate()
             .map(|(i, v)| (
                 Text::new().add(svg::node::Text::new(format!(" {};{:.2};{:.2}", i, triangulation.vertices[i].radius_squared, triangulation.vertices[i].angle)))
@@ -579,13 +557,13 @@ pub(super) mod debugging {
     }
 
     #[allow(dead_code)]
-    pub fn save_to_stl<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, p: String) {
+    pub fn save_to_stl<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, points: &[Point2<TScalar>], p: String) {
         let mut mesh = PolygonSoup::<TScalar>::new();
         for idx in (0..triangulation.triangles().len()).step_by(3) {
             mesh.add_face(
-                triangulation.points[triangulation.triangles()[idx]].to_homogeneous().into(), 
-                triangulation.points[triangulation.triangles()[idx + 1]].to_homogeneous().into(), 
-                triangulation.points[triangulation.triangles()[idx + 2]].to_homogeneous().into()
+                points[triangulation.triangles()[idx]].to_homogeneous().into(), 
+                points[triangulation.triangles()[idx + 1]].to_homogeneous().into(), 
+                points[triangulation.triangles()[idx + 2]].to_homogeneous().into()
             );
         }
         let writer = StlWriter::new();
@@ -607,8 +585,8 @@ mod tests {
             Point2::new(8.0, 6.0),
             Point2::new(2.0, 8.0)
         ];
-        let mut triangulation = Triangulation2::new().with_points(&points);
-        triangulation.triangulate();
+        let mut triangulation = Triangulation2::new();
+        triangulation.triangulate(&points);
     }
     
     #[test]
@@ -641,11 +619,11 @@ mod tests {
             [0.1371184, 0.036289155], [0.021484733, 0.14100307], [0.9737798, 0.10746962], [0.95703167, 0.9444567]
         ];
 
-        let mut points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
-        let mut triangulation = Triangulation2::new().with_points(&points2d);
-        triangulation.triangulate();
+        let points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
+        let mut triangulation = Triangulation2::new();
+        triangulation.triangulate(&points2d);
         triangulation.triangles();
 
-        assert!(triangulation.is_delaunay());
+        assert!(triangulation.is_delaunay(&points2d));
     }
 }

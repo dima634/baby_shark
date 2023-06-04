@@ -118,6 +118,53 @@ impl HalfedgeMesh {
         return he_next;
     }
 
+    pub fn split_edge(&mut self, he: usize, v: usize) {
+        let he_next = next_halfedge(he);
+        let he_prev = prev_halfedge(he);
+        let he_opp = self.opposite_halfedge(he);
+        let he_next_opp = self.opposite_halfedge(he_next);
+
+        let v1 = self.triangles[he_next];
+        let v2 = self.triangles[he_prev];
+
+        // Split face incident to he
+        self.triangles[he_next] = v;
+        let new_face1 = self.triangles.len();
+        self.triangles.push(v);
+        self.triangles.push(v1);
+        self.triangles.push(v2);
+
+        self.add_halfedge(None); // v, v1 !!!! update later if he_opp exist  
+        self.add_halfedge(he_next_opp);
+        self.add_halfedge(Some(he_next));
+        // self.he_twins[he_next] = Some(new_face1 + 2);
+        self.make_opposite(he_next, Some(new_face1 + 2));
+
+        if let Some(he_opp) = he_opp {
+            // Slit face opposite to he
+            let he_opp_prev = prev_halfedge(he_opp);
+            let he_opp_prev_opp = self.opposite_halfedge(he_opp_prev);
+            let v3 = self.triangles[he_opp_prev];
+
+            self.triangles[he_opp] = v;
+            let new_face2 = self.triangles.len();
+            self.triangles.push(v);
+            self.triangles.push(v3);
+            self.triangles.push(v1);
+
+            self.add_halfedge(Some(he_opp_prev));
+            self.add_halfedge(he_opp_prev_opp);
+            self.add_halfedge(Some(new_face1));
+            // self.he_twins[he_opp_prev] = Some(new_face2);
+            self.make_opposite(he_opp_prev, Some(new_face2));
+            // self.he_twins[new_face1] = Some(new_face2 + 2);
+            self.make_opposite(new_face1, Some(new_face2 + 2));
+        }
+
+        self.outgoing_he.push(he_next);
+        self.outgoing_he[v1] = new_face1 + 1;
+    }
+
     /// Returns halfedge going from vertex with index `v_start` to `v_end`
     pub fn connection_halfedge(&self, v_start: usize, v_end: usize) -> Option<usize> {
         let start_he = self.outgoing_halfedge(v_start);
@@ -186,4 +233,32 @@ pub fn next_halfedge(he: usize) -> usize {
 #[inline]
 pub fn prev_halfedge(he: usize) -> usize {
     return if (he % 3) == 0 { he + 2 } else { he - 1 };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HalfedgeMesh;
+
+    #[test]
+    fn test_split_edge() {
+        let mut mesh = HalfedgeMesh::new();
+        mesh.reserve(2, 4);
+        mesh.add_triangle(0, 1, 2, None, None, None);
+        mesh.add_triangle(1, 0, 3, Some(0), None, None);
+
+        mesh.split_edge(0, 4);
+        
+        assert_eq!(mesh.triangles, vec![
+            0, 4, 2, // 0
+            4, 0, 3, // 3
+            4, 1, 2, // 6
+            4, 3, 1  // 9
+        ]);
+        assert_eq!(mesh.he_twins, vec![
+            Some(3), Some(8), None,
+            Some(0), None, Some(9),
+            Some(11), None, Some(1),
+            Some(5), None, Some(6)
+        ]);
+    }
 }

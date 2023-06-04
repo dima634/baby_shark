@@ -1,3 +1,5 @@
+use std::{collections::HashSet, hash::Hash, path::Path};
+
 use nalgebra::Point2;
 
 use crate::{
@@ -6,6 +8,8 @@ use crate::{
     orientation::{orientation2d, Orientation}}, 
     data_structures::linked_list::LinkedList
 };
+
+use self::debugging::save_to_svg;
 
 use super::{
     delaunay::Triangulation2, 
@@ -47,19 +51,21 @@ pub enum AddConstraintErr {
 /// Based on "A fast algorithm for generating constrained delaunay triangulations" by S. W. Sloan:
 /// https://www.newcastle.edu.au/__data/assets/pdf_file/0019/22519/23_A-fast-algortithm-for-generating-constrained-Delaunay-triangulations.pdf
 /// 
-pub struct ConstrainedTriangulation2<'points, TScalar: RealNumber> {
-    delaunay: Triangulation2<'points, TScalar>,
+pub struct ConstrainedTriangulation2<TScalar: RealNumber> {
+    delaunay: Triangulation2<TScalar>,
     intersected_edges: LinkedList<Edge>,
-    constraints: Vec<Edge>
+    constraints: HashSet<Edge>,
+    points: Vec<Point2<TScalar>>
 }
 
-impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
+impl<TScalar: RealNumber> ConstrainedTriangulation2<TScalar> {
     /// Creates triangulator
     pub fn new() -> Self {
         return Self { 
             delaunay: Triangulation2::new(),
             intersected_edges: LinkedList::new(),
-            constraints: Vec::new()
+            constraints: HashSet::new(),
+            points: Vec::new()
         };
     }
 
@@ -71,20 +77,21 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
 
     /// Returns input points set
     #[inline]
-    pub fn points(&self) -> &[Point2<TScalar>] {
-        return self.delaunay.points();
+    pub fn points(&self) -> &Vec<Point2<TScalar>> {
+        return &self.points;
     }
 
     /// Set input points set
     #[inline]
-    pub fn set_points(&mut self, points: &'points [Point2<TScalar>]) {
-        self.delaunay.set_points(points);
+    pub fn set_points(&mut self, points: &[Point2<TScalar>]) {
+        self.points.clear();
+        self.points.extend_from_slice(points);
     }
 
     /// Set input points set
     #[inline]
-    pub fn with_points(mut self, points: &'points [Point2<TScalar>]) -> Self {
-        self.delaunay.set_points(points);
+    pub fn with_points(mut self, points: &[Point2<TScalar>]) -> Self {
+        self.set_points(points);
         return self;
     }
 
@@ -95,10 +102,9 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
         }
 
         // Start from unconstrained delaunay triangulation and insert constrained edges on by one
-        self.delaunay.triangulate();
+        self.delaunay.triangulate(&self.points);
 
-        for i in 0..self.constraints.len() {
-            let edge = self.constraints[i];
+        for edge in self.constraints.iter().copied().collect::<Vec<_>>() {
             self.insert_edge(edge);
         }
     }
@@ -108,45 +114,45 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
     /// If you are sure that edge meet this requirements use unchecked version [`add_constrained_edge_unchecked`]
     pub fn add_constrained_edge(&mut self, start: usize, end: usize) -> Result<(), AddConstraintErr> {
         let new_constraint = Edge { start, end };
-        let v1 = self.points()[new_constraint.start];
-        let v2 = self.points()[new_constraint.end];
-        let new_constraint_segment = LineSegment2::new(v1, v2);
+        // let v1 = self.points()[new_constraint.start];
+        // let v2 = self.points()[new_constraint.end];
+        // let new_constraint_segment = LineSegment2::new(v1, v2);
 
-        // Validate that edge doesn't intersects existing constrained edges
-        for edge in &self.constraints {
-            if edge == &new_constraint {
-                return Err(AddConstraintErr::ConstraintExist);
-            }
+        // // Validate that edge doesn't intersects existing constrained edges
+        // for edge in &self.constraints {
+        //     if edge == &new_constraint {
+        //         return Err(AddConstraintErr::ConstraintExist);
+        //     }
 
-            let sharing_vertex =
-                new_constraint.start == edge.start || 
-                new_constraint.start == edge.end ||
-                new_constraint.end == edge.start ||
-                new_constraint.end == edge.end;
+        //     let sharing_vertex =
+        //         new_constraint.start == edge.start || 
+        //         new_constraint.start == edge.end ||
+        //         new_constraint.end == edge.start ||
+        //         new_constraint.end == edge.end;
 
-            if sharing_vertex {
-                continue;
-            }
+        //     if sharing_vertex {
+        //         continue;
+        //     }
 
-            let edge_segment = LineSegment2::new(self.points()[edge.start], self.points()[edge.end]);
+        //     let edge_segment = LineSegment2::new(self.points()[edge.start], self.points()[edge.end]);
 
-            if edge_segment.intersects_at(&new_constraint_segment).is_some() {
-                return Err(AddConstraintErr::EdgeIntersectsExistingConstraint);
-            }
-        }
+        //     if edge_segment.intersects_at(&new_constraint_segment).is_some() {
+        //         return Err(AddConstraintErr::EdgeIntersectsExistingConstraint);
+        //     }
+        // }
 
-        // Check if edge is not on the path of three coplanar points
-        for pi in 0..self.points().len() {
-            if pi == new_constraint.start || pi == new_constraint.end {
-                continue;
-            }
+        // // Check if edge is not on the path of three coplanar points
+        // for pi in 0..self.points().len() {
+        //     if pi == new_constraint.start || pi == new_constraint.end {
+        //         continue;
+        //     }
 
-            if new_constraint_segment.contains_point(&self.points()[pi]) {
-                return Err(AddConstraintErr::EdgeIntersectsPoint);
-            }
-        }
+        //     if new_constraint_segment.contains_point(&self.points()[pi]) {
+        //         return Err(AddConstraintErr::EdgeIntersectsPoint);
+        //     }
+        // }
 
-        self.constraints.push(new_constraint);
+        self.constraints.insert(new_constraint);
         
         return Ok(());
     }
@@ -156,11 +162,16 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
     #[inline]
     pub fn add_constrained_edge_unchecked(&mut self, start: usize, end: usize) {
         let new_constraint = Edge { start, end };
-        self.constraints.push(new_constraint);
+        self.constraints.insert(new_constraint);
     }
 
     /// Inserts edge into existing triangulation by flipping edges intersected by it
-    fn insert_edge(&mut self, edge: Edge) {
+    fn insert_edge(&mut self, mut edge: Edge) {
+        self.intersected_edges.clear();
+
+        println!("{:?}", edge);
+        save_to_svg(self, Path::new("test.svg"));
+
         if self.mesh().connection_halfedge(edge.start, edge.end).is_some() {
             return;
         }
@@ -168,9 +179,9 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
         // Find first intersection edge
         let mut intersected_edge = None;
 
-        let edge_start_pos = self.delaunay.vertex_position(edge.start);
-        let edge_end_pos = self.delaunay.vertex_position(edge.end);
-        let edge_segment = LineSegment2::new(*edge_start_pos, *edge_end_pos);
+        let edge_start_pos = self.points[edge.start];
+        let edge_end_pos   = self.points[edge.end];
+        let edge_segment = LineSegment2::new(edge_start_pos, edge_end_pos);
 
         let start = self.mesh().outgoing_halfedge(edge.start);
         let mut he = start;
@@ -180,9 +191,9 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
         loop {
             let e = next_halfedge(he);
             let (v1, v2) = self.mesh().halfedge_vertices(e);
-            let v1_pos = self.delaunay.vertex_position(v1);
-            let v2_pos = self.delaunay.vertex_position(v2);
-            let segment = LineSegment2::new(*v1_pos, *v2_pos);
+            let v1_pos = self.points[v1];
+            let v2_pos = self.points[v2];
+            let segment = LineSegment2::new(v1_pos, v2_pos);
 
             if segment.intersects_at(&edge_segment).is_some() {
                 intersected_edge = Some(e);
@@ -208,9 +219,9 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
             loop {
                 let e = next_halfedge(he);
                 let (v1, v2) = self.mesh().halfedge_vertices(e);
-                let v1_pos = self.delaunay.vertex_position(v1);
-                let v2_pos = self.delaunay.vertex_position(v2);
-                let segment = LineSegment2::new(*v1_pos, *v2_pos);
+                let v1_pos = self.points[v1];
+                let v2_pos = self.points[v2];
+                let segment = LineSegment2::new(v1_pos, v2_pos);
     
                 if segment.intersects_at(&edge_segment).is_some() {
                     intersected_edge = Some(e);
@@ -230,30 +241,86 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
         }
 
         let mut intersected_edge = intersected_edge.unwrap();
-        let (v1, v2) = self.mesh().halfedge_vertices(intersected_edge);
-        self.intersected_edges.push_back(Edge{ start: v1, end: v2 });
 
         // Collect intersected edges
         loop {
+            let (v1, v2) = self.mesh().halfedge_vertices(intersected_edge);
+
+            self.intersected_edges.push_back(Edge{ start: v1, end: v2 });
+
             let opposite = self.mesh().opposite_halfedge(intersected_edge).unwrap();
 
             // Next intersected edge is either previous or next halfedge
             let next_he = next_halfedge(opposite);
 
-            if self.intersects(&edge_segment, next_he) {
-                intersected_edge = next_he;
+            if let Some(intersection) = self.intersects(&edge_segment, next_he) {
+                match intersection {
+                    Intersection::OnLine(point) => {
+                        intersected_edge = next_he;
+
+                        let (v1, v2) = self.mesh().halfedge_vertices(intersected_edge);
+                        let e = Edge::new(v1, v2);
+                        println!("{}-{}", v1, v2);
+                        
+                        if self.constraints.contains(&e) {
+                            self.points.push(point);
+                            let v = self.points.len() - 1;
+                            self.mesh_mut().split_edge(intersected_edge, v);
+                            // save_to_svg(self, Path::new("test.svg"));
+
+                            self.insert_edge(Edge::new(edge.start, v));
+                            self.insert_edge(Edge::new(v, edge.end));
+
+                            return;
+                        }
+                    },
+                    Intersection::AtEnd => {
+                        // Split constrained edge at intersection
+                        let (_, v_end) = self.mesh().halfedge_vertices(next_he);
+
+                        if v_end == edge.end {
+                            break;
+                        }
+
+                        self.insert_edge(Edge{start: v_end, end: edge.end});
+                        edge.end = v_end;
+                        break;
+                    },
+                }
             } else {
                 intersected_edge = prev_halfedge(opposite);
-                debug_assert!(self.intersects(&edge_segment, intersected_edge));
+                let intersection = self.intersects(&edge_segment, intersected_edge).unwrap();
+
+                match intersection {
+                    Intersection::OnLine(point) => {
+                        let (v1, v2) = self.mesh().halfedge_vertices(intersected_edge);
+                        let e = Edge::new(v1, v2);
+                        
+                        if self.constraints.contains(&e) {
+                            self.points.push(point);
+                            let v = self.points.len() - 1;
+                            self.mesh_mut().split_edge(intersected_edge, v);
+
+                            self.insert_edge(Edge::new(edge.start, v));
+                            self.insert_edge(Edge::new(v, edge.end));
+
+                            return;
+                        }
+                    },
+                    Intersection::AtEnd => {
+                        // Split constrained edge at intersection
+                        let (v_start, _) = self.mesh().halfedge_vertices(next_he);
+
+                        if v_start == edge.end {
+                            break;
+                        }
+
+                        self.insert_edge(Edge{start: v_start, end: edge.end});
+                        edge.end = v_start;
+                        break;
+                    },
+                }
             }
-
-            let (v1, v2) = self.mesh().halfedge_vertices(intersected_edge);
-
-            if v1 == edge.end || v2 == edge.end {
-                break;
-            }
-
-            self.intersected_edges.push_back(Edge{ start: v1, end: v2 });
         }
 
         // Flip edges that are intersection constrained until there are no intersections
@@ -280,6 +347,7 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
             }
 
             self.mesh_mut().flip_edge(he);
+            save_to_svg(self, Path::new("test.svg"));
 
             // Flip on ends of constrained edge?
             if v3 == edge.end || v4 == edge.end || v3 == edge.start || v4 == edge.start {
@@ -295,13 +363,20 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
     }
 
     /// Checks whether edge given by halfedge intersects line segment
-    fn intersects(&self, edge: &LineSegment2<TScalar>, he: usize) -> bool {
+    fn intersects(&self, edge: &LineSegment2<TScalar>, he: usize) -> Option<Intersection<TScalar>> {
         let (v1, v2) = self.mesh().halfedge_vertices(he);
-        let v1_pos = self.delaunay.vertex_position(v1);
-        let v2_pos = self.delaunay.vertex_position(v2);
-        let segment = LineSegment2::new(*v1_pos, *v2_pos);
+        let v1_pos = self.points[v1];
+        let v2_pos = self.points[v2];
+        let segment = LineSegment2::new(v1_pos, v2_pos);
 
-        return segment.intersects_at(edge).is_some();
+        return segment.intersects_line_segment2_at(edge)
+            .map(|(t, _)| {
+                if t.is_one() || t.is_zero() {
+                    return Intersection::AtEnd;
+                } else {
+                    return Intersection::OnLine(segment.at(t));
+                }
+            });
     }
 
     /// Returns reference to underlying mesh representation
@@ -317,10 +392,30 @@ impl<'points, TScalar: RealNumber> ConstrainedTriangulation2<'points, TScalar> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq)]
+enum Intersection<TScalar: RealNumber> {
+    OnLine(Point2<TScalar>),
+    AtEnd
+}
+
+#[derive(Clone, Copy, Debug)]
 struct Edge {
     start: usize,
     end: usize
+}
+
+impl Edge {
+    #[inline]
+    fn new(start: usize, end: usize) -> Self {
+        return Self{start, end};
+    }
+}
+
+impl Hash for Edge {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.start ^ self.end).hash(state);
+    }
 }
 
 impl PartialEq for Edge {
@@ -332,9 +427,12 @@ impl PartialEq for Edge {
     }
 }
 
+impl Eq for Edge {}
+
 mod debugging {
     use std::path::Path;
 
+    use nalgebra::{Point2, Vector2};
     use num_traits::cast;
     use svg::{node::element::{Text, Circle, Group, path::Data}, Document};
 
@@ -344,24 +442,25 @@ mod debugging {
 
     #[allow(dead_code)]
     pub fn save_to_svg<TScalar: RealNumber>(tri: &ConstrainedTriangulation2<TScalar>, file: &Path) {
-        let scale = 1000.0;
-        let height = 1000.0;
+        let scale = 100.0;
+        let min: Point2<TScalar> = tri.points().iter().fold(Point2::origin(), |acc, p| acc.coords.inf(&p.coords).into());
+        let size: Point2<TScalar> = (tri.points().iter().fold(Vector2::zeros(), |acc, p| acc.sup(&p.coords)) - min.coords).into();
 
-        let points = tri.points().iter()
-            .enumerate()
-            .map(|(i, v)| (
-                Text::new()
-                    .add(svg::node::Text::new(format!(" {}", i)))
-                    .set("x", cast::<TScalar, f64>(v.x).unwrap() * scale)
-                    .set("y", height - cast::<TScalar, f64>(v.y).unwrap() * scale)
-                    .set("font-size", "16px"),
-                Circle::new()
-                    .set("r", 5)
-                    .set("cx", cast::<TScalar, f64>(v.x).unwrap() * scale)
-                    .set("cy", height - cast::<TScalar, f64>(v.y).unwrap() * scale)
-                    .set("fill", "green")
-                ))
-            .fold(Group::new(), |group, (text, circle)| group.add(text).add(circle));
+        let constraints = tri.constraints.iter()
+            .fold(Data::new(), |data, edge| {
+                let v1 = tri.points()[edge.start];
+                let v2 = tri.points()[edge.end];
+
+                return data
+                    .move_to((
+                        cast::<TScalar, f64>(v1.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v1.y - min.y).unwrap() * scale
+                    ))
+                    .line_to((
+                        cast::<TScalar, f64>(v2.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v2.y - min.y).unwrap() * scale
+                    ));
+            });
 
         let triangles = tri.triangles()
             .chunks(3)
@@ -372,44 +471,28 @@ mod debugging {
 
                 return data
                     .move_to((
-                        cast::<TScalar, f64>(v1.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v1.y).unwrap() * scale
+                        cast::<TScalar, f64>(v1.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v1.y - min.y).unwrap() * scale
                     ))
                     .line_to((
-                        cast::<TScalar, f64>(v2.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v2.y).unwrap() * scale
+                        cast::<TScalar, f64>(v2.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v2.y - min.y).unwrap() * scale
                     ))
                     .move_to((
-                        cast::<TScalar, f64>(v2.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v2.y).unwrap() * scale
+                        cast::<TScalar, f64>(v2.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v2.y - min.y).unwrap() * scale
                     ))
                     .line_to((
-                        cast::<TScalar, f64>(v3.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v3.y).unwrap() * scale
+                        cast::<TScalar, f64>(v3.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v3.y - min.y).unwrap() * scale
                     ))
                     .move_to((
-                        cast::<TScalar, f64>(v3.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v3.y).unwrap() * scale
+                        cast::<TScalar, f64>(v3.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v3.y - min.y).unwrap() * scale
                     ))
                     .line_to((
-                        cast::<TScalar, f64>(v1.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v1.y).unwrap() * scale
-                    ));
-            });
-
-        let constraints = tri.constraints.iter()
-            .fold(Data::new(), |data, edge| {
-                let v1 = tri.points()[edge.start];
-                let v2 = tri.points()[edge.end];
-
-                return data
-                    .move_to((
-                        cast::<TScalar, f64>(v1.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v1.y).unwrap() * scale
-                    ))
-                    .line_to((
-                        cast::<TScalar, f64>(v2.x).unwrap() * scale,
-                        height - cast::<TScalar, f64>(v2.y).unwrap() * scale
+                        cast::<TScalar, f64>(v1.x - min.x).unwrap() * scale,
+                        cast::<TScalar, f64>(v1.y - min.y).unwrap() * scale
                     ));
             });
 
@@ -425,11 +508,28 @@ mod debugging {
             .set("stroke", "red")
             .set("stroke-width", 0.5)
             .set("d", constraints);
+
+        let points = tri.points().iter()
+            .enumerate()
+            .map(|(i, v)| (
+                Text::new()
+                    .add(svg::node::Text::new(format!(" {}", i)))
+                    .set("x", cast::<TScalar, f64>(v.x - min.x).unwrap() * scale)
+                    .set("y", cast::<TScalar, f64>(v.y - min.y).unwrap() * scale)
+                    .set("font-size", "16px"),
+                Circle::new()
+                    .set("r", 5)
+                    .set("cx", cast::<TScalar, f64>(v.x - min.x).unwrap() * scale)
+                    .set("cy", cast::<TScalar, f64>(v.y - min.y).unwrap() * scale)
+                    .set("fill", "green")
+                ))
+            .fold(Group::new(), |group, (text, circle)| group.add(text).add(circle))
+            .add(triangles_path)
+            .add(constraints_path);
     
         let doc = Document::new()
-            .set("height", height)
-            .add(triangles_path)
-            .add(constraints_path)
+            .set("height", size.y.to_f64().unwrap() * scale)
+            .set("width", size.x.to_f64().unwrap() * scale)
             .add(points);
 
         svg::save(file, &doc).unwrap();
@@ -438,9 +538,11 @@ mod debugging {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use nalgebra::Point2;
 
-    use crate::triangulation::constrained_delaunay::AddConstraintErr;
+    use crate::triangulation::constrained_delaunay::debugging::save_to_svg;
 
     use super::{ConstrainedTriangulation2, Edge};
 
@@ -476,23 +578,22 @@ mod tests {
     }
 
     #[test]
-    fn test_constrained_delaunay_triangulation_add_invalid_edge_intersection() {
+    fn test_constrained_delaunay_triangulation_add_edge_intersecting_edge() {
         let mut tri = ConstrainedTriangulation2::new();
         tri.set_points(&POINTS);
         tri.add_constrained_edge(0, 6).expect("To be valid edge");
-        let result = tri.add_constrained_edge(1, 3);
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err() == AddConstraintErr::EdgeIntersectsExistingConstraint);
+        tri.add_constrained_edge(1, 5).expect("To be valid edge");
+        tri.triangulate();
     }
 
     #[test]
-    fn test_constrained_delaunay_triangulation_add_invalid_edge_coplanar() {
+    fn test_constrained_delaunay_triangulation_add_edge_intersecting_point() {
         let mut tri = ConstrainedTriangulation2::new();
         tri.set_points(&POINTS);
-        let result = tri.add_constrained_edge(2, 4);
+        tri.add_constrained_edge(0, 6).expect("To be valid edge");
+        tri.add_constrained_edge(1, 3).expect("To be valid edge");
+        tri.triangulate();
 
-        assert!(result.is_err());
-        assert!(result.unwrap_err() == AddConstraintErr::EdgeIntersectsPoint);
+        save_to_svg(&tri, Path::new("test.svg"));
     }
 }
