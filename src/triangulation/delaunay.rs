@@ -1,6 +1,6 @@
 use nalgebra::{Point2, Vector2};
 use nalgebra_glm::{min2, max2};
-use num_traits::cast;
+use num_traits::{cast, Bounded};
 
 use crate::{
     geometry::{
@@ -128,7 +128,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     fn initialize(&mut self, points: &[Point2<TScalar>]) {
         // Compute initial pole and distances from vertices to it
         // Vertices are going to be inserted in order of increasing radius
-        let (min, max) = points.iter().fold((Vector2::zeros(), Vector2::zeros()), |(min, max), p| (min2(&min, &p.coords), max2(&max, &p.coords)));
+        let (min, max) = points.iter().fold((Vector2::max_value(), Vector2::min_value()), |(min, max), p| (min2(&min, &p.coords), max2(&max, &p.coords)));
         self.pole = ((min + max) * cast::<_, TScalar>(0.5).unwrap()).into();
         self.vertices = points.iter()
             .enumerate()
@@ -169,7 +169,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
     /// Triangulation step
     fn triangulation(&mut self, points: &[Point2<TScalar>]) {
         for point in 3..self.vertices.len() {
-            let edge = self.project_on_frontier(point); 
+            let edge = self.project_on_frontier(point);
 
             self.add_triangle(self.frontier[edge.f_start], point, self.frontier[edge.f_end], None, None, Some(edge.halfedge), points);
 
@@ -383,7 +383,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 let v_start = &self.vertices[self.frontier[f_start]];
                 let v_end = &self.vertices[self.frontier[f_end]];
                 
-                if v_start.angle < ang && v_end.angle > ang {
+                if v_start.angle <= ang && v_end.angle > ang {
                     return FrontierEdge {
                         f_end,
                         f_start,
@@ -397,7 +397,7 @@ impl<TScalar: RealNumber> Triangulation2<TScalar> {
                 let v_start = &self.vertices[self.frontier[f_start]];
                 let v_end = &self.vertices[self.frontier[f_end]];
                 
-                if v_start.angle < ang && v_end.angle > ang {
+                if v_start.angle <= ang && v_end.angle > ang {
                     return FrontierEdge {
                         f_end,
                         f_start,
@@ -494,8 +494,8 @@ pub(super) mod debugging {
 
     #[allow(dead_code)]
     pub fn save_to_svg<TScalar: RealNumber>(triangulation: &Triangulation2<TScalar>, points: &[Point2<TScalar>], p: String) {
-        let scale = 2000.0;
-        let height = 2000.0;
+        let scale = 100.0;
+        let height = 500.0;
 
         let lines = triangulation.frontier.values()
             .zip(triangulation.frontier.values()
@@ -503,8 +503,8 @@ pub(super) mod debugging {
                     .chain([triangulation.frontier[triangulation.frontier.head().unwrap()]]
                     .iter()))
             .map(|(e_s, e_e)| {
-                let p_s = points[*e_s];
-                let p_e = points[*e_e];
+                let p_s = points[triangulation.vertices[*e_s].original_index];
+                let p_e = points[triangulation.vertices[*e_e].original_index];
 
                 return (p_s, p_e);
             })
@@ -520,17 +520,17 @@ pub(super) mod debugging {
                     ));
             });
 
-        let points = points.iter()
-            .enumerate()
-            .map(|(i, v)| (
-                Text::new().add(svg::node::Text::new(format!(" {};{:.2};{:.2}", i, triangulation.vertices[i].radius_squared, triangulation.vertices[i].angle)))
-                    .set("x", num_traits::cast::<TScalar, f64>(v.x).unwrap() * scale)
-                    .set("y", height - num_traits::cast::<TScalar, f64>(v.y).unwrap() * scale)
+        let points = triangulation.vertices.iter()
+            .map(|vertex| (vertex, points[vertex.original_index]))
+            .map(|(vertex, point)| (
+                Text::new().add(svg::node::Text::new(format!(" {};{:.2};{:.2}", vertex.original_index, vertex.radius_squared, vertex.angle)))
+                    .set("x", num_traits::cast::<TScalar, f64>(point.x).unwrap() * scale)
+                    .set("y", height - num_traits::cast::<TScalar, f64>(point.y).unwrap() * scale)
                     .set("font-size", "16px"),
                 Circle::new()
                     .set("r", 5)
-                    .set("cx", num_traits::cast::<TScalar, f64>(v.x).unwrap() * scale)
-                    .set("cy", height - num_traits::cast::<TScalar, f64>(v.y).unwrap() * scale)
+                    .set("cx", num_traits::cast::<TScalar, f64>(point.x).unwrap() * scale)
+                    .set("cy", height - num_traits::cast::<TScalar, f64>(point.y).unwrap() * scale)
                     .set("fill", "green")
                 ))
             .fold(Group::new(), |group, (text, circle)| group.add(text).add(circle));
@@ -578,7 +578,7 @@ mod tests {
     use super::Triangulation2;
 
     #[test]
-    fn test_triangulate_degenerate_case() {
+    fn test_degenerate_case() {
         let points = vec![
             Point2::new(1.0, 2.0),
             Point2::new(5.0, 1.0),
@@ -590,7 +590,7 @@ mod tests {
     }
     
     #[test]
-    fn test_triangulate_uniform() {
+    fn test_random() {
         let points = [
             [0.48984146, 0.4899361], [0.4463194, 0.45261556], [0.42847013, 0.42460257], [0.41823488, 0.57288224], 
             [0.5913105, 0.45535183], [0.53855276, 0.5922733], [0.37710214, 0.5732515], [0.5043943, 0.6273088], 
@@ -622,8 +622,37 @@ mod tests {
         let points2d: Vec<_> = points.iter().map(|p| Point2::new(p[0], p[1])).collect();
         let mut triangulation = Triangulation2::new();
         triangulation.triangulate(&points2d);
-        triangulation.triangles();
 
         assert!(triangulation.is_delaunay(&points2d));
+    }
+
+    #[test]
+    fn test_uniform() {
+        let points: [Point2<f32>; 16] = [
+            Point2::new(0.0, 1.0),
+            Point2::new(0.0, 2.0),
+            Point2::new(0.0, 3.0),
+            Point2::new(0.0, 4.0),
+            
+            Point2::new(1.0, 1.0),
+            Point2::new(1.0, 2.0),
+            Point2::new(1.0, 3.0),
+            Point2::new(1.0, 4.0),
+            
+            Point2::new(2.0, 1.0),
+            Point2::new(2.0, 2.0),
+            Point2::new(2.0, 3.0),
+            Point2::new(2.0, 4.0),
+            
+            Point2::new(3.0, 1.0),
+            Point2::new(3.0, 2.0),
+            Point2::new(3.0, 3.0),
+            Point2::new(3.0, 4.0),
+        ];
+
+        let mut triangulation = Triangulation2::new();
+        triangulation.triangulate(&points);
+
+        assert!(triangulation.is_delaunay(&points));
     }
 }
