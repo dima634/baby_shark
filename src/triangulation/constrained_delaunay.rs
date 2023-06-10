@@ -41,8 +41,8 @@ pub enum AddConstraintErr {
 ///     Point2::new(9.0, 2.0)
 /// ];
 /// let mut tri = ConstrainedTriangulation2::from_points(&points);
-/// tri.add_constrained_edge(0, 6);
-/// tri.add_constrained_edge(1, 2);
+/// tri.insert_constrained_edge(0, 6);
+/// tri.insert_constrained_edge(1, 2);
 /// ```
 /// 
 /// Based on "A fast algorithm for generating constrained delaunay triangulations" by S. W. Sloan:

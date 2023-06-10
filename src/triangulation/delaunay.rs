@@ -42,8 +42,8 @@ struct Vertex<TScalar: RealNumber> {
 ///     Point2::new(8.0, 6.0),
 ///     Point2::new(2.0, 8.0)
 /// ];
-/// let mut triangulation = Triangulation2::new().with_points(&points);
-/// triangulation.triangulate();
+/// let mut triangulation = Triangulation2::new();
+/// triangulation.triangulate(&points);
 /// ```
 /// 
 /// Based on "A faster circle-sweep Delaunay triangulation algorithm" by Ahmad Biniaz and Gholamhossein Dastghaibyfard:
