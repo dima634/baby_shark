@@ -88,7 +88,11 @@ triangulation.triangulate(&vec![
 ```
 
 ## Constrained 2D triangulation
-`ConstrainedTriangulation2` struct implements constrained triangulation of points set. Triangulation is build on top of unconstrained delaunay triangulation by inserting constrained edges. Therefore it is not necessarily a delaunay triangulation.
+The `ConstrainedTriangulation2` struct facilitates the constrained triangulation of a set of points. It builds upon the unconstrained Delaunay triangulation by inserting constrained edges. However, it's important to note that the resulting triangulation may not always be a Delaunay triangulation.
+
+Conflicting constraints are automatically resolved through the following steps:
+* When a new constrained edge intersects with another constrained edge, both edges are split into two at the intersection point
+* When a new constrained edge intersects with a point, the edge is split into two at that point
 
 <img width="500" alt="image" src="https://github.com/dima634/baby_shark/assets/48240075/8a082313-69de-478b-ae2d-20a3d4d3b7c7">
 
@@ -103,8 +107,6 @@ let points = vec![
     Point2::new(6.0, 4.0),
     Point2::new(9.0, 2.0)
 ];
-let mut tri = ConstrainedTriangulation2::new();
-tri.set_points(&points);
-tri.add_constrained_edge(0, 6);
-tri.triangulate();
+let mut tri = ConstrainedTriangulation2::from_points(&points);
+tri.insert_constrained_edge(0, 6);
 ```

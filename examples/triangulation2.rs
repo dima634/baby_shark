@@ -16,17 +16,17 @@ fn main() {
         .take(100_000)
         .collect();
 
-    let mut triangulation = Triangulation2::new().with_points(&points2d);
-    triangulation.triangulate();
+    let mut triangulation = Triangulation2::new();
+    triangulation.triangulate(&points2d);
     let tri = triangulation.triangles().clone();
 
 
     let mut mesh = PolygonSoup::<f64>::new();
     for idx in (0..tri.len()).step_by(3) {
         mesh.add_face(
-            triangulation.vertex_position(tri[idx]).to_homogeneous().into(), 
-            triangulation.vertex_position(tri[idx + 1]).to_homogeneous().into(), 
-            triangulation.vertex_position(tri[idx + 2]).to_homogeneous().into()
+            points2d[tri[idx]].to_homogeneous().into(), 
+            points2d[tri[idx + 1]].to_homogeneous().into(), 
+            points2d[tri[idx + 2]].to_homogeneous().into()
         );
     }
     let writer = StlWriter::new();

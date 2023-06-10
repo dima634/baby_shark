@@ -51,6 +51,7 @@ impl<T> LinkedList<T> {
     pub fn clear(&mut self) {
         self.head = None;
         self.tail = None;
+        self.free = None;
         self.vec.clear();
     }
 
