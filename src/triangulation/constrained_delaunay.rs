@@ -96,10 +96,14 @@ impl<TScalar: RealNumber> ConstrainedTriangulation2<TScalar> {
     pub fn set_points(&mut self, points: &[Point2<TScalar>]) {
         self.points.clear();
         self.points.extend_from_slice(points);
+        self.constraints.clear();
         self.delaunay.triangulate(&self.points);
     }
 
-    /// Adds constrained edge given by indices of two points
+    /// Adds constrained edge given by indices of two points. 
+    /// Conflicting constraints are resolved as follows:
+    /// * When new constrained edge intersects other constrained edge both edges are splitted into two at intersection points
+    /// * When new constrained edge intersects point it is splitted into two at this point
     pub fn insert_constrained_edge(&mut self, start: usize, end: usize) {
         let new_constraint = Edge { start, end };
         self.constraints.insert(new_constraint);

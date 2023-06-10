@@ -118,6 +118,7 @@ impl HalfedgeMesh {
         return he_next;
     }
 
+    /// Splits edge at vertex given by index `v`
     pub fn split_edge(&mut self, he: usize, v: usize) {
         let he_next = next_halfedge(he);
         let he_prev = prev_halfedge(he);
@@ -134,10 +135,9 @@ impl HalfedgeMesh {
         self.triangles.push(v1);
         self.triangles.push(v2);
 
-        self.add_halfedge(None); // v, v1 !!!! update later if he_opp exist  
+        self.add_halfedge(None);
         self.add_halfedge(he_next_opp);
         self.add_halfedge(Some(he_next));
-        // self.he_twins[he_next] = Some(new_face1 + 2);
         self.make_opposite(he_next, Some(new_face1 + 2));
 
         if let Some(he_opp) = he_opp {
@@ -155,9 +155,7 @@ impl HalfedgeMesh {
             self.add_halfedge(Some(he_opp_prev));
             self.add_halfedge(he_opp_prev_opp);
             self.add_halfedge(Some(new_face1));
-            // self.he_twins[he_opp_prev] = Some(new_face2);
             self.make_opposite(he_opp_prev, Some(new_face2));
-            // self.he_twins[new_face1] = Some(new_face2 + 2);
             self.make_opposite(new_face1, Some(new_face2 + 2));
         }
 
