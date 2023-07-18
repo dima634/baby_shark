@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use nalgebra::Point3;
 use num_traits::{cast, Float};
 use crate::{
     mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }, 
@@ -122,7 +121,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             }
 
             if self.shift_vertices {
-                self.shift_vertices(mesh);
+                self.shift_vertices(mesh, target_edge_length * target_edge_length);
             }
 
             if self.project_vertices {
@@ -148,24 +147,29 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
     }
 
-    fn shift_vertices(&self, mesh: &mut TMesh) {
+    fn shift_vertices(&self, mesh: &mut TMesh, target_edge_length_squared: TMesh::ScalarType) {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
-        let mut one_ring: Vec<Point3<TMesh::ScalarType>> = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
+        let mut one_ring = Vec::with_capacity(mesh_stats::MAX_VERTEX_VALENCE);
 
         // Perform laplacian smoothing for each vertex
         for vertex in vertices {
-            let vertex_position = mesh.vertex_position(&vertex);
             let vertex_normal = mesh.vertex_normal(&vertex);
+
+            if let None = vertex_normal {
+                continue;
+            }
+            
+            let vertex_position = mesh.vertex_position(&vertex);
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(v)));
-            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);   
+            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal.unwrap()); 
 
             let shift_vertex = 
                 !(self.keep_boundary && mesh.is_vertex_on_boundary(&vertex)) &&
-                vertex_shift::is_vertex_shift_safe(&vertex, &new_position, mesh);
+                vertex_shift::is_vertex_shift_safe(&vertex, vertex_position, &new_position, target_edge_length_squared,  mesh);
 
             if shift_vertex {
-                mesh.shift_vertex(&vertex, &new_position);
+                mesh.shift_vertex(&vertex, &new_position); 
             }
         }
     }
@@ -239,14 +243,13 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let v0 = mesh.vertex_position(&pos.next().get_vertex());
         let v3 = mesh.vertex_position(&pos.next().opposite().get_vertex());
 
-        let old_normal1 = Triangle3::normal(v0, v1, v2);
-
-        if Triangle3::is_degenerate(v1, v2, v3) {
+        if Triangle3::is_degenerate(v1, v2, v3) ||
+           Triangle3::is_degenerate(v0, v1, v3) {
             return false;
         }
 
+        let old_normal1 = Triangle3::normal(v0, v1, v2);
         let new_normal1 = Triangle3::normal(v1, v2, v3);
-
         let threshold = cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians();
 
         if old_normal1.angle(&new_normal1) > threshold {
@@ -254,11 +257,6 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
 
         let old_normal2 = Triangle3::normal(v0, v2, v3);
-
-        if Triangle3::is_degenerate(v0, v1, v3) {
-            return false;
-        }
-
         let new_normal2 = Triangle3::normal(v0, v1, v3);
 
         if old_normal2.angle(&new_normal2) > threshold || 

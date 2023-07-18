@@ -49,6 +49,7 @@ impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
 }
 
 /// 3D triangle
+#[derive(Debug)]
 pub struct Triangle3<TScalar: Number> {
     a: Point3<TScalar>,
     b: Point3<TScalar>,
@@ -233,7 +234,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn is_degenerate(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> bool {
         let cross = (b - a).cross(&(c - a));
-        return cross.norm_squared().is_zero();
+        return cross.norm_squared() < TScalar::from_f64(1e-14).unwrap();
     }
 
     #[inline]

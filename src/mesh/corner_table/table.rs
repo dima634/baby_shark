@@ -239,11 +239,18 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
         return self.vertices[*vertex].get_position();
     }
 
-    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType> {
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>> {
         let mut sum = Vector3::zeros();
-        faces_around_vertex(self, *vertex, |face_index| sum += self.face_normal(face_index));
+        
+        faces_around_vertex(self, *vertex, |face_index| {
+            sum += self.face_normal(face_index);
+        });
 
-        return sum.normalize();
+        if sum.iter().all(|i| i.is_zero()) {
+            return None;
+        }
+
+        return Some(sum.normalize());
     }
 }
 

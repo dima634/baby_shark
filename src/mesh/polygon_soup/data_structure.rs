@@ -1,4 +1,4 @@
-use nalgebra::Point3;
+use nalgebra::{Point3, Vector3};
 use crate::{mesh::traits::{Mesh}, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
@@ -88,7 +88,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     #[inline]
-    fn vertex_normal(&self, _vertex: &Self::VertexDescriptor) -> nalgebra::Vector3<Self::ScalarType> {
+    fn vertex_normal(&self, _vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>> {
         todo!()
     }
 

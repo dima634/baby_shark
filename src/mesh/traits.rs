@@ -52,7 +52,7 @@ pub trait Mesh {
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
     /// Returns vertex normal (average of one-ring face normals)
-    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Vector3<Self::ScalarType>;
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>>;
 
     /// Returns positions of face vertices in ccw order
     #[allow(clippy::type_complexity)]
