@@ -14,10 +14,9 @@ bitflags! {
 }
 
 impl Default for Flags {
+    #[inline]
     fn default() -> Self {
-        return Self { 
-            bits: 0b00000000
-        };
+        return Self(Default::default())
     }
 }
 
@@ -51,6 +50,6 @@ pub fn clear_marked<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter)
 
 impl Display for Flags {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{:#010b}", self.bits)
+        return write!(f, "{:#010b}", self.bits())
     }
 }

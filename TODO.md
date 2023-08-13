@@ -14,3 +14,6 @@
 - [ ] Generic `intersects` trait, replacement for all `intersects_primitive` traits
 - [ ] Corner table: improve handling of non-manifold edges by duplication vertices instead of removing whole face
 - [ ] Replace `num_traits::cast` with corresponding `to_primitive` methods
+
+### VBD
+- [ ] Replace `Box` with index in `Vec` and check performance (cache misses)
