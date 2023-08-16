@@ -1,27 +1,27 @@
 #[macro_export]
 macro_rules! vdb {
     ($($rest:expr),+) => { 
-        $crate::voxel::tree::RootNode::<vdb!(@internal $($rest,)*)>
+        $crate::voxel::RootNode::<vdb!(@internal $($rest,)*)>
     };
 
     (@internal $branching:expr,) => { 
-        $crate::voxel::tree::LeafNode<$branching, $branching, { $crate::voxel::tree::leaf_node_size($branching) }>
+        $crate::voxel::LeafNode<$branching, $branching, { $crate::voxel::leaf_node_size($branching) }>
     };
 
     ($(@internal)? $branching:expr, $($rest:expr),+ $(,)?) => { 
-        $crate::voxel::tree::InternalNode::<
+        $crate::voxel::InternalNode::<
             vdb!(@internal $($rest,)*),
             $branching,
-            { $crate::voxel::tree::internal_node_branching::<vdb!(@internal $($rest,)*)>($branching) }, 
-            { $crate::voxel::tree::internal_node_size::<vdb!(@internal $($rest,)*)>($branching) },
-            { $crate::voxel::tree::internal_node_bit_size::<vdb!(@internal $($rest,)*)>($branching) }
+            { $crate::voxel::internal_node_branching::<vdb!(@internal $($rest,)*)>($branching) }, 
+            { $crate::voxel::internal_node_size::<vdb!(@internal $($rest,)*)>($branching) },
+            { $crate::voxel::internal_node_bit_size::<vdb!(@internal $($rest,)*)>($branching) }
         >
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::voxel::tree::{HasChild, TreeNode};
+    use crate::voxel::{HasChild, TreeNode};
 
     #[test]
     fn test_vdb_macro_2_3_4() {

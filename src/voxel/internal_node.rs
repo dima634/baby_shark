@@ -1,7 +1,9 @@
+use std::mem::MaybeUninit;
+
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use super::traits::{TreeNode, HasChild};
+use super::{TreeNode, HasChild};
 
 pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
     childs: [Option<Box<TChild>>; SIZE],
@@ -12,11 +14,54 @@ pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHIN
 
 impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
     #[inline]
-    fn offset(index: Vector3<usize>) -> usize {
+    fn offset(index: &Vector3<usize>) -> usize {
         return 
             (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
             (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
              ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL);
+    }
+
+    fn offset_to_local_index(mut offset: usize) -> Vector3<usize> {
+        debug_assert!(offset < (1 << 3 * BRANCHING));
+        let x = offset >> 2 * BRANCHING;
+        offset &= (1 << 2 * BRANCHING) - 1;
+        let y = offset >> BRANCHING;
+        let z = offset & ((1 << BRANCHING) - 1);
+
+        return Vector3::new(x, y, z);
+    }
+
+    fn offset_to_global_index(&self, offset: usize) -> Vector3<usize> {
+        let mut local = Self::offset_to_local_index(offset);
+
+        for i in 0..3 {
+            local[i] <<= TChild::BRANCHING_TOTAL;
+        }
+
+        return local + self.origin;
+    }
+
+    #[inline]
+    fn add_child(&mut self, offset: usize) {
+        debug_assert!(!self.child_mask[offset]);
+        
+        // Do we really need this?
+        // self.value_mask.set(offset, false);
+
+        let child_origin = self.offset_to_global_index(offset);
+        let child_node = TChild::new(child_origin);
+        let child_box = Box::new(child_node);
+        
+        self.child_mask.set(offset, true);
+        self.childs[offset] = Some(child_box);
+    }
+
+    #[inline]
+    fn child_mut(&mut self, offset: usize) -> &mut TChild {
+        assert!(self.child_mask[offset]);
+
+        let child = &mut self.childs[offset];
+        return child.as_mut().unwrap();
     }
 }
 
@@ -29,10 +74,19 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
     const SIZE: usize = SIZE;
 
-    fn at(&self, index: Vector3<usize>) -> bool {
-        let offset = Self::offset(index);
+    #[inline]
+    fn new(origin: Vector3<usize>) -> Self {
+        let childs = unsafe { MaybeUninit::uninit().assume_init() };
+        return Self {
+            origin,
+            childs,
+            value_mask: Default::default(),
+            child_mask: Default::default()
+        };
+    }
 
-        debug_assert!(!(self.value_mask[offset] & self.child_mask[offset]), "Node should has either value or child");
+    fn at(&self, index: &Vector3<usize>) -> bool {
+        let offset = Self::offset(index);
 
         if self.child_mask[offset] {
             let child = &self.childs[offset];
@@ -42,11 +96,18 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         return self.value_mask[offset];
     }
 
-    fn insert(&mut self, index: Vector3<usize>) {
-        todo!()
+    fn insert(&mut self, index: &Vector3<usize>) {
+        let offset = Self::offset(index);
+
+        if !self.child_mask[offset] {
+            self.add_child(offset);
+        }
+
+        let child = self.child_mut(offset);
+        child.insert(index);
     }
 
-    fn remove(&mut self, index: Vector3<usize>) {
+    fn remove(&mut self, index: &Vector3<usize>) {
         todo!()
     }
  

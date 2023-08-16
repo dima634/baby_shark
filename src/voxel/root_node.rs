@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use nalgebra::Vector3;
 
-use super::traits::{TreeNode, HasChild};
+use super::{TreeNode, HasChild};
 
 pub struct RootNode<TChild: TreeNode> {
     root: HashMap<Vector3<usize>, TChild>
@@ -26,7 +26,12 @@ impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
     const BRANCHING_TOTAL: usize = usize::MAX;
     const SIZE: usize = usize::MAX;
 
-    fn at(&self, index: Vector3<usize>) -> bool {
+    #[inline]
+    fn new(_: Vector3<usize>) -> Self {
+        return Self::empty();
+    }
+
+    fn at(&self, index: &Vector3<usize>) -> bool {
         let root_key = Vector3::new(
             index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
@@ -38,11 +43,11 @@ impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
         return false;
     }
 
-    fn insert(&mut self, index: Vector3<usize>) {
+    fn insert(&mut self, index: &Vector3<usize>) {
         todo!()
     }
 
-    fn remove(&mut self, index: Vector3<usize>) {
+    fn remove(&mut self, index: &Vector3<usize>) {
         todo!()
     }
 
