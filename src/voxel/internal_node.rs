@@ -1,14 +1,12 @@
-use std::mem::MaybeUninit;
-
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use super::{TreeNode, HasChild};
+use super::{TreeNode, HasChild, utils::is_mask_empty};
 
 pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
     childs: [Option<Box<TChild>>; SIZE],
-    child_mask: BitArray<[u8; BIT_SIZE]>,
-    value_mask: BitArray<[u8; BIT_SIZE]>,
+    child_mask: BitArray<[usize; BIT_SIZE]>,
+    value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<usize>
 }
 
@@ -41,19 +39,31 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         return local + self.origin;
     }
 
-    #[inline]
-    fn add_child(&mut self, offset: usize) {
+    fn add_child(&mut self, offset: usize, active: bool) {
         debug_assert!(!self.child_mask[offset]);
         
         // Do we really need this?
         // self.value_mask.set(offset, false);
 
         let child_origin = self.offset_to_global_index(offset);
-        let child_node = TChild::new(child_origin);
+        let child_node = 
+            if active { TChild::new_active(child_origin) } 
+            else { TChild::new_inactive(child_origin) };
         let child_box = Box::new(child_node);
         
         self.child_mask.set(offset, true);
         self.childs[offset] = Some(child_box);
+    }
+
+    #[inline]
+    fn remove_child(&mut self, offset: usize) {
+        debug_assert!(self.child_mask[offset]);
+        
+        // Do we really need this?
+        // self.value_mask.set(offset, false);
+        
+        self.child_mask.set(offset, false);
+        self.childs[offset] = None;
     }
 
     #[inline]
@@ -75,12 +85,23 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     const SIZE: usize = SIZE;
 
     #[inline]
-    fn new(origin: Vector3<usize>) -> Self {
-        let childs = unsafe { MaybeUninit::uninit().assume_init() };
+    fn new_inactive(origin: Vector3<usize>) -> Self {
+        let childs = std::array::from_fn(|_| None);
         return Self {
             origin,
             childs,
             value_mask: Default::default(),
+            child_mask: Default::default()
+        };
+    }
+
+    #[inline]
+    fn new_active(origin: Vector3<usize>) -> Self {
+        let childs = std::array::from_fn(|_| None);
+        return Self {
+            origin,
+            childs,
+            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
             child_mask: Default::default()
         };
     }
@@ -97,25 +118,49 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     }
 
     fn insert(&mut self, index: &Vector3<usize>) {
+        // Node is branch - insert voxel
+        // Node is tile:
+        //   if tile is active - do nothing
+        //   else - add empty child and insert voxel
         let offset = Self::offset(index);
-
-        if !self.child_mask[offset] {
-            self.add_child(offset);
+        
+        if self.child_mask[offset] {
+            let child = self.child_mut(offset);
+            child.insert(index);
+        } else if !self.value_mask[offset] {
+            self.add_child(offset, false);
+            let child = self.child_mut(offset);
+            child.insert(index);
         }
-
-        let child = self.child_mut(offset);
-        child.insert(index);
     }
 
     fn remove(&mut self, index: &Vector3<usize>) {
-        todo!()
+        // Node is branch - remove from child, prune child if empty
+        // Node is tile:
+        //   active - add active child, remove voxel
+        //   inactive - do nothing
+        let offset = Self::offset(index);
+
+        if self.child_mask[offset] {
+            let child = self.child_mut(offset);
+            child.remove(index);
+
+            if child.is_empty() {
+                self.remove_child(offset);
+                self.value_mask.set(offset, false);
+            }
+        } else if self.value_mask[offset] {
+            self.add_child(offset, true);
+            let child = self.child_mut(offset);
+            child.remove(index);
+        }
     }
  
     #[inline]
     fn is_empty(&self) -> bool {
-        return self.childs.iter()
-            .filter(|child| child.is_some())
-            .all(|child| child.as_ref().unwrap().is_empty());
+        return 
+            is_mask_empty::<BIT_SIZE>(&self.child_mask.data) &&
+            is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
 }
 
@@ -124,7 +169,7 @@ pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
 }
 
 pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
-    return internal_node_size::<T>(branching) / std::mem::size_of::<u8>();
+    return internal_node_size::<T>(branching) / usize::BITS as usize;
 }
 
 pub const fn internal_node_branching<T: TreeNode>(branching: usize) -> usize {

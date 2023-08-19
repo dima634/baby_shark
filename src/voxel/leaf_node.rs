@@ -1,10 +1,10 @@
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use super::TreeNode;
+use super::{TreeNode, utils::is_mask_empty};
 
 pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
-    pub value_mask: BitArray<[usize; SIZE]>,
+    value_mask: BitArray<[usize; SIZE]>,
     origin: Vector3<usize>
 }
 
@@ -32,10 +32,18 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     const SIZE: usize = SIZE;
 
     #[inline]
-    fn new(origin: Vector3<usize>) -> Self {
+    fn new_inactive(origin: Vector3<usize>) -> Self {
         return Self {
             origin,
             value_mask: Default::default()
+        }
+    }
+
+    #[inline]
+    fn new_active(origin: Vector3<usize>) -> Self {
+        return Self {
+            origin,
+            value_mask: BitArray::new([usize::MAX; SIZE])
         }
     }
 
@@ -54,17 +62,12 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
         self.value_mask.set(Self::offset(index), false);
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
-        let mut value = 0;
-
-        for i in 0..SIZE {
-            value |= self.value_mask.data[i];
-        }
-
-        return value == 0;
+        return is_mask_empty::<SIZE>(&self.value_mask.data);
     }
 }
 
 pub const fn leaf_node_size(branching: usize) -> usize {
-    return (1 << branching * 3) / std::mem::size_of::<usize>();
+    return (1 << branching * 3) / usize::BITS as usize;
 }

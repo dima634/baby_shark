@@ -17,3 +17,5 @@
 
 ### VBD
 - [ ] Replace `Box` with index in `Vec` and check performance (cache misses)
+- [ ] Add assertions for BRANCHING (>=2 for leaf, decreasing for tree), SIZE
+- [ ] Root is not tree node?

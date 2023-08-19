@@ -27,20 +27,17 @@ impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
     const SIZE: usize = usize::MAX;
 
     #[inline]
-    fn new(_: Vector3<usize>) -> Self {
+    fn new_inactive(_: Vector3<usize>) -> Self {
+        return Self::empty();
+    }
+
+    #[inline]
+    fn new_active(_: Vector3<usize>) -> Self {
         return Self::empty();
     }
 
     fn at(&self, index: &Vector3<usize>) -> bool {
-        let root_key = Vector3::new(
-            index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1)
-        );
-
-        println!("{}", root_key);
-
-        return false;
+        todo!()
     }
 
     fn insert(&mut self, index: &Vector3<usize>) {

@@ -3,6 +3,11 @@ pub mod internal_node;
 pub mod leaf_node;
 pub mod root_node;
 
+mod utils;
+
+#[cfg(test)]
+mod tests;
+
 use nalgebra::Vector3;
 
 pub use internal_node::*;
@@ -18,7 +23,9 @@ pub trait TreeNode {
     const SIZE: usize;
 
     /// Creates empty node
-    fn new(origin: Vector3<usize>) -> Self;
+    fn new_inactive(origin: Vector3<usize>) -> Self;
+    /// Create active node
+    fn new_active(origin: Vector3<usize>) -> Self;
 
     fn at(&self, index: &Vector3<usize>) -> bool;
     fn insert(&mut self, index: &Vector3<usize>);
