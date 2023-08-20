@@ -4,7 +4,7 @@ use nalgebra::Vector3;
 use super::{TreeNode, HasChild, utils::is_mask_empty};
 
 pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
-    childs: [Option<Box<TChild>>; SIZE],
+    childs: Vec<Option<TChild>>,
     child_mask: BitArray<[usize; BIT_SIZE]>,
     value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<usize>
@@ -12,21 +12,13 @@ pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHIN
 
 impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
     #[inline]
-    fn offset(index: &Vector3<usize>) -> usize {
-        return 
-            (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
-            (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
-             ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL);
+    pub fn new() -> Self {
+        return Self::new_inactive(Vector3::zeros());
     }
-
-    fn offset_to_local_index(mut offset: usize) -> Vector3<usize> {
-        debug_assert!(offset < (1 << 3 * BRANCHING));
-        let x = offset >> 2 * BRANCHING;
-        offset &= (1 << 2 * BRANCHING) - 1;
-        let y = offset >> BRANCHING;
-        let z = offset & ((1 << BRANCHING) - 1);
-
-        return Vector3::new(x, y, z);
+    
+    /// Returns grid resolution in one dimension
+    pub const fn resolution(&self) -> usize {
+        return 1 << BRANCHING_TOTAL;
     }
 
     fn offset_to_global_index(&self, offset: usize) -> Vector3<usize> {
@@ -49,10 +41,9 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         let child_node = 
             if active { TChild::new_active(child_origin) } 
             else { TChild::new_inactive(child_origin) };
-        let child_box = Box::new(child_node);
         
         self.child_mask.set(offset, true);
-        self.childs[offset] = Some(child_box);
+        self.childs[offset] = Some(child_node);
     }
 
     #[inline]
@@ -68,10 +59,28 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
 
     #[inline]
     fn child_mut(&mut self, offset: usize) -> &mut TChild {
-        assert!(self.child_mask[offset]);
+        debug_assert!(self.child_mask[offset]);
 
         let child = &mut self.childs[offset];
         return child.as_mut().unwrap();
+    }
+    
+    #[inline]
+    fn offset(index: &Vector3<usize>) -> usize {
+        return 
+            (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
+            (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
+             ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL);
+    }
+
+    fn offset_to_local_index(mut offset: usize) -> Vector3<usize> {
+        debug_assert!(offset < (1 << 3 * BRANCHING));
+        let x = offset >> 2 * BRANCHING;
+        offset &= (1 << 2 * BRANCHING) - 1;
+        let y = offset >> BRANCHING;
+        let z = offset & ((1 << BRANCHING) - 1);
+
+        return Vector3::new(x, y, z);
     }
 }
 
@@ -84,9 +93,10 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
     const SIZE: usize = SIZE;
 
-    #[inline]
     fn new_inactive(origin: Vector3<usize>) -> Self {
-        let childs = std::array::from_fn(|_| None);
+        let mut childs = Vec::new();
+        childs.resize_with(SIZE, || None);
+
         return Self {
             origin,
             childs,
@@ -95,9 +105,10 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         };
     }
 
-    #[inline]
     fn new_active(origin: Vector3<usize>) -> Self {
-        let childs = std::array::from_fn(|_| None);
+        let mut childs = Vec::new();
+        childs.resize_with(SIZE, || None);
+
         return Self {
             origin,
             childs,
