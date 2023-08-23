@@ -23,28 +23,18 @@ fn main() {
         .expect("Read mesh from STL");
 
     let origin = Point3::<f32>::new(0.0, 0.0, 0.0);
-    let origin2 = origin.clone();
     let bounding_spheres = vec![
         (
-            BoundingSphere {
-                origin,
-                radius: 5.0,
-            },
-            0.0001,
+            BoundingSphere::new(origin, 5.0f32),
+            0.0001f32,
         ),
         (
-            BoundingSphere {
-                origin: origin2,
-                radius: 15.0,
-            },
-            0.001,
+            BoundingSphere::new(origin, 15.0f32),
+            0.001f32,
         ),
         (
-            BoundingSphere {
-                origin: origin2,
-                radius: 40.0,
-            },
-            0.8,
+            BoundingSphere::new(origin, 40.0f32),
+            0.8f32,
         ),
     ];
 

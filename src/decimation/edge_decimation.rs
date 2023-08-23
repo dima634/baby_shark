@@ -401,7 +401,9 @@ impl<TMesh: Mesh> BoundingSphereMaxError<TMesh> {
         Self { bounding_spheres }
     }
 }
+
 impl<TMesh: Mesh> MaxError<TMesh> for BoundingSphereMaxError<TMesh> {
+    #[inline]
     fn max_error(
         &self,
         mesh: &TMesh,
@@ -425,7 +427,7 @@ where
     fn default() -> Self {
         let origin = Point3::<TMesh::ScalarType>::origin();
         let radius = TMesh::ScalarType::max_value();
-        let bounding_sphere = BoundingSphere::<TMesh> { origin, radius };
+        let bounding_sphere = BoundingSphere::<TMesh>::new(origin, radius);
         let bounding_spheres = vec![(bounding_sphere, cast(0.001).unwrap())];
         Self { bounding_spheres }
     }
@@ -434,13 +436,25 @@ where
 pub struct BoundingSphere<TMesh: Mesh> {
     pub origin: Point3<TMesh::ScalarType>,
     pub radius: TMesh::ScalarType,
+    radius_squared: TMesh::ScalarType,
+}
+
+impl <TMesh: Mesh> BoundingSphere<TMesh> {
+    pub fn new(origin: Point3<TMesh::ScalarType>, radius: TMesh::ScalarType) -> Self {
+        Self {
+            origin,
+            radius,
+            radius_squared: radius * radius,
+        }
+    }
 }
 
 impl<TMesh> BoundingSphere<TMesh>
 where
     TMesh: Mesh,
 {
+    #[inline]
     pub fn contains_point(&self, point: &Point3<TMesh::ScalarType>) -> bool {
-        nalgebra::distance(&self.origin, point) <= self.radius
+        nalgebra::distance_squared(&self.origin, point) <= self.radius_squared
     }
 }
