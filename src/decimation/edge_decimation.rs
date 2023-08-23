@@ -159,7 +159,7 @@ where
     TMaxError: MaxError<TMesh>
 
 {
-    max_error: TMaxError,
+    max_error: Option<TMaxError>,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
@@ -184,7 +184,7 @@ where
     /// Pass `None` to disable max error check.
     /// 
     #[inline]
-    pub fn max_error(mut self, max_error: TMaxError) -> Self {
+    pub fn max_error(mut self, max_error: Option<TMaxError>) -> Self {
         self.max_error = max_error;
 
         return self;
@@ -220,8 +220,7 @@ where
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        // TODO: not exactly sure whether this is still needed
-        // debug_assert!(self.max_error.is_finite() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
+        debug_assert!(self.max_error.is_some() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -237,6 +236,9 @@ where
         let mut marker = mesh.marker();
 
         let mut remaining_faces_count = mesh.faces().count();
+
+        let default_error: TMaxError = Default::default();
+        let max_error = self.max_error.as_ref().unwrap_or(&default_error);
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
@@ -260,7 +262,7 @@ where
                     marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if best.cost < self.max_error.max_error(mesh, &best.edge) {
+                    if best.cost < max_error.max_error(mesh, &best.edge) {
                         self.priority_queue.push(best);
                     }
 
@@ -305,7 +307,7 @@ where
                     let new_position = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if new_cost < self.max_error.max_error(mesh, &collapse.edge) 
+                    if new_cost < max_error.max_error(mesh, &collapse.edge) 
                         && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
                         self.priority_queue.push(Contraction::new(collapse.edge, new_cost));
                     }
@@ -318,12 +320,14 @@ where
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
     fn fill_queue(&mut self, mesh: &mut TMesh) {
+        let default_error: TMaxError = Default::default();
+        let max_error = self.max_error.as_ref().unwrap_or(&default_error);
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
 
             // Collapsable and low cost?
-            if cost < self.max_error.max_error(mesh, &edge) && is_collapse_topologically_safe {
+            if cost < max_error.max_error(mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
@@ -338,7 +342,7 @@ where
 {
     fn default() -> Self {
         return Self {
-            max_error: TMaxError::default(),
+            max_error: Some(TMaxError::default()),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
             priority_queue: BinaryHeap::new(),
@@ -384,7 +388,7 @@ where
     TMesh: Mesh,
 {
     fn default() -> Self {
-        Self::new(cast(0.001).unwrap())
+        Self::new(TMesh::ScalarType::infinity())
     }
 }
 

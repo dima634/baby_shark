@@ -12,7 +12,7 @@ fn main() {
 
     let max_error = ConstantMaxError::new(0.01f32);
     
-    let mut decimator = EdgeDecimator::new().max_error(max_error);
+    let mut decimator = EdgeDecimator::new().max_error(Some(max_error));
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();

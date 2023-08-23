@@ -50,7 +50,7 @@ fn main() {
 
     let max_error = BoundingSphereMaxError::new(bounding_spheres);
 
-    let mut decimator = EdgeDecimator::new().max_error(max_error);
+    let mut decimator = EdgeDecimator::new().max_error(Some(max_error));
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();
