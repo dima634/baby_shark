@@ -1,7 +1,9 @@
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use super::{TreeNode, HasChild, utils::is_mask_empty};
+use crate::mesh::polygon_soup::data_structure::PolygonSoup;
+
+use super::{TreeNode, HasChild, utils::{is_mask_empty, box_indices}};
 
 pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
     childs: Vec<Option<TChild>>,
@@ -146,7 +148,7 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     }
 
     fn remove(&mut self, index: &Vector3<usize>) {
-        // Node is branch - remove from child, prune child if empty
+        // Node is branch - remove voxel from child, prune child if empty
         // Node is tile:
         //   active - add active child, remove voxel
         //   inactive - do nothing

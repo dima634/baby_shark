@@ -1,6 +1,7 @@
 use crate::dynamic_vdb;
 use crate::static_vdb;
 use crate::voxel::*;
+use crate::voxel::utils::box_indices;
 
 type StaticTree = static_vdb!(4, 3, 2);
 type DynamicTree = dynamic_vdb!(4, 3, 2);
@@ -90,12 +91,3 @@ fn test_dynamic_tree_is_empty() {
     tree.insert(&Vector3::zeros());
     assert!(!tree.is_empty());
 }
-
-fn box_indices(start: usize, end: usize) -> impl Iterator<Item = Vector3<usize>> {
-    return (start..end).flat_map(move |x| {
-        (start..end).flat_map(move |y| {
-            (start..end).map(move |z| Vector3::new(x, y, z))
-        })
-    });
-}
-

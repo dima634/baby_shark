@@ -1,7 +1,9 @@
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use super::{TreeNode, utils::is_mask_empty};
+use crate::{mesh::{traits::Mesh, polygon_soup::data_structure::PolygonSoup, builder}, geometry::traits::RealNumber};
+
+use super::{TreeNode, utils::{is_mask_empty, box_indices}};
 
 pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
     value_mask: BitArray<[usize; SIZE]>,
@@ -23,6 +25,16 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Le
             origin: Vector3::new(0, 0, 0),
             value_mask: Default::default()
         };
+    }
+
+    #[inline]
+    pub fn origin(&self) -> &Vector3<usize> {
+        return &self.origin;
+    }
+
+    #[inline]
+    pub const fn resolution(&self) -> usize {
+        return 1 << BRANCHING;
     }
 }
 

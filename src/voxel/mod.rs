@@ -14,6 +14,8 @@ pub use internal_node::*;
 pub use leaf_node::*;
 pub use root_node::*;
 
+use crate::mesh::polygon_soup::data_structure::PolygonSoup;
+
 pub trait TreeNode {
     /// Number of tiles in one dimension on current level
     const BRANCHING: usize;

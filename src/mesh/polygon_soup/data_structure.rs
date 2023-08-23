@@ -20,6 +20,11 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
         self.vertices.push(v2);
         self.vertices.push(v3);
     }
+
+    #[inline]
+    pub fn concat(&mut self, other: PolygonSoup<TScalar>) {
+        self.vertices.extend(other.vertices);
+    }
 }
 
 impl<TScalar: RealNumber> Default for PolygonSoup<TScalar> {
