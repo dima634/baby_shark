@@ -65,10 +65,12 @@ Several stop condition are supported:
 
 ### Example
 ```rust
- let mut decimator = EdgeDecimator::new()
-     .max_error(Some(0.0005))
-     .min_faces_count(Some(10000));
- decimator.decimate(&mut mesh);
+let max_error = ConstantMaxError::new(0.0005);
+
+let mut decimator = EdgeDecimator::new()
+    .max_error(Some(max_error))
+    .min_faces_count(Some(10000));
+decimator.decimate(&mut mesh);
 ```
 
 ## 2D triangulation
