@@ -2,15 +2,17 @@ use std::path::Path;
 
 use baby_shark::{
     io::stl::{StlReader, StlWriter}, 
-    decimation::prelude::EdgeDecimator, 
+    decimation::{prelude::EdgeDecimator, edge_decimation::ConstantMaxError}, 
     mesh::corner_table::prelude::CornerTableF
 };
 
 fn main() {
     let mut reader = StlReader::new();
     let mut mesh: CornerTableF = reader.read_stl_from_file(Path::new("./test_files/violin.stl")).expect("Read mesh from STL");
+
+    let max_error = ConstantMaxError::new(0.01f32);
     
-    let mut decimator = EdgeDecimator::new().max_error(Some(0.01f32));
+    let mut decimator = EdgeDecimator::new().max_error(max_error);
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();

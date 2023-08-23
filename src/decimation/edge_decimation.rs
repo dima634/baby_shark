@@ -152,12 +152,14 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// decimator.decimate(&mut mesh);
 /// ```
 /// 
-pub struct IncrementalDecimator<TMesh, TCollapseStrategy>
+pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError>
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh>
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TMaxError: MaxError<TMesh>
+
 {
-    max_error: TMesh::ScalarType,
+    max_error: TMaxError,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
@@ -165,10 +167,11 @@ where
     collapse_strategy: TCollapseStrategy
 }
 
-impl<TMesh, TCollapseStrategy> IncrementalDecimator<TMesh, TCollapseStrategy> 
+impl<TMesh, TCollapseStrategy, TMaxError> IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh> 
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TMaxError: MaxError<TMesh>
 {
     #[inline]
     pub fn new() -> Self {
@@ -181,14 +184,8 @@ where
     /// Pass `None` to disable max error check.
     /// 
     #[inline]
-    pub fn max_error(mut self, max_error: Option<TMesh::ScalarType>) -> Self {
-        match max_error {
-            Some(err) => { 
-                debug_assert!(err.is_sign_positive(), "Max error should be a positive");
-                self.max_error = err;
-            },
-            None => self.max_error = TMesh::ScalarType::infinity(),
-        };
+    pub fn max_error(mut self, max_error: TMaxError) -> Self {
+        self.max_error = max_error;
 
         return self;
     }    
@@ -223,7 +220,8 @@ where
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        debug_assert!(self.max_error.is_finite() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
+        // TODO: not exactly sure whether this is still needed
+        // debug_assert!(self.max_error.is_finite() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -262,7 +260,7 @@ where
                     marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if best.cost < self.max_error {
+                    if best.cost < self.max_error.max_error(mesh, &best.edge) {
                         self.priority_queue.push(best);
                     }
 
@@ -307,7 +305,8 @@ where
                     let new_position = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if new_cost < self.max_error && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
+                    if new_cost < self.max_error.max_error(mesh, &collapse.edge) 
+                        && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
                         self.priority_queue.push(Contraction::new(collapse.edge, new_cost));
                     }
                 }
@@ -324,26 +323,120 @@ where
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
 
             // Collapsable and low cost?
-            if cost < self.max_error && is_collapse_topologically_safe {
+            if cost < self.max_error.max_error(mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
     }
 }
 
-impl<TMesh, TCollapseStrategy> Default for IncrementalDecimator<TMesh, TCollapseStrategy> 
+impl<TMesh, TCollapseStrategy, TMaxError> Default for IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh> 
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TMaxError: MaxError<TMesh>,
 {
     fn default() -> Self {
         return Self {
-            max_error: cast(0.001).unwrap(),
+            max_error: TMaxError::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default()
         };
+    }
+}
+
+pub trait MaxError<TMesh: Mesh>: Default {
+    fn max_error(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> TMesh::ScalarType;
+}
+
+pub struct ConstantMaxError<TMesh: Mesh> {
+    max_error: TMesh::ScalarType,
+}
+
+impl<TMesh> ConstantMaxError<TMesh>
+where
+    TMesh: Mesh,
+{
+    pub fn new(max_error: TMesh::ScalarType) -> Self {
+        Self { max_error }
+    }
+}
+
+impl<TMesh> MaxError<TMesh> for ConstantMaxError<TMesh>
+where
+    TMesh: Mesh,
+{
+    #[inline]
+    fn max_error(
+        &self,
+        _mesh: &TMesh,
+        _edge: &<TMesh as Mesh>::EdgeDescriptor,
+    ) -> <TMesh as Mesh>::ScalarType {
+        self.max_error
+    }
+}
+
+impl<TMesh> Default for ConstantMaxError<TMesh>
+where
+    TMesh: Mesh,
+{
+    fn default() -> Self {
+        Self::new(cast(0.001).unwrap())
+    }
+}
+
+pub struct BoundingSphereMaxError<TMesh: Mesh> {
+    bounding_spheres: Vec<(BoundingSphere<TMesh>, TMesh::ScalarType)>,
+}
+
+impl<TMesh: Mesh> BoundingSphereMaxError<TMesh> {
+    pub fn new(bounding_spheres: Vec<(BoundingSphere<TMesh>, TMesh::ScalarType)>) -> Self {
+        Self { bounding_spheres }
+    }
+}
+impl<TMesh: Mesh> MaxError<TMesh> for BoundingSphereMaxError<TMesh> {
+    fn max_error(
+        &self,
+        mesh: &TMesh,
+        edge: &<TMesh as Mesh>::EdgeDescriptor,
+    ) -> <TMesh as Mesh>::ScalarType {
+        let ep = mesh.edge_positions(edge);
+        for (bs, error) in &self.bounding_spheres {
+            if bs.contains_point(&ep.0) || bs.contains_point(&ep.1) {
+                return *error;
+            }
+        }
+
+        self.bounding_spheres.last().unwrap().1
+    }
+}
+
+impl<TMesh> Default for BoundingSphereMaxError<TMesh>
+where
+    TMesh: Mesh,
+{
+    fn default() -> Self {
+        let origin = Point3::<TMesh::ScalarType>::origin();
+        let radius = TMesh::ScalarType::max_value();
+        let bounding_sphere = BoundingSphere::<TMesh> { origin, radius };
+        let bounding_spheres = vec![(bounding_sphere, cast(0.001).unwrap())];
+        Self { bounding_spheres }
+    }
+}
+
+pub struct BoundingSphere<TMesh: Mesh> {
+    pub origin: Point3<TMesh::ScalarType>,
+    pub radius: TMesh::ScalarType,
+}
+
+impl<TMesh> BoundingSphere<TMesh>
+where
+    TMesh: Mesh,
+{
+    pub fn contains_point(&self, point: &Point3<TMesh::ScalarType>) -> bool {
+        nalgebra::distance(&self.origin, point) <= self.radius
     }
 }
