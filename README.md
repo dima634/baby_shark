@@ -66,9 +66,24 @@ Several stop condition are supported:
 
 ### Example
 ```rust
-    let decimation_criterion = ConstantErrorDecimationCriterion::new(0.01f32);
+    let decimation_criteria = ConstantErrorDecimationCriteria::new(0.01f32);
     
-    let mut decimator = EdgeDecimator::new().edge_decimation_criterion(Some(decimation_criterion));
+    let mut decimator = EdgeDecimator::new().decimation_criteria(Some(decimation_criteria));
+    decimator.decimate(&mut mesh);
+```
+
+### Bounded Sphere Example
+```rust
+    let origin = Point3::<f32>::origin();
+    let radii_error_map = vec![
+        (10.0f32, 0.0001f32),
+        (15.0f32, 0.05f32),
+        (40.0f32, 0.8f32),
+    ];
+
+    let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
+
+    let mut decimator = EdgeDecimator::new().decimation_criteria(Some(criteria));
     decimator.decimate(&mut mesh);
 ```
 

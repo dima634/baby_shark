@@ -21,16 +21,16 @@ fn main() {
         .read_stl_from_file(Path::new(&path))
         .expect("Read mesh from STL");
 
-    let origin = Point3::<f32>::new(5.0, 0.0, 0.0);
-    let radii_errors = vec![
+    let origin = Point3::<f32>::origin();
+    let radii_error_map = vec![
         (10.0f32, 0.0001f32),
-        (15.0f32, 0.8f32),
+        (15.0f32, 0.05f32),
         (40.0f32, 0.8f32),
     ];
 
-    let criterion = BoundingSphereDecimationCriteria::new(origin, radii_errors);
+    let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
 
-    let mut decimator = EdgeDecimator::new().edge_decimation_criterion(Some(criterion));
+    let mut decimator = EdgeDecimator::new().decimation_criteria(Some(criteria));
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();
