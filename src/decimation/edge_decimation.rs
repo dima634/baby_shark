@@ -398,8 +398,8 @@ pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
 
 impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
     pub fn new(origin: Point3::<TMesh::ScalarType>, radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>) -> Self {
-        let radii_sq_error = radii_error_map.into_iter().map(|(r, e)| (r * r, e)).collect();
-        Self { origin, radii_sq_error_map: radii_sq_error }
+        let radii_sq_error_map = radii_error_map.into_iter().map(|(r, e)| (r * r, e)).collect();
+        Self { origin, radii_sq_error_map }
     }
 
 }
@@ -412,8 +412,9 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCrit
             nalgebra::distance_squared(&self.origin, &edge_positions.0 ) < *radius_sq 
             || nalgebra::distance_squared(&self.origin, &edge_positions.1) < *radius_sq);
         
-        let max_error = max_error.unwrap_or(self.radii_sq_error_map.last().unwrap());
-        return error < max_error.1;
+        let max_error = max_error.unwrap_or(self.radii_sq_error_map.last().unwrap()).1;
+        
+        return error < max_error;
     }
 
 }
