@@ -152,14 +152,14 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// decimator.decimate(&mut mesh);
 /// ```
 /// 
-pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError>
+pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriterion>
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
     TCollapseStrategy: CollapseStrategy<TMesh>,
-    TMaxError: MaxError<TMesh>
+    TEdgeDecimationCriterion: EdgeDecimationCriteria<TMesh>
 
 {
-    max_error: Option<TMaxError>,
+    decimation_criterion: Option<TEdgeDecimationCriterion>,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
@@ -167,11 +167,11 @@ where
     collapse_strategy: TCollapseStrategy
 }
 
-impl<TMesh, TCollapseStrategy, TMaxError> IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError> 
+impl<TMesh, TCollapseStrategy, TEdgeDecimationCriterion> IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriterion> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
     TCollapseStrategy: CollapseStrategy<TMesh>,
-    TMaxError: MaxError<TMesh>
+    TEdgeDecimationCriterion: EdgeDecimationCriteria<TMesh>
 {
     #[inline]
     pub fn new() -> Self {
@@ -184,8 +184,8 @@ where
     /// Pass `None` to disable max error check.
     /// 
     #[inline]
-    pub fn max_error(mut self, max_error: Option<TMaxError>) -> Self {
-        self.max_error = max_error;
+    pub fn edge_decimation_criterion(mut self, criterion: Option<TEdgeDecimationCriterion>) -> Self {
+        self.decimation_criterion = criterion;
 
         return self;
     }    
@@ -220,7 +220,7 @@ where
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        debug_assert!(self.max_error.is_some() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
+        debug_assert!(self.decimation_criterion.is_some() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -237,8 +237,8 @@ where
 
         let mut remaining_faces_count = mesh.faces().count();
 
-        let default_error: TMaxError = Default::default();
-        let max_error = self.max_error.as_ref().unwrap_or(&default_error);
+        let default_error: TEdgeDecimationCriterion = Default::default();
+        let criterion = self.decimation_criterion.as_ref().unwrap_or(&default_error);
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
@@ -262,7 +262,7 @@ where
                     marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if best.cost < max_error.max_error(mesh, &best.edge) {
+                    if criterion.should_decimate(best.cost, mesh, &best.edge) {
                         self.priority_queue.push(best);
                     }
 
@@ -307,7 +307,7 @@ where
                     let new_position = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if new_cost < max_error.max_error(mesh, &collapse.edge) 
+                    if  criterion.should_decimate(new_cost, mesh, &collapse.edge) 
                         && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
                         self.priority_queue.push(Contraction::new(collapse.edge, new_cost));
                     }
@@ -320,29 +320,29 @@ where
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
     fn fill_queue(&mut self, mesh: &mut TMesh) {
-        let default_error: TMaxError = Default::default();
-        let max_error = self.max_error.as_ref().unwrap_or(&default_error);
+        let default_error: TEdgeDecimationCriterion = Default::default();
+        let max_error = self.decimation_criterion.as_ref().unwrap_or(&default_error);
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
 
             // Collapsable and low cost?
-            if cost < max_error.max_error(mesh, &edge) && is_collapse_topologically_safe {
+            if max_error.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
     }
 }
 
-impl<TMesh, TCollapseStrategy, TMaxError> Default for IncrementalDecimator<TMesh, TCollapseStrategy, TMaxError> 
+impl<TMesh, TCollapseStrategy, TEdgeDecimationCriterion> Default for IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriterion> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
     TCollapseStrategy: CollapseStrategy<TMesh>,
-    TMaxError: MaxError<TMesh>,
+    TEdgeDecimationCriterion: EdgeDecimationCriteria<TMesh>,
 {
     fn default() -> Self {
         return Self {
-            max_error: Some(TMaxError::default()),
+            decimation_criterion: Some(TEdgeDecimationCriterion::default()),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
             priority_queue: BinaryHeap::new(),
@@ -352,15 +352,16 @@ where
     }
 }
 
-pub trait MaxError<TMesh: Mesh>: Default {
-    fn max_error(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> TMesh::ScalarType;
+pub trait EdgeDecimationCriteria<TMesh: Mesh> : Default {
+    fn should_decimate(&self, error: TMesh::ScalarType, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool;
 }
 
-pub struct ConstantMaxError<TMesh: Mesh> {
+pub struct ConstantErrorDecimationCriteria<TMesh: Mesh> {
     max_error: TMesh::ScalarType,
 }
 
-impl<TMesh> ConstantMaxError<TMesh>
+
+impl<TMesh> ConstantErrorDecimationCriteria<TMesh>
 where
     TMesh: Mesh,
 {
@@ -369,92 +370,62 @@ where
     }
 }
 
-impl<TMesh> MaxError<TMesh> for ConstantMaxError<TMesh>
+impl<TMesh> EdgeDecimationCriteria<TMesh> for ConstantErrorDecimationCriteria<TMesh>
 where
     TMesh: Mesh,
 {
     #[inline]
-    fn max_error(
-        &self,
-        _mesh: &TMesh,
-        _edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> <TMesh as Mesh>::ScalarType {
-        self.max_error
+    fn should_decimate(&self, error: <TMesh as Mesh>::ScalarType, _mesh: &TMesh, _edge: &<TMesh as Mesh>::EdgeDescriptor) -> bool {
+        error < self.max_error
     }
 }
 
-impl<TMesh> Default for ConstantMaxError<TMesh>
+impl<TMesh> Default for ConstantErrorDecimationCriteria<TMesh>
 where
     TMesh: Mesh,
 {
     fn default() -> Self {
-        Self::new(TMesh::ScalarType::infinity())
+        Self::new(cast(0.001).unwrap())
     }
 }
 
-pub struct BoundingSphereMaxError<TMesh: Mesh> {
-    bounding_spheres: Vec<(BoundingSphere<TMesh>, TMesh::ScalarType)>,
+
+
+pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
+    origin: Point3::<TMesh::ScalarType>,
+    radii_sq_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>
 }
 
-impl<TMesh: Mesh> BoundingSphereMaxError<TMesh> {
-    pub fn new(bounding_spheres: Vec<(BoundingSphere<TMesh>, TMesh::ScalarType)>) -> Self {
-        Self { bounding_spheres }
+impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
+    pub fn new(origin: Point3::<TMesh::ScalarType>, radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>) -> Self {
+        let radii_sq_error = radii_error_map.into_iter().map(|(r, e)| (r * r, e)).collect();
+        Self { origin, radii_sq_error_map: radii_sq_error }
     }
+
 }
 
-impl<TMesh: Mesh> MaxError<TMesh> for BoundingSphereMaxError<TMesh> {
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCriteria<TMesh> {
     #[inline]
-    fn max_error(
-        &self,
-        mesh: &TMesh,
-        edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> <TMesh as Mesh>::ScalarType {
-        let ep = mesh.edge_positions(edge);
-        for (bs, error) in &self.bounding_spheres {
-            if bs.contains_point(&ep.0) || bs.contains_point(&ep.1) {
-                return *error;
-            }
-        }
-
-        self.bounding_spheres.last().unwrap().1
+    fn should_decimate(&self, error: <TMesh as Mesh>::ScalarType, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) -> bool {
+        let edge_positions = mesh.edge_positions(edge);
+        let max_error = self.radii_sq_error_map.iter().find(|(radius_sq, _)| 
+            nalgebra::distance_squared(&self.origin, &edge_positions.0 ) < *radius_sq 
+            || nalgebra::distance_squared(&self.origin, &edge_positions.1) < *radius_sq);
+        
+        let max_error = max_error.unwrap_or(self.radii_sq_error_map.last().unwrap());
+        return error < max_error.1;
     }
+
 }
 
-impl<TMesh> Default for BoundingSphereMaxError<TMesh>
+impl<TMesh> Default for BoundingSphereDecimationCriteria<TMesh>
 where
     TMesh: Mesh,
 {
     fn default() -> Self {
         let origin = Point3::<TMesh::ScalarType>::origin();
         let radius = TMesh::ScalarType::max_value();
-        let bounding_sphere = BoundingSphere::<TMesh>::new(origin, radius);
-        let bounding_spheres = vec![(bounding_sphere, cast(0.001).unwrap())];
-        Self { bounding_spheres }
-    }
-}
-
-pub struct BoundingSphere<TMesh: Mesh> {
-    pub origin: Point3<TMesh::ScalarType>,
-    pub radius: TMesh::ScalarType,
-    radius_squared: TMesh::ScalarType,
-}
-
-impl <TMesh: Mesh> BoundingSphere<TMesh> {
-    pub fn new(origin: Point3<TMesh::ScalarType>, radius: TMesh::ScalarType) -> Self {
-        Self {
-            origin,
-            radius,
-            radius_squared: radius * radius,
-        }
-    }
-}
-
-impl<TMesh> BoundingSphere<TMesh>
-where
-    TMesh: Mesh,
-{
-    #[inline]
-    pub fn contains_point(&self, point: &Point3<TMesh::ScalarType>) -> bool {
-        nalgebra::distance_squared(&self.origin, point) <= self.radius_squared
+        let radii_error = vec![(radius, cast(0.001).unwrap())];
+        return Self::new(origin, radii_error);
     }
 }

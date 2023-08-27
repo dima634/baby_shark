@@ -60,17 +60,16 @@ This library implements incremental edge decimation algorithm. On each iteration
 Several stop condition are supported:
 * *Max error* - algorithm stops when collapse lowest cost is bigger than given value
 * *Min faces count* - algorithm stops when faces count drops below given value
+* *Bounding sphere* - adaptive error algorithm based upon distance from a point. Useful for LOD mesh decimation.
 
 ![image](https://user-images.githubusercontent.com/48240075/192602743-59d91022-4eb1-4aef-b7af-5f0b3cdcefb5.png)
 
 ### Example
 ```rust
-let max_error = ConstantMaxError::new(0.0005);
-
-let mut decimator = EdgeDecimator::new()
-    .max_error(Some(max_error))
-    .min_faces_count(Some(10000));
-decimator.decimate(&mut mesh);
+    let decimation_criterion = ConstantErrorDecimationCriterion::new(0.01f32);
+    
+    let mut decimator = EdgeDecimator::new().edge_decimation_criterion(Some(decimation_criterion));
+    decimator.decimate(&mut mesh);
 ```
 
 ## 2D triangulation
