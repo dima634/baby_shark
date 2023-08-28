@@ -147,7 +147,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// ## Example
 /// ```ignore
 /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
-///     .max_error(Some(0.00015))
+///     .decimation_criteria(ConstantErrorDecimationCriteria::new(0.00015))
 ///     .min_faces_count(None);
 /// decimator.decimate(&mut mesh);
 /// ```
@@ -179,9 +179,9 @@ where
     }
 
     ///
-    /// Set maximum allowed error for decimation. Edges with higher error won't be collapsed. 
-    /// Should be a positive number. Default is `0.001`.
-    /// Pass `None` to disable max error check.
+    /// Set the decimation_criteria trait.
+    /// This defines the strategy for deciding if an edge needs to be simplified/decimated.
+    /// See the `EdgeDecimationCriteria` trait.
     /// 
     #[inline]
     pub fn decimation_criteria(mut self, criteria: TEdgeDecimationCriteria) -> Self {
@@ -214,7 +214,7 @@ where
     /// ## Example
     /// ```ignore
     /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
-    ///     .max_error(Some(0.00015))
+    ///     .decimation_criteria(ConstantErrorDecimationCriteria::new(0.00015))
     ///     .min_faces_count(None);
     /// decimator.decimate(&mut mesh);
     /// ```
@@ -346,10 +346,16 @@ where
     }
 }
 
+///
+/// Trait used to decide whether to decimate an edge
+/// 
 pub trait EdgeDecimationCriteria<TMesh: Mesh> : Default {
     fn should_decimate(&self, error: TMesh::ScalarType, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool;
 }
 
+///
+/// Always decimate edges
+/// 
 #[derive(Debug, Default)]
 pub struct AlwaysDecimate;
 
@@ -360,6 +366,9 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
     }
 }
 
+///
+/// Never decimate edges
+/// 
 #[derive(Debug, Default)]
 pub struct NeverDecimate;
 
@@ -370,6 +379,10 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
     }
 }
 
+///
+/// Decimate with a constant error value.
+/// This will result in a uniform decimation result.
+/// 
 #[derive(Debug)]
 pub struct ConstantErrorDecimationCriteria<TMesh: Mesh> {
     max_error: TMesh::ScalarType,
@@ -403,6 +416,8 @@ where
     }
 }
 
+///
+/// Will choose the maximum error, and decimate accordingly, depending on the distance from origin.
 #[derive(Debug)]
 pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
     origin: Point3::<TMesh::ScalarType>,
