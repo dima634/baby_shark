@@ -66,9 +66,9 @@ Several stop condition are supported:
 
 ### Example
 ```rust
-    let decimation_criteria = ConstantErrorDecimationCriteria::new(0.01f32);
-    
-    let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
+    let mut decimator = EdgeDecimator::new()
+        .decimation_criteria(ConstantErrorDecimationCriteria::new(0.0005))
+        .min_faces_count(Some(10000));
     decimator.decimate(&mut mesh);
 ```
 
