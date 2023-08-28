@@ -159,7 +159,7 @@ where
     TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>
 
 {
-    decimation_criteria: Option<TEdgeDecimationCriteria>,
+    decimation_criteria: TEdgeDecimationCriteria,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
@@ -184,7 +184,7 @@ where
     /// Pass `None` to disable max error check.
     /// 
     #[inline]
-    pub fn decimation_criteria(mut self, criteria: Option<TEdgeDecimationCriteria>) -> Self {
+    pub fn decimation_criteria(mut self, criteria: TEdgeDecimationCriteria) -> Self {
         self.decimation_criteria = criteria;
 
         return self;
@@ -220,7 +220,6 @@ where
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        debug_assert!(self.decimation_criteria.is_some() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -236,9 +235,6 @@ where
         let mut marker = mesh.marker();
 
         let mut remaining_faces_count = mesh.faces().count();
-
-        let default_error: TEdgeDecimationCriteria = Default::default();
-        let decimation_criteria = self.decimation_criteria.as_ref().unwrap_or(&default_error);
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
@@ -262,7 +258,7 @@ where
                     marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if decimation_criteria.should_decimate(best.cost, mesh, &best.edge) {
+                    if self.decimation_criteria.should_decimate(best.cost, mesh, &best.edge) {
                         self.priority_queue.push(best);
                     }
 
@@ -307,7 +303,7 @@ where
                     let new_position = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if  decimation_criteria.should_decimate(new_cost, mesh, &collapse.edge) 
+                    if  self.decimation_criteria.should_decimate(new_cost, mesh, &collapse.edge) 
                         && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
                         self.priority_queue.push(Contraction::new(collapse.edge, new_cost));
                     }
@@ -320,14 +316,12 @@ where
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
     fn fill_queue(&mut self, mesh: &mut TMesh) {
-        let default_error: TEdgeDecimationCriteria = Default::default();
-        let max_error = self.decimation_criteria.as_ref().unwrap_or(&default_error);
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
 
             // Collapsable and low cost?
-            if max_error.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
+            if self.decimation_criteria.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
@@ -342,7 +336,7 @@ where
 {
     fn default() -> Self {
         return Self {
-            decimation_criteria: Some(TEdgeDecimationCriteria::default()),
+            decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
             priority_queue: BinaryHeap::new(),
@@ -356,10 +350,30 @@ pub trait EdgeDecimationCriteria<TMesh: Mesh> : Default {
     fn should_decimate(&self, error: TMesh::ScalarType, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool;
 }
 
+#[derive(Debug, Default)]
+pub struct AlwaysDecimate;
+
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
+    #[inline]
+    fn should_decimate(&self, _error: TMesh::ScalarType, _mesh: &TMesh, _edge: &TMesh::EdgeDescriptor) -> bool {
+        return true;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct NeverDecimate;
+
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
+    #[inline]
+    fn should_decimate(&self, _error: TMesh::ScalarType, _mesh: &TMesh, _edge: &TMesh::EdgeDescriptor) -> bool {
+        return false;
+    }
+}
+
+#[derive(Debug)]
 pub struct ConstantErrorDecimationCriteria<TMesh: Mesh> {
     max_error: TMesh::ScalarType,
 }
-
 
 impl<TMesh> ConstantErrorDecimationCriteria<TMesh>
 where
@@ -389,8 +403,7 @@ where
     }
 }
 
-
-
+#[derive(Debug)]
 pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
     origin: Point3::<TMesh::ScalarType>,
     radii_sq_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>

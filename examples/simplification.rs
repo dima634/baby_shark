@@ -12,7 +12,7 @@ fn main() {
 
     let decimation_criteria = ConstantErrorDecimationCriteria::new(0.01f32);
     
-    let mut decimator = EdgeDecimator::new().decimation_criteria(Some(decimation_criteria));
+    let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();

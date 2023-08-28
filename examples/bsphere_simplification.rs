@@ -30,7 +30,7 @@ fn main() {
 
     let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
 
-    let mut decimator = EdgeDecimator::new().decimation_criteria(Some(criteria));
+    let mut decimator = EdgeDecimator::new().decimation_criteria(criteria);
     decimator.decimate(&mut mesh);
 
     let writer = StlWriter::new();
