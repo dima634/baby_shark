@@ -23,9 +23,9 @@ fn main() {
 
     let origin = Point3::<f32>::origin();
     let radii_error_map = vec![
-        (10.0f32, 0.0001f32),
-        (15.0f32, 0.05f32),
-        (40.0f32, 0.8f32),
+        (5.0f32, 0.0001f32),
+        (10.0f32, 0.001f32),
+        (15.0f32, 0.8f32),
     ];
 
     let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
