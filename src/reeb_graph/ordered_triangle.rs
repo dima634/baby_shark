@@ -211,6 +211,7 @@ impl<TMesh: Mesh + VertexProperties> PartialOrd for OrderedEdge<TMesh> {
 ///
 /// Ordered triangle
 /// 
+#[allow(unused)]
 pub struct OrderedTriangle<TMesh: Mesh> {
     e1: OrderedEdge<TMesh>,
     e2: OrderedEdge<TMesh>,
@@ -221,6 +222,7 @@ pub struct OrderedTriangle<TMesh: Mesh> {
     top_vertex: OrderedVertex<TMesh>
 }
 
+#[allow(unused)]
 impl<TMesh: Mesh + TopologicalMesh + VertexProperties> OrderedTriangle<TMesh> {
     pub fn from_face(
         face: &TMesh::FaceDescriptor, 
