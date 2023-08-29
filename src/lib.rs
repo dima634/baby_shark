@@ -8,6 +8,8 @@ pub mod geometry;
 pub mod decimation;
 pub mod triangulation;
 
+pub mod rerun;
+
 #[allow(clippy::all)]
 pub mod reeb_graph;
 

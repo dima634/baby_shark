@@ -228,6 +228,7 @@ where
 
         self.fill_queue(mesh);
         self.collapse_edges(mesh);
+
     }
 
     /// Collapse edges

@@ -36,5 +36,5 @@ fn main() {
     let writer = StlWriter::new();
     writer
         .write_stl_to_file(&mesh, Path::new(&output))
-        .expect("Save mesh to STL");
+        .expect("Save mesh to STL");    
 }
