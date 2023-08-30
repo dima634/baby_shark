@@ -11,6 +11,10 @@ pub mod triangulation;
 #[cfg(feature="rerun")]
 pub mod rerun;
 
+pub mod exports {
+    pub use nalgebra as nalgebra;
+}
+
 #[allow(clippy::all)]
 pub mod reeb_graph;
 
