@@ -34,7 +34,7 @@ tabled = "0.10.0"
 petgraph = "0.6.2"
 svg = "0.13.1"
 # rerun = { version = "0.8", default-features = false, features = ["sdk"] }
-rerun = { path = "vendor/rerun/crates/rerun", features= ["native_viewer"], optional = true }
+rerun = { version = "0.8.0", features= ["native_viewer"], optional = true }
 
 clap = { version = "4.3.21", optional = true }
 

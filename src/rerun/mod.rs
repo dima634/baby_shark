@@ -1,37 +1,49 @@
 use std::error::Error;
 
+use crate::mesh::{
+    corner_table::prelude::CornerTableF,
+    traits::{Mesh, TopologicalMesh},
+};
 use nalgebra::Vector3;
 use rerun::{
-    components::{Mesh3D, RawMesh3D, MeshId, LineStrip3D, Vec3D, Radius, ColorRGBA, Transform3D},
-    RecordingStream, MsgSender,
+    components::{
+        ColorRGBA, LineStrip3D, Mesh3D, MeshId, Radius, RawMesh3D, Transform3D, Vec3D, Vec4D,
+    },
+    MsgSender, RecordingStream,
 };
-use crate::mesh::{corner_table::prelude::CornerTableF, traits::{Mesh, TopologicalMesh}};
 
 pub fn log_mesh(
     name: &str,
     _timestep: Option<i64>,
     mesh: &CornerTableF,
+    transform: Option<Transform3D>,
+    color: Option<&[f32; 4]>,
     rec_stream: &RecordingStream,
 ) -> Result<(), Box<dyn Error>> {
-    let mesh: Mesh3D = mesh.into();
-    
-    let msg = MsgSender::new(name)
-        .with_component(&[mesh])?;
+    let mut mesh: Mesh3D = mesh.into();
+    let color: Option<Vec4D> = color.map(|color| Vec4D(*color));
+    match mesh {
+        Mesh3D::Encoded(_) => todo!(),
+        Mesh3D::Raw(ref mut mesh) => mesh.albedo_factor = color,
+    }
+
+    let mut msg = MsgSender::new(name).with_component(&[mesh])?;
+    if let Some(transform) = transform {
+        msg = msg.with_component(&[transform])?;
+    }
     msg.send(rec_stream)?;
 
     Ok(())
 }
 
-pub fn log_mesh_as_line_strips (
+pub fn log_mesh_as_line_strips(
     name: &str,
     _timestep: Option<i64>,
     mesh: &CornerTableF,
     transform: Option<Transform3D>,
+    stroke_width: Option<f32>,
     rec_stream: &RecordingStream,
-
 ) -> Result<(), Box<dyn Error>> {
-    let mut faces: Vec<Vec<Vec3D>> = Vec::new();
-
     let mut lines: Vec<LineStrip3D> = Vec::new();
     let mut colors: Vec<ColorRGBA> = Vec::new();
     let color_internal = ColorRGBA::from_rgb(100, 100, 100);
@@ -42,12 +54,16 @@ pub fn log_mesh_as_line_strips (
         let edge = [edge.0, edge.1];
         let positions = edge.iter().map(|p| Vec3D::new(p.x, p.y, p.z)).collect();
         let edge = LineStrip3D(positions);
-        let color = if is_on_boundary { color_edge} else {color_internal};
+        let color = if is_on_boundary {
+            color_edge
+        } else {
+            color_internal
+        };
         colors.push(color);
 
         lines.push(edge);
     }
-    let radius = Radius(0.003);
+    let radius = Radius(stroke_width.unwrap_or(0.01));
     let mut msg = MsgSender::new(name)
         .with_component(&lines)?
         .with_splat(radius)?
@@ -57,8 +73,7 @@ pub fn log_mesh_as_line_strips (
         let transforms: Vec<Transform3D> = lines.iter().map(|_| transform).collect();
         msg = msg.with_component(&transforms)?;
     }
-    
-    
+
     msg.send(rec_stream)?;
 
     Ok(())
@@ -90,15 +105,14 @@ impl From<&CornerTableF> for Mesh3D {
             .flatten()
             .collect();
 
-        let raw_mesh = 
-                RawMesh3D {
-                    mesh_id: MeshId::random(),
-                    vertex_positions: vertices.into(),
-                    vertex_colors: None,
-                    vertex_normals: Some(normals.into()),
-                    indices: Some(indices.into()),
-                    albedo_factor: None,
-                };
+        let raw_mesh = RawMesh3D {
+            mesh_id: MeshId::random(),
+            vertex_positions: vertices.into(),
+            vertex_colors: None,
+            vertex_normals: Some(normals.into()),
+            indices: Some(indices.into()),
+            albedo_factor: None,
+        };
         Mesh3D::Raw(raw_mesh)
     }
 }

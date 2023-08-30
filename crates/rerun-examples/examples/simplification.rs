@@ -2,10 +2,18 @@ use std::path::PathBuf;
 
 use baby_shark::{
     decimation::{edge_decimation::ConstantErrorDecimationCriteria, prelude::EdgeDecimator},
-    io::stl::{StlReader, StlWriter}, mesh::{corner_table::prelude::CornerTableF, traits::Mesh}, rerun::{log_mesh, log_mesh_as_line_strips},
+    io::stl::StlReader,
+    mesh::{corner_table::prelude::CornerTableF, traits::Mesh},
+    rerun::{log_mesh, log_mesh_as_line_strips},
 };
-use rerun::{external::re_log, RecordingStream, components::Transform3D, transform::TranslationRotationScale3D};
+use rerun::{
+    components::{Transform3D, Vec3D},
+    external::re_log,
+    transform::TranslationRotationScale3D,
+    RecordingStream,
+};
 
+use rerun_examples::helpers::*;
 
 #[derive(Debug, clap::Parser)]
 #[clap(author, version, about)]
@@ -19,9 +27,17 @@ struct Args {
     #[clap(long, short, required = true)]
     errors: Vec<f32>,
 
-    #[clap(long, default_value = "5.0")]
+    #[clap(long, default_value = "1.0")]
     ydiff: f32,
 
+    #[clap(long, default_value = "1.0")]
+    xdiff: f32,
+
+    #[clap(long, short, default_value = "false")]
+    wireframe: bool,
+
+    #[clap(long, short, default_value = "10,10,10")]
+    color: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,45 +58,63 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let mut reader = StlReader::new();
-    let mut mesh: CornerTableF = reader
+    let mesh: CornerTableF = reader
         .read_stl_from_file(&args.input_file)
         .expect("Read mesh from STL");
 
-    let _ = log_mesh_as_line_strips("original", None, &mesh, None, rec_stream);
+    let color = &parse_colors(&args.color);
+
+    let _ = log_mesh("original", None, &mesh, None, Some(color), rec_stream);
 
     println!("{:?}", args.errors);
 
     let mut cy = 0.0;
 
     let mut errors = args.errors.clone();
-    errors.sort_by((|a, b| a.partial_cmp(b).unwrap()));
+    errors.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     for error in errors {
         cy += args.ydiff;
         let decimation_criteria = ConstantErrorDecimationCriteria::new(error);
 
-        let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria).preserve_edges_on_boundary(true);
+        let mut decimator = EdgeDecimator::new()
+            .decimation_criteria(decimation_criteria)
+            .preserve_edges_on_boundary(true);
         let mut cloned = mesh.clone_remap();
         decimator.decimate(&mut cloned);
 
         let decimated = cloned.clone_remap();
 
-
         let transform = Transform3D::new(TranslationRotationScale3D {
-            translation: Some([0., cy, 0.].into()),
+            translation: Some(Vec3D::new(0., cy, 0.)),
             rotation: None,
             scale: None,
         });
 
-
-        let _ = log_mesh_as_line_strips(&format!("simplified-{error}"), None, &decimated, Some(transform), rec_stream);
+        let _ = log_mesh(
+            &format!("simplified-{error}"),
+            None,
+            &decimated,
+            Some(transform),
+            Some(color),
+            rec_stream,
+        );
+        if args.wireframe {
+            let transform = Transform3D::new(TranslationRotationScale3D {
+                translation: Some(Vec3D::new(args.xdiff.clone(), cy, 0.)),
+                rotation: None,
+                scale: None,
+            });
+            let _ = log_mesh_as_line_strips(
+                &format!("simplified-wire-{error}"),
+                None,
+                &decimated,
+                Some(transform),
+                None,
+                rec_stream,
+            );
+        }
     }
 
-    // let writer = StlWriter::new();
-    // writer
-    //     .write_stl_to_file(&mesh, &args.output_file)
-    //     .expect("Save mesh to STL");    
     Ok(())
 }
-
-

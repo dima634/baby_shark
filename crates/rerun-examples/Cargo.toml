@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 baby_shark = { path = "../..", features = ["rerun"] }
+rerun = "0.8"
+clap = "4.0"
