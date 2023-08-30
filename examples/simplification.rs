@@ -1,8 +1,8 @@
-use std::{path::{Path, PathBuf}, io::{BufWriter, BufReader, Write}};
+use std::path::PathBuf;
 
 use baby_shark::{
     decimation::{edge_decimation::ConstantErrorDecimationCriteria, prelude::EdgeDecimator},
-    io::stl::{StlReader, StlWriter}, mesh::{corner_table::prelude::CornerTableF, traits::Mesh}, rerun::log_mesh,
+    io::stl::{StlReader, StlWriter}, mesh::{corner_table::prelude::CornerTableF, traits::Mesh}, rerun::{log_mesh, log_mesh_as_line_strips},
 };
 use rerun::{external::re_log, RecordingStream};
 
@@ -19,6 +19,8 @@ struct Args {
     #[clap(long, short, required = true)]
     output_file: PathBuf,
 
+    #[clap(long, short, required = true)]
+    errors: Vec<f32>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,27 +45,26 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
         .read_stl_from_file(&args.input_file)
         .expect("Read mesh from STL");
 
-    let _ = log_mesh("original", None, &mesh, rec_stream);
+    let _ = log_mesh_as_line_strips("original", None, &mesh, rec_stream);
 
-    let decimation_criteria = ConstantErrorDecimationCriteria::new(0.01f32);
+    println!("{:?}", args.errors);
 
-    let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
-    decimator.decimate(&mut mesh);
+    for &error in &args.errors {
+        let decimation_criteria = ConstantErrorDecimationCriteria::new(error);
+
+        let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
+        let mut cloned = mesh.clone_remap();
+        decimator.decimate(&mut cloned);
+
+        let decimated = cloned.clone_remap();
+
+        let _ = log_mesh_as_line_strips(&format!("simplified-{error}"), None, &decimated, rec_stream);
+    }
 
     let writer = StlWriter::new();
-    let buf: Vec<u8> = Vec::new();
-    let mut buf_writer = BufWriter::new(buf);
-    writer.write_stl(&mesh, &mut buf_writer)?;
-    buf_writer.flush()?;
-    let buf = buf_writer.get_ref().clone();
-
-    let mut buf_reader = BufReader::new(buf.as_slice());
-    let mut reader = StlReader::new();
-    let mesh: CornerTableF = reader.read_stl(&mut buf_reader).unwrap();
-
-    let _ = log_mesh("simplified", None, &mesh, rec_stream);
-
-
+    writer
+        .write_stl_to_file(&mesh, &args.output_file)
+        .expect("Save mesh to STL");    
     Ok(())
 }
 
