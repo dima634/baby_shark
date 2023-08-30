@@ -2,7 +2,7 @@ use std::error::Error;
 
 use nalgebra::Vector3;
 use rerun::{
-    components::{Mesh3D, RawMesh3D, MeshId, LineStrip3D, Vec3D, Radius, ColorRGBA},
+    components::{Mesh3D, RawMesh3D, MeshId, LineStrip3D, Vec3D, Radius, ColorRGBA, Transform3D},
     RecordingStream, MsgSender,
 };
 use crate::mesh::{corner_table::prelude::CornerTableF, traits::{Mesh, TopologicalMesh}};
@@ -26,18 +26,11 @@ pub fn log_mesh_as_line_strips (
     name: &str,
     _timestep: Option<i64>,
     mesh: &CornerTableF,
+    transform: Option<Transform3D>,
     rec_stream: &RecordingStream,
 
 ) -> Result<(), Box<dyn Error>> {
     let mut faces: Vec<Vec<Vec3D>> = Vec::new();
-    // for face in mesh.faces() {
-    //     let face = mesh.face_positions(&face);
-    //     let face = [face.p1(), face.p2(), face.p3(), face.p1()];
-    //     let edge_iter = face.iter().map(|p| Vec3D::new(p.x, p.y, p.z));
-    //     let mut face = Vec::new();
-    //     face.extend(edge_iter);
-    //     faces.push(face)
-    // }
 
     let mut lines: Vec<LineStrip3D> = Vec::new();
     let mut colors: Vec<ColorRGBA> = Vec::new();
@@ -55,13 +48,18 @@ pub fn log_mesh_as_line_strips (
         lines.push(edge);
     }
     let radius = Radius(0.003);
-    let msg = MsgSender::new(name).with_component(&lines)?.with_splat(radius)?.with_component(&colors)?.send(rec_stream)?;
+    let mut msg = MsgSender::new(name)
+        .with_component(&lines)?
+        .with_splat(radius)?
+        .with_component(&colors)?;
 
-    // let linestrip: Vec<_> = faces.iter().map(|face| LineStrip3D(face.clone())).collect();
-
-    // let radius = Radius(0.003);
-    // let msg = MsgSender::new(name).with_component(&linestrip)?.with_splat(radius)?.send(rec_stream)?;
-
+    if let Some(transform) = transform {
+        let transforms: Vec<Transform3D> = lines.iter().map(|_| transform).collect();
+        msg = msg.with_component(&transforms)?;
+    }
+    
+    
+    msg.send(rec_stream)?;
 
     Ok(())
 }
