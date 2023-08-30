@@ -21,6 +21,9 @@ inherits = "release"
 debug = true
 
 
+[features]
+rerun = ["dep:rerun", "dep:clap"]
+
 [dependencies]
 nalgebra = "0.31.2"
 nalgebra-glm = "0.17.0"
@@ -31,9 +34,9 @@ tabled = "0.10.0"
 petgraph = "0.6.2"
 svg = "0.13.1"
 # rerun = { version = "0.8", default-features = false, features = ["sdk"] }
-rerun = { path = "vendor/rerun/crates/rerun", features= ["native_viewer"]}
+rerun = { path = "vendor/rerun/crates/rerun", features= ["native_viewer"], optional = true }
 
-clap = "4.3.21"
+clap = { version = "4.3.21", optional = true }
 
 [dev-dependencies]
 test-case = "3.0.0"

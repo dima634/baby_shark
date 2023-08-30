@@ -8,6 +8,7 @@ pub mod geometry;
 pub mod decimation;
 pub mod triangulation;
 
+#[cfg(feature="rerun")]
 pub mod rerun;
 
 #[allow(clippy::all)]
