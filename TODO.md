@@ -21,3 +21,6 @@
 - [ ] Root is not tree node?
 - [ ] Visualization
 - [ ] Insert (full node)
+- [ ] Cached accessor
+- [ ] Stencil accessor
+- [ ] Sequential accessor
