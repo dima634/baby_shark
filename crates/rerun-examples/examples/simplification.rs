@@ -28,15 +28,15 @@ struct Args {
     errors: Vec<f32>,
 
     #[clap(long, default_value = "1.0")]
-    ydiff: f32,
-
-    #[clap(long, default_value = "1.0")]
-    xdiff: f32,
+    mesh_offset: f32,
 
     #[clap(long, short, default_value = "false")]
     wireframe: bool,
 
-    #[clap(long, short, default_value = "10,10,10")]
+    #[clap(long, default_value = "1.0")]
+    wireframe_offset: f32,
+
+    #[clap(long, short, default_value = "10,133,199")]
     color: String,
 }
 
@@ -74,7 +74,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
     errors.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     for error in errors {
-        cy += args.ydiff;
+        cy += args.mesh_offset;
         let decimation_criteria = ConstantErrorDecimationCriteria::new(error);
 
         let mut decimator = EdgeDecimator::new()
@@ -101,7 +101,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
         );
         if args.wireframe {
             let transform = Transform3D::new(TranslationRotationScale3D {
-                translation: Some(Vec3D::new(args.xdiff.clone(), cy, 0.)),
+                translation: Some(Vec3D::new(args.wireframe_offset.clone(), cy, 0.)),
                 rotation: None,
                 scale: None,
             });
