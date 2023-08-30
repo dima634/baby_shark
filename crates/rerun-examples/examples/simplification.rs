@@ -38,6 +38,9 @@ struct Args {
 
     #[clap(long, short, default_value = "10,133,199")]
     color: String,
+
+    #[clap(long, default_value = "false")]
+    log_original_wireframe: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -65,6 +68,23 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
     let color = &parse_colors(&args.color);
 
     let _ = log_mesh("original", None, &mesh, None, Some(color), rec_stream);
+
+    if args.log_original_wireframe {
+        let transform = Transform3D::new(TranslationRotationScale3D {
+            translation: Some(Vec3D::new(args.wireframe_offset.clone(), 0., 0.)),
+            rotation: None,
+            scale: None,
+        });
+
+        let _ = log_mesh_as_line_strips(
+            &format!("simplified-wireframe"),
+            None,
+            &mesh,
+            Some(transform),
+            None,
+            rec_stream,
+        );
+    }
 
     println!("{:?}", args.errors);
 
@@ -106,7 +126,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
                 scale: None,
             });
             let _ = log_mesh_as_line_strips(
-                &format!("simplified-wire-{error}"),
+                &format!("simplified-wireframe-{error}"),
                 None,
                 &decimated,
                 Some(transform),
