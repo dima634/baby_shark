@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, io::{BufWriter, BufReader, Write}};
 
 use baby_shark::{
     decimation::{edge_decimation::ConstantErrorDecimationCriteria, prelude::EdgeDecimator},
@@ -50,18 +50,19 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
     let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
     decimator.decimate(&mut mesh);
 
-    for face_idx in mesh.faces() {
-        let face = mesh.face_vertices(&face_idx);
-        if face.0 > mesh.vertices().count() || face.1 > mesh.vertices().count() || face.2 > mesh.vertices().count() {
-            println!("faces index out of bounds: pl {} {} {} {}", mesh.vertices().count(), face.0, face.1, face.2);
-        }
-    }
+    let writer = StlWriter::new();
+    let buf: Vec<u8> = Vec::new();
+    let mut buf_writer = BufWriter::new(buf);
+    writer.write_stl(&mesh, &mut buf_writer)?;
+    buf_writer.flush()?;
+    let buf = buf_writer.get_ref().clone();
+
+    let mut buf_reader = BufReader::new(buf.as_slice());
+    let mut reader = StlReader::new();
+    let mesh: CornerTableF = reader.read_stl(&mut buf_reader).unwrap();
 
     let _ = log_mesh("simplified", None, &mesh, rec_stream);
 
-
-    let writer = StlWriter::new();
-    writer.write_stl_to_file(&mesh, Path::new(&args.output_file))?;
 
     Ok(())
 }

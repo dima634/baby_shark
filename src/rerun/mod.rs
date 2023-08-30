@@ -1,11 +1,11 @@
-use std::error::Error;
+use std::{error::Error, collections::{BTreeSet, HashMap}};
 
-use nalgebra::Vector3;
+use nalgebra::{Vector3, Point3};
 use rerun::{
     components::{Mesh3D, RawMesh3D, MeshId},
     RecordingStream, MsgSender,
 };
-use crate::mesh::{corner_table::prelude::CornerTableF, traits::Mesh};
+use crate::{mesh::{corner_table::prelude::CornerTableF, traits::Mesh}, data_structures::vertex_index_map::PointIndexMap};
 
 pub fn log_mesh(
     name: &str,
@@ -23,16 +23,40 @@ pub fn log_mesh(
 }
 
 impl From<&CornerTableF> for Mesh3D {
-    fn from(value: &CornerTableF) -> Self {
-        let vertices: Vec<f32> = value
-            .vertices()
-            .map(|vertex| value.vertex_position(&vertex))
+    fn from(mesh: &CornerTableF) -> Self {
+
+        let length = mesh.vertices().count();
+        let mut vertex_index_map = PointIndexMap::with_capacity(length);
+        
+        // Storages for merged vertices and indices
+        let mut indices = Vec::with_capacity(length);
+        let mut merged_vertices = Vec::with_capacity(length);
+        for face in mesh.faces() {
+            let tri = mesh.face_positions(&face);
+            let vertices = [tri.p1(), tri.p2(), tri.p3()];
+                for vertex in vertices {
+
+                let index = vertex_index_map.get_index(*vertex);
+                if let Some(index) = index {
+                    // Insert old vertex
+                    indices.push(*index);
+                } else {
+                    // Insert new vertex and index
+                    let vert_idx = merged_vertices.len();
+                    merged_vertices.push(*vertex);
+                    vertex_index_map.insert(*vertex, vert_idx);
+                    indices.push(vert_idx);
+                }
+            }
+
+        }
+        let vertices: Vec<f32> = merged_vertices
+            .iter()
             .map(|v| [v.x, v.y, v.z])
             .flatten()
             .collect();
 
-        let indices: Vec<u32> = value
-            .faces()
+        let indices: Vec<u32> = indices
             .map(|face| {
                 let (i0, i1, i2) = value.face_vertices(&face);
                 [i0 as u32, i1 as u32, i2 as u32]
