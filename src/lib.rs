@@ -8,6 +8,10 @@ pub mod geometry;
 pub mod decimation;
 pub mod triangulation;
 
+pub mod exports {
+    pub use nalgebra as nalgebra;
+}
+
 #[allow(clippy::all)]
 pub mod reeb_graph;
 
