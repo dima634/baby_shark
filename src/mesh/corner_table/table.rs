@@ -263,6 +263,20 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
         Self::from_vertices_and_indices(&indexed.points, &indexed.indices)
     }
+
+    fn clone_subset<TDiscriminant: Fn(&Self, &Self::FaceDescriptor) -> bool>(&self, discriminant: TDiscriminant) -> Self {
+        let vertices: Vec<Point3<Self::ScalarType>> = self.faces()
+        .filter(|face| discriminant(&self, face))
+        .map(|face| {
+            let tri = self.face_positions(&face);
+            [tri.p1().clone(), tri.p2().clone(), tri.p3().clone()]
+        }).flatten().collect();
+        
+        let indexed = merge_points(&vertices);
+
+        return Self::from_vertices_and_indices(&indexed.points, &indexed.indices);
+    }
+
 }
 
 impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
@@ -326,6 +340,8 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
             Self::EdgeDescriptor::new(first_corner + 2, self)
         );
     }
+
+    
 }
 
 impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {

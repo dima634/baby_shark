@@ -99,4 +99,8 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     fn clone_remap(&self) -> Self {
         todo!()
     }
+    
+    fn clone_subset<TDiscriminant: Fn(&Self, &Self::FaceDescriptor) -> bool>(&self, _discriminant: TDiscriminant) -> Self {
+        todo!()
+    }
 }
