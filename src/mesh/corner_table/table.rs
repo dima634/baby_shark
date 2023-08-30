@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 use nalgebra::{Point3, Vector3};
 use tabled::Table;
-use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber};
+use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber, algo::merge_points::merge_points};
 use self::helpers::Edge;
 use super::{
     traversal::{
@@ -251,6 +251,17 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
         }
 
         return Some(sum.normalize());
+    }
+
+    fn clone_remap(&self) -> Self {
+        let vertices: Vec<Point3<Self::ScalarType>> = self.faces().map(|face| {
+            let tri = self.face_positions(&face);
+            [tri.p1().clone(), tri.p2().clone(), tri.p3().clone()]
+        }).flatten().collect();
+
+        let indexed = merge_points(&vertices);
+
+        Self::from_vertices_and_indices(&indexed.points, &indexed.indices)
     }
 }
 
