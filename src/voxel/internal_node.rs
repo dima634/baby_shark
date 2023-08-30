@@ -3,21 +3,37 @@ use nalgebra::Vector3;
 
 use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 
-use super::{TreeNode, HasChild, utils::{is_mask_empty, box_indices}};
+use super::{
+    utils::{box_indices, is_mask_empty},
+    Accessor, HasChild, TreeNode, TreeNodeConsts,
+};
 
-pub struct InternalNode<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
+pub struct InternalNode<
+    TChild: TreeNode,
+    const BRANCHING: usize,
+    const BRANCHING_TOTAL: usize,
+    const SIZE: usize,
+    const BIT_SIZE: usize,
+> {
     childs: Vec<Option<TChild>>,
     child_mask: BitArray<[usize; BIT_SIZE]>,
     value_mask: BitArray<[usize; BIT_SIZE]>,
-    origin: Vector3<usize>
+    origin: Vector3<usize>,
 }
 
-impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
+impl<
+        TChild: TreeNode + TreeNodeConsts,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
     #[inline]
     pub fn new() -> Self {
         return Self::new_inactive(Vector3::zeros());
     }
-    
+
     /// Returns grid resolution in one dimension
     pub const fn resolution(&self) -> usize {
         return 1 << BRANCHING_TOTAL;
@@ -35,15 +51,17 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
 
     fn add_child(&mut self, offset: usize, active: bool) {
         debug_assert!(!self.child_mask[offset]);
-        
+
         // Do we really need this?
         // self.value_mask.set(offset, false);
 
         let child_origin = self.offset_to_global_index(offset);
-        let child_node = 
-            if active { TChild::new_active(child_origin) } 
-            else { TChild::new_inactive(child_origin) };
-        
+        let child_node = if active {
+            TChild::new_active(child_origin)
+        } else {
+            TChild::new_inactive(child_origin)
+        };
+
         self.child_mask.set(offset, true);
         self.childs[offset] = Some(child_node);
     }
@@ -51,10 +69,10 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     #[inline]
     fn remove_child(&mut self, offset: usize) {
         debug_assert!(self.child_mask[offset]);
-        
+
         // Do we really need this?
         // self.value_mask.set(offset, false);
-        
+
         self.child_mask.set(offset, false);
         self.childs[offset] = None;
     }
@@ -66,7 +84,7 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         let child = &mut self.childs[offset];
         return child.as_mut().unwrap();
     }
-    
+
     #[inline]
     fn offset(index: &Vector3<usize>) -> usize {
         return 
@@ -86,39 +104,25 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
     }
 }
 
-impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> HasChild for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
+impl<
+        TChild: TreeNode,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > HasChild for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
     type Child = TChild;
 }
 
-impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
-    const BRANCHING: usize = BRANCHING;
-    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = SIZE;
-
-    fn new_inactive(origin: Vector3<usize>) -> Self {
-        let mut childs = Vec::new();
-        childs.resize_with(SIZE, || None);
-
-        return Self {
-            origin,
-            childs,
-            value_mask: Default::default(),
-            child_mask: Default::default()
-        };
-    }
-
-    fn new_active(origin: Vector3<usize>) -> Self {
-        let mut childs = Vec::new();
-        childs.resize_with(SIZE, || None);
-
-        return Self {
-            origin,
-            childs,
-            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
-            child_mask: Default::default()
-        };
-    }
-
+impl<
+        TChild: TreeNode + TreeNodeConsts,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > Accessor for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
     fn at(&self, index: &Vector3<usize>) -> bool {
         let offset = Self::offset(index);
 
@@ -136,7 +140,7 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
         //   if tile is active - do nothing
         //   else - add empty child and insert voxel
         let offset = Self::offset(index);
-        
+
         if self.child_mask[offset] {
             let child = self.child_mut(offset);
             child.insert(index);
@@ -168,13 +172,58 @@ impl<TChild: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, con
             child.remove(index);
         }
     }
- 
+}
+
+impl<
+        TChild: TreeNode + TreeNodeConsts,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > TreeNode for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
+    fn new_inactive(origin: Vector3<usize>) -> Self {
+        let mut childs = Vec::new();
+        childs.resize_with(SIZE, || None);
+
+        return Self {
+            origin,
+            childs,
+            value_mask: Default::default(),
+            child_mask: Default::default(),
+        };
+    }
+
+    fn new_active(origin: Vector3<usize>) -> Self {
+        let mut childs = Vec::new();
+        childs.resize_with(SIZE, || None);
+
+        return Self {
+            origin,
+            childs,
+            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
+            child_mask: Default::default(),
+        };
+    }
+
     #[inline]
     fn is_empty(&self) -> bool {
-        return 
-            is_mask_empty::<BIT_SIZE>(&self.child_mask.data) &&
-            is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
+        return is_mask_empty::<BIT_SIZE>(&self.child_mask.data)
+            && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
+}
+
+impl<
+        TChild: TreeNode,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > TreeNodeConsts for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
+    const BRANCHING: usize = BRANCHING;
+    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
+    const SIZE: usize = SIZE;
 }
 
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
@@ -185,6 +234,6 @@ pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
     return internal_node_size::<T>(branching) / usize::BITS as usize;
 }
 
-pub const fn internal_node_branching<T: TreeNode>(branching: usize) -> usize {
+pub const fn internal_node_branching<T: TreeNode + TreeNodeConsts>(branching: usize) -> usize {
     return branching + T::BRANCHING_TOTAL;
 }

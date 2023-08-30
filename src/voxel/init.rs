@@ -4,11 +4,11 @@ macro_rules! static_vdb {
         $crate::voxel::LeafNode<$branching, $branching, { $crate::voxel::leaf_node_size($branching) }>
     };
 
-    ($(@internal)? $branching:expr, $($rest:expr),+ $(,)?) => { 
+    ($(@internal)? $branching:expr, $($rest:expr),+ $(,)?) => {
         $crate::voxel::InternalNode::<
             $crate::static_vdb!(@internal $($rest,)*),
             $branching,
-            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $($rest,)*)>($branching) }, 
+            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $($rest,)*)>($branching) },
             { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $($rest,)*)>($branching) },
             { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $($rest,)*)>($branching) }
         >
@@ -17,14 +17,14 @@ macro_rules! static_vdb {
 
 #[macro_export]
 macro_rules! dynamic_vdb {
-    ($($rest:expr),+) => { 
+    ($($rest:expr),+) => {
         $crate::voxel::RootNode::<$crate::static_vdb!(@internal $($rest,)*)>
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::voxel::{HasChild, TreeNode};
+    use crate::voxel::{HasChild, TreeNodeConsts};
 
     #[test]
     fn test_static_vdb_macro_5_4_3() {

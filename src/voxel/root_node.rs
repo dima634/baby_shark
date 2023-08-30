@@ -2,19 +2,19 @@ use std::collections::BTreeMap;
 
 use nalgebra::Vector3;
 
-use crate::mesh::{polygon_soup::data_structure::PolygonSoup, builder};
+use crate::mesh::{builder, polygon_soup::data_structure::PolygonSoup};
 
-use super::{TreeNode, HasChild, utils::box_indices};
+use super::{utils::box_indices, HasChild, TreeNode, TreeNodeConsts};
 
 pub struct RootNode<TChild: TreeNode> {
-    root: BTreeMap<RootKey, TChild>
+    root: BTreeMap<RootKey, TChild>,
 }
 
-impl<TChild: TreeNode> RootNode<TChild> {
+impl<TChild: TreeNode + TreeNodeConsts> RootNode<TChild> {
     #[inline]
     pub fn new() -> Self {
         return Self {
-            root: BTreeMap::new()
+            root: BTreeMap::new(),
         };
     }
 
@@ -31,21 +31,20 @@ impl<TChild: TreeNode> RootNode<TChild> {
     pub fn insert(&mut self, index: &Vector3<usize>) {
         let root_key = Self::root_key(index);
 
-        let child = 
-            if let Some(child) = self.root.get_mut(&root_key) {
-                child
-            } else {
-                let new_child = TChild::new_inactive(root_key.0);
-                self.root.insert(root_key, new_child);
-                self.root.get_mut(&root_key).unwrap()
-            };
+        let child = if let Some(child) = self.root.get_mut(&root_key) {
+            child
+        } else {
+            let new_child = TChild::new_inactive(root_key.0);
+            self.root.insert(root_key, new_child);
+            self.root.get_mut(&root_key).unwrap()
+        };
 
         child.insert(index);
     }
 
     pub fn remove(&mut self, index: &Vector3<usize>) {
         let root_key = Self::root_key(index);
-        
+
         if let Some(child) = self.root.get_mut(&root_key) {
             child.remove(index);
         }
@@ -53,8 +52,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        return self.root.iter()
-            .all(|(_, node)| node.is_empty());
+        return self.root.iter().all(|(_, node)| node.is_empty());
     }
 
     pub fn to_polygon_soup(&self, grid_size: usize, min: f32, max: f32) -> PolygonSoup<f32> {
@@ -69,14 +67,20 @@ impl<TChild: TreeNode> RootNode<TChild> {
             }
 
             let cube_origin = origin + idx.cast() * spacing;
-            let cube: PolygonSoup<f32> = builder::cube(cube_origin.cast().into(), spacing, spacing, spacing);
+            let cube: PolygonSoup<f32> =
+                builder::cube(cube_origin.cast().into(), spacing, spacing, spacing);
             soup.concat(cube);
         }
 
         return soup;
     }
 
-    pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(grid_size: usize, min: f32, max: f32, f: T) -> Self {
+    pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(
+        grid_size: usize,
+        min: f32,
+        max: f32,
+        f: T,
+    ) -> Self {
         let mut tree = Self::new();
 
         let origin = Vector3::new(min, min, min);
@@ -101,10 +105,10 @@ impl<TChild: TreeNode> RootNode<TChild> {
 
     #[inline]
     fn root_key(index: &Vector3<usize>) -> RootKey {
-        return RootKey(Vector3::new( 
+        return RootKey(Vector3::new(
             index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1)
+            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
         ));
     }
 }
