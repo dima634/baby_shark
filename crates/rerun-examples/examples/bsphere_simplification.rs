@@ -27,10 +27,10 @@ struct Args {
     output_file: Option<PathBuf>,
 
     #[clap(long, default_value = "10.0")]
-    xdiff: f32,
+    result_offset: f32,
 
     #[clap(long, default_value = "5.0")]
-    ydiff: f32,
+    wireframe_offset: f32,
 
     #[clap(long, short, default_value = "false")]
     wireframe: bool,
@@ -74,7 +74,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
 
     let _ = log_mesh("original", None, &mesh, None, Some(color), rec_stream);
 
-    let origin = parse_origin(&args.origin);
+    let origin = parse_point(&args.origin);
     let radii_error_map = parse_radii_errors(&args.radii_error);
 
     let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
@@ -88,7 +88,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
     let decimated = cloned.clone_remap();
 
     let transform = Transform3D::new(TranslationRotationScale3D {
-        translation: Some(Vec3D::new(0., args.ydiff, 0.)),
+        translation: Some(Vec3D::new(0., args.result_offset, 0.)),
         rotation: None,
         scale: None,
     });
@@ -103,7 +103,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
     );
     if args.wireframe {
         let transform = Transform3D::new(TranslationRotationScale3D {
-            translation: Some(Vec3D::new(args.xdiff.clone(), args.ydiff, 0.)),
+            translation: Some(Vec3D::new(args.wireframe_offset, args.result_offset, 0.)),
             rotation: None,
             scale: None,
         });
