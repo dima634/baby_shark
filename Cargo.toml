@@ -36,7 +36,7 @@ svg = "0.13.1"
 # rerun = { version = "0.8", default-features = false, features = ["sdk"] }
 rerun = { version = "0.8.0", features= ["native_viewer"], optional = true }
 
-clap = { version = "4.3.21", optional = true }
+clap = { version = "4.0", optional = true }
 
 [dev-dependencies]
 test-case = "3.0.0"
