@@ -89,8 +89,6 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
         );
     }
 
-    let cy = 0.0;
-
     let origin = parse_point(&args.origin);
     let extent = parse_vector(&args.extent);
     let half_extent = extent / 2.;
