@@ -1,7 +1,8 @@
 [package]
-name = "rerun-examples"
+name = "baby_shark_rerun_examples"
 version = "0.1.0"
 edition = "2021"
+description = "Various examples of baby_shark vizualising the output in rerun"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,3 +10,4 @@ edition = "2021"
 baby_shark = { path = "../..", features = ["rerun"] }
 rerun = "0.8"
 clap = "4.0"
+rand = "0.8.5"

@@ -13,7 +13,7 @@ use rerun::{
     RecordingStream,
 };
 
-use rerun_examples::helpers::*;
+use baby_shark_rerun_examples::helpers::*;
 
 #[derive(Debug, clap::Parser)]
 #[clap(author, version, about)]
@@ -65,7 +65,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
         .read_stl_from_file(&args.input_file)
         .expect("Read mesh from STL");
 
-    let color = &parse_colors(&args.color);
+    let color = &parse_color(&args.color);
 
     let _ = log_mesh("original", None, &mesh, None, Some(color), rec_stream);
 

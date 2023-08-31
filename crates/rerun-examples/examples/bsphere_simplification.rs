@@ -6,13 +6,15 @@ use baby_shark::{
     mesh::{corner_table::prelude::CornerTableF, traits::Mesh},
     rerun::{log_mesh, log_mesh_as_line_strips},
 };
+
+use baby_shark_rerun_examples::helpers::*;
+
 use rerun::{
     components::{Transform3D, Vec3D},
     external::re_log,
     transform::TranslationRotationScale3D,
     RecordingStream,
 };
-use rerun_examples::helpers::*;
 
 #[derive(Debug, clap::Parser)]
 #[clap(author, version, about)]
@@ -70,7 +72,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
         .read_stl_from_file(&args.input_file)
         .expect("Read mesh from STL");
 
-    let color = &parse_colors(&args.color);
+    let color = &parse_color(&args.color);
 
     let _ = log_mesh("original", None, &mesh, None, Some(color), rec_stream);
 

@@ -1,6 +1,6 @@
 use baby_shark::exports::nalgebra;
 
-pub fn parse_colors(color_str: &str) -> [f32; 4] {
+pub fn parse_color(color_str: &str) -> [f32; 4] {
     let colors: Vec<&str> = color_str.split(",").collect();
     let colors: Vec<f32> = colors
         .iter()
