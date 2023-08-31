@@ -15,9 +15,5 @@ fn main() {
         return p.y - p.x.sin();
     });
 
-    let ps = tree.to_polygon_soup(100, -10.0, 10.0);
-
-    let writer = StlWriter::new();
-    writer.write_stl_to_file(&ps, Path::new("ball.stl")).expect("to work");
 }
 

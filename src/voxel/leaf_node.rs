@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     utils::{box_indices, is_mask_empty},
-    Accessor, TreeNode, TreeNodeConsts,
+    Accessor, TreeNode,
 };
 
 pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
@@ -63,11 +63,24 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Ac
     fn remove(&mut self, index: &Vector3<usize>) {
         self.value_mask.set(Self::offset(index), false);
     }
+
+    #[inline]
+    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
+        Vector3::new(
+            index.x & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.y & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.z & !((1 << Self::BRANCHING_TOTAL) - 1),
+        )
+    }
 }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> TreeNode
     for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
 {
+    const BRANCHING: usize = BRANCHING;
+    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
+    const SIZE: usize = SIZE;
+
     #[inline]
     fn new_inactive(origin: Vector3<usize>) -> Self {
         return Self {
@@ -88,14 +101,6 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     fn is_empty(&self) -> bool {
         return is_mask_empty::<SIZE>(&self.value_mask.data);
     }
-}
-
-impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> TreeNodeConsts
-    for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
-{
-    const BRANCHING: usize = BRANCHING;
-    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = SIZE;
 }
 
 pub const fn leaf_node_size(branching: usize) -> usize {

@@ -4,13 +4,13 @@ use nalgebra::Vector3;
 
 use crate::mesh::{builder, polygon_soup::data_structure::PolygonSoup};
 
-use super::{utils::box_indices, HasChild, TreeNode, TreeNodeConsts};
+use super::{utils::box_indices, HasChild, TreeNode};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, TChild>,
 }
 
-impl<TChild: TreeNode + TreeNodeConsts> RootNode<TChild> {
+impl<TChild: TreeNode> RootNode<TChild> {
     #[inline]
     pub fn new() -> Self {
         return Self {
@@ -53,26 +53,6 @@ impl<TChild: TreeNode + TreeNodeConsts> RootNode<TChild> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         return self.root.iter().all(|(_, node)| node.is_empty());
-    }
-
-    pub fn to_polygon_soup(&self, grid_size: usize, min: f32, max: f32) -> PolygonSoup<f32> {
-        let mut soup = PolygonSoup::new();
-
-        let origin = Vector3::new(min, min, min);
-        let spacing = (max - min) / grid_size as f32;
-
-        for idx in box_indices(0, grid_size) {
-            if !self.at(&idx) {
-                continue;
-            }
-
-            let cube_origin = origin + idx.cast() * spacing;
-            let cube: PolygonSoup<f32> =
-                builder::cube(cube_origin.cast().into(), spacing, spacing, spacing);
-            soup.concat(cube);
-        }
-
-        return soup;
     }
 
     pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(

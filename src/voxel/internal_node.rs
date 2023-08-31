@@ -5,7 +5,7 @@ use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 
 use super::{
     utils::{box_indices, is_mask_empty},
-    Accessor, HasChild, TreeNode, TreeNodeConsts,
+    Accessor, HasChild, TreeNode,
 };
 
 pub struct InternalNode<
@@ -22,7 +22,7 @@ pub struct InternalNode<
 }
 
 impl<
-        TChild: TreeNode + TreeNodeConsts,
+        TChild: TreeNode,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -116,7 +116,7 @@ impl<
 }
 
 impl<
-        TChild: TreeNode + TreeNodeConsts,
+        TChild: TreeNode,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -172,16 +172,29 @@ impl<
             child.remove(index);
         }
     }
+
+    #[inline]
+    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
+        Vector3::new(
+            index.x & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.y & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.z & !((1 << Self::BRANCHING_TOTAL) - 1),
+        )
+    }
 }
 
 impl<
-        TChild: TreeNode + TreeNodeConsts,
+        TChild: TreeNode,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
     > TreeNode for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
+    const BRANCHING: usize = BRANCHING;
+    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
+    const SIZE: usize = SIZE;
+
     fn new_inactive(origin: Vector3<usize>) -> Self {
         let mut childs = Vec::new();
         childs.resize_with(SIZE, || None);
@@ -213,19 +226,6 @@ impl<
     }
 }
 
-impl<
-        TChild: TreeNode,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > TreeNodeConsts for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-{
-    const BRANCHING: usize = BRANCHING;
-    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = SIZE;
-}
-
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
     return 1 << branching * 3;
 }
@@ -234,6 +234,6 @@ pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
     return internal_node_size::<T>(branching) / usize::BITS as usize;
 }
 
-pub const fn internal_node_branching<T: TreeNode + TreeNodeConsts>(branching: usize) -> usize {
+pub const fn internal_node_branching<T: TreeNode>(branching: usize) -> usize {
     return branching + T::BRANCHING_TOTAL;
 }

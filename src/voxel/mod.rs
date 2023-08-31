@@ -21,15 +21,31 @@ pub trait TreeNodeConsts {
     const BRANCHING_TOTAL: usize;
     /// Total number of voxels in node
     const SIZE: usize;
+
+    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
+        return Vector3::new(
+            index.x & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.y & !((1 << Self::BRANCHING_TOTAL) - 1),
+            index.z & !((1 << Self::BRANCHING_TOTAL) - 1),
+        );
+    }
 }
 
 pub trait Accessor {
     fn at(&self, index: &Vector3<usize>) -> bool;
     fn insert(&mut self, index: &Vector3<usize>);
     fn remove(&mut self, index: &Vector3<usize>);
+    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize>;
 }
 
-pub trait TreeNode: Accessor + TreeNodeConsts {
+pub trait TreeNode: Accessor {
+    /// Number of tiles in one dimension on current level
+    const BRANCHING: usize;
+    /// Total number of tiles in one dimension
+    const BRANCHING_TOTAL: usize;
+    /// Total number of voxels in node
+    const SIZE: usize;
+
     /// Creates empty node
     fn new_inactive(origin: Vector3<usize>) -> Self;
     /// Creates active node
