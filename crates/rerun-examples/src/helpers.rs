@@ -27,12 +27,24 @@ pub fn parse_radii_errors(radii_error_str: &str) -> Vec<(f32, f32)> {
     maps
 }
 
-pub fn parse_origin(origin_str: &str) -> nalgebra::Point3<f32> {
-    let components: Vec<&str> = origin_str.split(",").collect();
+pub fn parse_point(point_str: &str) -> nalgebra::Point3<f32> {
+    let components: Vec<&str> = point_str.split(",").collect();
 
     assert_eq!(3, components.len());
 
     nalgebra::Point3::new(
+        components[0].parse().unwrap(),
+        components[1].parse().unwrap(),
+        components[2].parse().unwrap(),
+    )
+}
+
+pub fn parse_vector(point_str: &str) -> nalgebra::Vector3<f32> {
+    let components: Vec<&str> = point_str.split(",").collect();
+
+    assert_eq!(3, components.len());
+
+    nalgebra::Vector3::new(
         components[0].parse().unwrap(),
         components[1].parse().unwrap(),
         components[2].parse().unwrap(),
