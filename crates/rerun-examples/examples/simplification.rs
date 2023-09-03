@@ -99,7 +99,7 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
 
         let mut decimator = EdgeDecimator::new()
             .decimation_criteria(decimation_criteria)
-            .preserve_edges_on_boundary(true);
+            .keep_boundary(true);
         let mut cloned = mesh.clone_remap();
         decimator.decimate(&mut cloned);
 
