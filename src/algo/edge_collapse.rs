@@ -97,3 +97,29 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
 
     return !bad_collapse;
 }
+
+
+pub fn will_collapse_affect_boundary<TMesh: TopologicalMesh + EditableMesh>(
+    mesh: &TMesh,
+    edge: &TMesh::EdgeDescriptor,
+) -> bool {
+    let mut boundary_affected = mesh.is_edge_on_boundary(edge);
+    if boundary_affected {
+        return true;
+    }
+    let (v1, v2) = mesh.edge_vertices(&edge);
+
+    for vertex in [v1, v2] {
+        mesh.edges_around_vertex(&vertex, |edge| {
+            if mesh.is_edge_on_boundary(&edge) {
+                boundary_affected = true;
+            }
+        });
+
+        if boundary_affected {
+            return true;
+        }
+    }
+
+    return false;
+}

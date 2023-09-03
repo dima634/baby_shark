@@ -54,6 +54,8 @@ pub trait Mesh {
     /// Returns vertex normal (average of one-ring face normals)
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>>;
 
+    fn clone_subset<TDiscriminant: Fn(&Self, &Self::FaceDescriptor) -> bool>(&self, discriminant: TDiscriminant) -> Self;
+
     /// Returns positions of face vertices in ccw order
     #[allow(clippy::type_complexity)]
     #[inline]
@@ -86,6 +88,9 @@ pub trait Mesh {
         let (v1, v2) = self.edge_positions(edge);
         return (v1 - v2).norm_squared();
     }
+
+    /// Clone mesh, and remapping points and indices
+    fn clone_remap(&self) -> Self;
 }
 
 ///
