@@ -95,44 +95,51 @@ fn run(rec_stream: &RecordingStream, args: &Args) -> Result<(), Box<dyn std::err
 
     for error in errors {
         cy += args.mesh_offset;
-        let decimation_criteria = ConstantErrorDecimationCriteria::new(error);
 
-        let mut decimator = EdgeDecimator::new()
-            .decimation_criteria(decimation_criteria)
-            .keep_boundary(true);
-        let mut cloned = mesh.clone_remap();
-        decimator.decimate(&mut cloned);
+        let mut cx = args.wireframe_offset;
+        for keep_boundary in [true, false] {
+            let decimation_criteria = ConstantErrorDecimationCriteria::new(error);
 
-        let decimated = cloned.clone_remap();
+            let mut decimator = EdgeDecimator::new()
+                .decimation_criteria(decimation_criteria)
+                .keep_boundary(keep_boundary);
 
-        let transform = Transform3D::new(TranslationRotationScale3D {
-            translation: Some(Vec3D::new(0., cy, 0.)),
-            rotation: None,
-            scale: None,
-        });
+            let mut cloned = mesh.clone_remap();
+            decimator.decimate(&mut cloned);
 
-        let _ = log_mesh(
-            &format!("simplified-{error}"),
-            None,
-            &decimated,
-            Some(transform),
-            Some(color),
-            rec_stream,
-        );
-        if args.wireframe {
+            let decimated = cloned.clone_remap();
+
             let transform = Transform3D::new(TranslationRotationScale3D {
-                translation: Some(Vec3D::new(args.wireframe_offset.clone(), cy, 0.)),
+                translation: Some(Vec3D::new(0., cy, 0.)),
                 rotation: None,
                 scale: None,
             });
-            let _ = log_mesh_as_line_strips(
-                &format!("simplified-wireframe-{error}"),
+
+            let _ = log_mesh(
+                &format!("simplified-keep-{keep_boundary}-{error}"),
                 None,
                 &decimated,
                 Some(transform),
-                None,
+                Some(color),
                 rec_stream,
             );
+
+            if args.wireframe {
+                let transform = Transform3D::new(TranslationRotationScale3D {
+                    translation: Some(Vec3D::new(cx, cy, 0.)),
+                    rotation: None,
+                    scale: None,
+                });
+                let _ = log_mesh_as_line_strips(
+                    &format!("simplified-wireframe-{keep_boundary}-{error}"),
+                    None,
+                    &decimated,
+                    Some(transform),
+                    None,
+                    rec_stream,
+                );
+            }
+            cx += args.wireframe_offset;
         }
     }
 
