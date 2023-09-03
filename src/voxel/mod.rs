@@ -6,7 +6,7 @@ pub mod root_node;
 mod cached_accessor;
 #[cfg(test)]
 mod tests;
-mod utils;
+pub mod utils;
 
 pub use internal_node::*;
 pub use leaf_node::*;

@@ -1,21 +1,45 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, marker::PhantomData, ptr::NonNull};
 
 use nalgebra::Vector3;
 
-use super::Accessor;
+use super::{Accessor};
 
-pub struct CachedAccessor<'tree> {
-    cache: RefCell<Vec<CacheEntry<'tree>>>,
+pub struct CachedAccessor<'accessor> {
+    cache: RefCell<Vec<CacheEntry>>,
+    lifetime: PhantomData<&'accessor ()>,
+}
+
+pub trait TreeTraverse: Accessor {
+    fn visit_and_cache(&mut self, index: &Vector3<usize>, cache: &mut Vec<CacheEntry>);
+}
+
+impl<'accessor> CachedAccessor<'accessor> {
+    pub fn new(root: NonNull<dyn TreeTraverse>) -> Self {
+        let key = unsafe { root.as_ref().index_key(&Vector3::zeros()) };
+        Self {
+            cache: RefCell::new(vec![ 
+                CacheEntry {
+                    key,
+                    accessor: root,
+                }
+            ]),
+            lifetime: PhantomData,
+        }
+    }
 }
 
 impl<'tree> Accessor for CachedAccessor<'tree> {
-    fn at(&self, index: &nalgebra::Vector3<usize>) -> bool {
-        while let Some(cache) = self.cache.borrow_mut().pop() {
-            let key = cache.accessor.index_key(index);
+    fn at(&self, index: &Vector3<usize>) -> bool {
+        let mut cache = self.cache.borrow_mut();
 
-            if cache.key == key {
-                let value = cache.accessor.at(index);
-                self.cache.borrow_mut().push(cache);
+        while let Some(mut cached) = cache.pop() {
+            let key = cached.accessor().index_key(index);
+
+            if cached.key == key || cache.is_empty() {
+                cached.accessor_mut().visit_and_cache(index, &mut cache);
+                let value = cache.last().unwrap().accessor().at(index);
+                cache.push(cached);
+
                 return value;
             }
         }
@@ -23,11 +47,11 @@ impl<'tree> Accessor for CachedAccessor<'tree> {
         unreachable!()
     }
 
-    fn insert(&mut self, index: &nalgebra::Vector3<usize>) {
+    fn insert(&mut self, index: &Vector3<usize>) {
         todo!()
     }
 
-    fn remove(&mut self, index: &nalgebra::Vector3<usize>) {
+    fn remove(&mut self, index: &Vector3<usize>) {
         todo!()
     }
 
@@ -36,13 +60,24 @@ impl<'tree> Accessor for CachedAccessor<'tree> {
     }
 }
 
-impl<'tree> CachedAccessor<'tree> {
-    pub fn new() -> Self {
-        Self { cache: RefCell::new(Vec::new()) }
+pub struct CacheEntry {
+    key: Vector3<usize>,
+    accessor: NonNull<dyn TreeTraverse>,
+}
+
+impl CacheEntry {
+    pub fn accessor(&self) -> &dyn TreeTraverse {
+        unsafe { self.accessor.as_ref() }
+    }
+    pub fn accessor_mut(&mut self) -> &mut dyn TreeTraverse {
+        unsafe { self.accessor.as_mut() }
     }
 }
 
-struct CacheEntry<'node> {
-    key: Vector3<usize>,
-    accessor: &'node mut dyn Accessor,
+#[cfg(test)] 
+mod tests {
+    // #[test]
+    // fn test_cached_accessor() {
+    //     let 
+    // }
 }

@@ -1,3 +1,5 @@
+use std::{marker::PhantomData, rc::Rc, ptr::NonNull};
+
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
@@ -5,7 +7,7 @@ use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 
 use super::{
     utils::{box_indices, is_mask_empty},
-    Accessor, HasChild, TreeNode,
+    Accessor, HasChild, TreeNode, cached_accessor::{TreeTraverse, CacheEntry},
 };
 
 pub struct InternalNode<
@@ -225,6 +227,30 @@ impl<
             && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
 }
+
+// impl<
+//         'tree,
+//         TChild: TreeNode + TreeTraverse + 'tree,
+//         const BRANCHING: usize,
+//         const BRANCHING_TOTAL: usize,
+//         const SIZE: usize,
+//         const BIT_SIZE: usize,
+//     > TreeTraverse for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+// {
+//     fn visit_and_cache(&mut self, index: &Vector3<usize>, cache: &mut Vec<CacheEntry>) {
+//         let offset = Self::offset(index);
+
+//         if self.child_mask[offset] {
+//             let child = &mut self.childs[offset];
+//             child.as_mut().unwrap().visit_and_cache(index, cache);
+//         }
+
+//         cache.push(CacheEntry {
+//             key: self.index_key(index),
+//             accessor: unsafe { NonNull::new_unchecked(self as *mut Self) },
+//         });
+//     }
+// }
 
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
     return 1 << branching * 3;
