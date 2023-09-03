@@ -162,7 +162,6 @@ where
     decimation_criteria: TEdgeDecimationCriteria,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
-    preserve_edges_on_boundary: bool,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
     not_safe_collapses: Vec<Contraction<TMesh>>,
     collapse_strategy: TCollapseStrategy
@@ -206,15 +205,6 @@ where
             None => self.min_faces_count = 0,
         };
 
-        return self;
-    }
-
-    ///
-    /// Set whether to preserve edges on boundary
-    /// 
-    pub fn preserve_edges_on_boundary(mut self, preserve_edges_on_boundary: bool) -> Self {
-        self.preserve_edges_on_boundary = preserve_edges_on_boundary;
-        
         return self;
     }
 
@@ -276,46 +266,29 @@ where
                     continue;
                 }        
                 
-                let mut boundary_affected = false;
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(&v1, |edge| {
-                    if self.preserve_edges_on_boundary && mesh.is_edge_on_boundary(edge) {
-                        boundary_affected = true;
-                    } else {
-                        marker.mark_edge(edge, true);
-                    }
-                });
-                mesh.edges_around_vertex(&v2, |edge| {
-                    if self.preserve_edges_on_boundary && mesh.is_edge_on_boundary(edge) {
-                        boundary_affected = true;
-                    } else {
-                        marker.mark_edge(edge, true)
-                    }
-                });
+                mesh.edges_around_vertex(&v1, |edge| marker.mark_edge(edge, true));
+                mesh.edges_around_vertex(&v2, |edge| marker.mark_edge(edge, true));
 
-                if !self.preserve_edges_on_boundary || (!boundary_affected && self.preserve_edges_on_boundary) {
+                // Inform collapse strategy about collapse
+                self.collapse_strategy.collapse_edge(mesh, &best.edge);
 
-                    // Inform collapse strategy about collapse
-                    self.collapse_strategy.collapse_edge(mesh, &best.edge);
-
-                    // Update number of remaining faces
-                    // If edge is on boundary 1 face is collapsed
-                    // If edge is interior then 2
-                    if mesh.is_edge_on_boundary(&best.edge) {
-                        remaining_faces_count -= 1;
-                    } else {
-                        remaining_faces_count -= 2;
-                    }
-                    
-                    // Collapse edge
-                    mesh.collapse_edge(&best.edge, &collapse_at);
-
-                    // Stop when number of remaining faces smaller than minimal
-                    if remaining_faces_count <= self.min_faces_count {
-                        break;
-                    }
+                // Update number of remaining faces
+                // If edge is on boundary 1 face is collapsed
+                // If edge is interior then 2
+                if mesh.is_edge_on_boundary(&best.edge) {
+                    remaining_faces_count -= 1;
+                } else {
+                    remaining_faces_count -= 2;
                 }
+                
+                // Collapse edge
+                mesh.collapse_edge(&best.edge, &collapse_at);
 
+                // Stop when number of remaining faces smaller than minimal
+                if remaining_faces_count <= self.min_faces_count {
+                    break;
+                }
             }
 
             // Stop when number of remaining edges smaller than minimal
@@ -367,7 +340,6 @@ where
             decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
-            preserve_edges_on_boundary: false,
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default()
