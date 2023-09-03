@@ -331,12 +331,13 @@ where
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
-            let will_affect_boundary_if_keeping = self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, &edge);
+            
+            if self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, &edge) {
+                continue;
+            }
 
             // Collapsable and low cost?
-            if self.decimation_criteria.should_decimate(cost, mesh, &edge) 
-                && is_collapse_topologically_safe  
-                && !will_affect_boundary_if_keeping {
+            if self.decimation_criteria.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
