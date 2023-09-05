@@ -86,6 +86,9 @@ pub trait Mesh {
         let (v1, v2) = self.edge_positions(edge);
         return (v1 - v2).norm_squared();
     }
+
+    /// Clone mesh, and remapping points and indices
+    fn clone_remap(&self) -> Self;
 }
 
 ///

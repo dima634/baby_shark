@@ -95,4 +95,8 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     fn face_vertices(&self, _face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         todo!()
     }
+
+    fn clone_remap(&self) -> Self {
+        todo!()
+    }
 }
