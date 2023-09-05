@@ -162,6 +162,7 @@ where
     decimation_criteria: TEdgeDecimationCriteria,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
+    keep_boundary: bool,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
     not_safe_collapses: Vec<Contraction<TMesh>>,
     collapse_strategy: TCollapseStrategy
@@ -207,6 +208,16 @@ where
 
         return self;
     }
+
+    ///
+    /// Keep boundary on decimation.
+    /// 
+    #[inline]
+    pub fn keep_boundary(mut self, keep_boundary: bool) -> Self {
+        self.keep_boundary = keep_boundary;
+
+        return self;
+    }    
 
     ///
     /// Decimated given `mesh`.
@@ -319,6 +330,10 @@ where
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
+            
+            if self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, &edge) {
+                continue;
+            }
 
             // Collapsable and low cost?
             if self.decimation_criteria.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
@@ -339,6 +354,7 @@ where
             decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
+            keep_boundary: false,
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default()
