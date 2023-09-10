@@ -18,7 +18,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         };
     }
 
-    pub fn at(&self, index: &Vector3<usize>) -> bool {
+    pub fn at(&self, index: &Vector3<isize>) -> bool {
         let root_key = Self::root_key(index);
 
         if let Some(child) = self.root.get(&root_key) {
@@ -28,7 +28,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         return false;
     }
 
-    pub fn insert(&mut self, index: &Vector3<usize>) {
+    pub fn insert(&mut self, index: &Vector3<isize>) {
         let root_key = Self::root_key(index);
 
         let child = if let Some(child) = self.root.get_mut(&root_key) {
@@ -42,7 +42,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         child.insert(index);
     }
 
-    pub fn remove(&mut self, index: &Vector3<usize>) {
+    pub fn remove(&mut self, index: &Vector3<isize>) {
         let root_key = Self::root_key(index);
 
         if let Some(child) = self.root.get_mut(&root_key) {
@@ -66,7 +66,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         let origin = Vector3::new(min, min, min);
         let spacing = (max - min) / grid_size as f32;
 
-        for idx in box_indices(0, grid_size) {
+        for idx in box_indices(0, grid_size as isize) {
             let p = origin + Vector3::new(
                 idx.x as f32 * spacing, 
                 idx.y as f32 * spacing, 
@@ -84,7 +84,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
     }
 
     #[inline]
-    fn root_key(index: &Vector3<usize>) -> RootKey {
+    fn root_key(index: &Vector3<isize>) -> RootKey {
         return RootKey(Vector3::new(
             index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
@@ -98,7 +98,7 @@ impl<TChild: TreeNode> HasChild for RootNode<TChild> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-struct RootKey(Vector3<usize>);
+struct RootKey(Vector3<isize>);
 
 impl PartialOrd for RootKey {
     #[inline]

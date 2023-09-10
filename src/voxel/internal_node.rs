@@ -1,13 +1,13 @@
 use std::{marker::PhantomData, rc::Rc, ptr::NonNull};
 
 use bitvec::prelude::BitArray;
-use nalgebra::Vector3;
+use nalgebra::{Vector3, Vector};
 
 use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 
 use super::{
     utils::{box_indices, is_mask_empty},
-    Accessor, HasChild, TreeNode, cached_accessor::{TreeTraverse, CacheEntry},
+    Accessor, HasChild, TreeNode,
 };
 
 pub struct InternalNode<
@@ -20,7 +20,7 @@ pub struct InternalNode<
     childs: Vec<Option<TChild>>,
     child_mask: BitArray<[usize; BIT_SIZE]>,
     value_mask: BitArray<[usize; BIT_SIZE]>,
-    origin: Vector3<usize>,
+    origin: Vector3<isize>,
 }
 
 impl<
@@ -41,14 +41,14 @@ impl<
         return 1 << BRANCHING_TOTAL;
     }
 
-    fn offset_to_global_index(&self, offset: usize) -> Vector3<usize> {
+    fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
         let mut local = Self::offset_to_local_index(offset);
 
         for i in 0..3 {
             local[i] <<= TChild::BRANCHING_TOTAL;
         }
 
-        return local + self.origin;
+        return local.cast() + self.origin;
     }
 
     fn add_child(&mut self, offset: usize, active: bool) {
@@ -88,15 +88,18 @@ impl<
     }
 
     #[inline]
-    fn offset(index: &Vector3<usize>) -> usize {
-        return 
+    fn offset(index: &Vector3<isize>) -> usize {
+        let offset =
             (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
             (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
              ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL);
+
+        offset as usize
     }
 
     fn offset_to_local_index(mut offset: usize) -> Vector3<usize> {
         debug_assert!(offset < (1 << 3 * BRANCHING));
+
         let x = offset >> 2 * BRANCHING;
         offset &= (1 << 2 * BRANCHING) - 1;
         let y = offset >> BRANCHING;
@@ -125,7 +128,7 @@ impl<
         const BIT_SIZE: usize,
     > Accessor for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
-    fn at(&self, index: &Vector3<usize>) -> bool {
+    fn at(&self, index: &Vector3<isize>) -> bool {
         let offset = Self::offset(index);
 
         if self.child_mask[offset] {
@@ -136,7 +139,7 @@ impl<
         return self.value_mask[offset];
     }
 
-    fn insert(&mut self, index: &Vector3<usize>) {
+    fn insert(&mut self, index: &Vector3<isize>) {
         // Node is branch - insert voxel
         // Node is tile:
         //   if tile is active - do nothing
@@ -153,7 +156,7 @@ impl<
         }
     }
 
-    fn remove(&mut self, index: &Vector3<usize>) {
+    fn remove(&mut self, index: &Vector3<isize>) {
         // Node is branch - remove voxel from child, prune child if empty
         // Node is tile:
         //   active - add active child, remove voxel
@@ -197,7 +200,7 @@ impl<
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
     const SIZE: usize = SIZE;
 
-    fn new_inactive(origin: Vector3<usize>) -> Self {
+    fn new_inactive(origin: Vector3<isize>) -> Self {
         let mut childs = Vec::new();
         childs.resize_with(SIZE, || None);
 
@@ -209,7 +212,7 @@ impl<
         };
     }
 
-    fn new_active(origin: Vector3<usize>) -> Self {
+    fn new_active(origin: Vector3<isize>) -> Self {
         let mut childs = Vec::new();
         childs.resize_with(SIZE, || None);
 
@@ -225,6 +228,30 @@ impl<
     fn is_empty(&self) -> bool {
         return is_mask_empty::<BIT_SIZE>(&self.child_mask.data)
             && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
+    }
+
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, mut f: F) {
+        for i in 0..SIZE {
+            if self.child_mask[i] {
+                let child = &self.childs[i];
+                child.as_ref().unwrap().voxels(&mut f);
+            } else if self.value_mask[i] {
+                let tile_origin = self.offset_to_global_index(i);
+                let voxels_in_one_dim = 1 << TChild::BRANCHING_TOTAL;
+
+                for x in 0..voxels_in_one_dim {
+                    for y in 0..voxels_in_one_dim {
+                        for z in 0..voxels_in_one_dim {
+                            f(Vector3::new(
+                                tile_origin.x + x, 
+                                tile_origin.y + y, 
+                                tile_origin.z + z
+                            ));
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -251,6 +278,7 @@ impl<
 //         });
 //     }
 // }
+
 
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
     return 1 << branching * 3;

@@ -6,6 +6,10 @@ use delaunator::{triangulate, Point};
 use nalgebra::Point2;
 use rand::{rngs::StdRng, SeedableRng, Rng};
 
+///
+/// Static VDB: 32ms
+/// 
+
 fn criterion_benchmark(c: &mut Criterion) {
     type Tree = static_vdb!(4, 3, 2);
 

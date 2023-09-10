@@ -4,6 +4,8 @@ pub mod leaf_node;
 pub mod root_node;
 
 mod cached_accessor;
+mod meshing;
+
 #[cfg(test)]
 mod tests;
 pub mod utils;
@@ -32,9 +34,9 @@ pub trait TreeNodeConsts {
 }
 
 pub trait Accessor {
-    fn at(&self, index: &Vector3<usize>) -> bool;
-    fn insert(&mut self, index: &Vector3<usize>);
-    fn remove(&mut self, index: &Vector3<usize>);
+    fn at(&self, index: &Vector3<isize>) -> bool;
+    fn insert(&mut self, index: &Vector3<isize>);
+    fn remove(&mut self, index: &Vector3<isize>);
     fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize>;
 }
 
@@ -47,15 +49,27 @@ pub trait TreeNode: Accessor {
     const SIZE: usize;
 
     /// Creates empty node
-    fn new_inactive(origin: Vector3<usize>) -> Self;
+    fn new_inactive(origin: Vector3<isize>) -> Self;
     /// Creates active node
-    fn new_active(origin: Vector3<usize>) -> Self;
+    fn new_active(origin: Vector3<isize>) -> Self;
 
     fn is_empty(&self) -> bool;
+
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: F);
 }
 
 pub trait HasChild {
     type Child: TreeNode;
+}
+
+struct Tile {
+    pub origin: Vector3<usize>,
+    pub size: usize
+}
+
+enum Voxel {
+    Tile(Tile),
+    Voxel(Vector3<usize>),
 }
 
 // https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

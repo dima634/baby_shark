@@ -13,18 +13,30 @@ use super::{
 
 pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
     value_mask: BitArray<[usize; SIZE]>,
-    origin: Vector3<usize>,
+    origin: Vector3<isize>,
 }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
 {
     #[inline]
-    fn offset(index: &Vector3<usize>) -> usize {
-        return
+    fn offset(index: &Vector3<isize>) -> usize {
+        let offset =
             ((index.x & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING + Self::BRANCHING) +
             ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING) + 
              (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
+
+        offset as usize
+    }
+    
+    #[inline]
+    fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
+        let x = self.origin.x + (offset >> BRANCHING_TOTAL + BRANCHING_TOTAL) as isize;
+        let n = offset & ((1 << BRANCHING_TOTAL + BRANCHING_TOTAL) - 1);
+        let y = self.origin.y + (n >> BRANCHING_TOTAL) as isize;
+        let z = self.origin.z + (n & (1 << BRANCHING_TOTAL) - 1) as isize;
+
+        Vector3::new(x, y, z)
     }
 
     #[inline]
@@ -36,7 +48,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     }
 
     #[inline]
-    pub fn origin(&self) -> &Vector3<usize> {
+    pub fn origin(&self) -> &Vector3<isize> {
         return &self.origin;
     }
 
@@ -50,17 +62,17 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Ac
     for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
 {
     #[inline]
-    fn at(&self, index: &Vector3<usize>) -> bool {
+    fn at(&self, index: &Vector3<isize>) -> bool {
         return self.value_mask[Self::offset(index)];
     }
 
     #[inline]
-    fn insert(&mut self, index: &Vector3<usize>) {
+    fn insert(&mut self, index: &Vector3<isize>) {
         self.value_mask.set(Self::offset(index), true);
     }
 
     #[inline]
-    fn remove(&mut self, index: &Vector3<usize>) {
+    fn remove(&mut self, index: &Vector3<isize>) {
         self.value_mask.set(Self::offset(index), false);
     }
 
@@ -82,7 +94,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     const SIZE: usize = SIZE;
 
     #[inline]
-    fn new_inactive(origin: Vector3<usize>) -> Self {
+    fn new_inactive(origin: Vector3<isize>) -> Self {
         return Self {
             origin,
             value_mask: Default::default(),
@@ -90,7 +102,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     }
 
     #[inline]
-    fn new_active(origin: Vector3<usize>) -> Self {
+    fn new_active(origin: Vector3<isize>) -> Self {
         return Self {
             origin,
             value_mask: BitArray::new([usize::MAX; SIZE]),
@@ -100,6 +112,14 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     #[inline]
     fn is_empty(&self) -> bool {
         return is_mask_empty::<SIZE>(&self.value_mask.data);
+    }
+
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, mut f: F) {
+        for offset in 0..SIZE {
+            if self.value_mask[offset] {
+                f(self.offset_to_global_index(offset));
+            }
+        }
     }
 }
 
