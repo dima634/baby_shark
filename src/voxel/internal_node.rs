@@ -1,9 +1,5 @@
-use std::{marker::PhantomData, rc::Rc, ptr::NonNull};
-
 use bitvec::prelude::BitArray;
-use nalgebra::{Vector3, Vector};
-
-use crate::mesh::polygon_soup::data_structure::PolygonSoup;
+use nalgebra::Vector3;
 
 use super::{
     utils::{box_indices, is_mask_empty},
@@ -230,25 +226,16 @@ impl<
             && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
 
-    fn voxels<F: FnMut(Vector3<isize>)>(&self, mut f: F) {
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F) {
         for i in 0..SIZE {
             if self.child_mask[i] {
                 let child = &self.childs[i];
-                child.as_ref().unwrap().voxels(&mut f);
+                child.as_ref().unwrap().voxels(f);
             } else if self.value_mask[i] {
                 let tile_origin = self.offset_to_global_index(i);
-                let voxels_in_one_dim = 1 << TChild::BRANCHING_TOTAL;
 
-                for x in 0..voxels_in_one_dim {
-                    for y in 0..voxels_in_one_dim {
-                        for z in 0..voxels_in_one_dim {
-                            f(Vector3::new(
-                                tile_origin.x + x, 
-                                tile_origin.y + y, 
-                                tile_origin.z + z
-                            ));
-                        }
-                    }
+                for idx in box_indices(0, self.resolution() as isize) {
+                    f(tile_origin + idx);
                 }
             }
         }

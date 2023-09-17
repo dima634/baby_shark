@@ -2,9 +2,9 @@ pub mod init;
 pub mod internal_node;
 pub mod leaf_node;
 pub mod root_node;
+pub mod meshing;
 
 mod cached_accessor;
-mod meshing;
 
 #[cfg(test)]
 mod tests;
@@ -55,7 +55,7 @@ pub trait TreeNode: Accessor {
 
     fn is_empty(&self) -> bool;
 
-    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: F);
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F);
 }
 
 pub trait HasChild {

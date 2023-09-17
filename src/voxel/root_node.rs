@@ -4,21 +4,38 @@ use nalgebra::Vector3;
 
 use crate::mesh::{builder, polygon_soup::data_structure::PolygonSoup};
 
-use super::{utils::box_indices, HasChild, TreeNode};
+use super::{utils::box_indices, HasChild, TreeNode, Accessor};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, TChild>,
 }
 
-impl<TChild: TreeNode> RootNode<TChild> {
-    #[inline]
-    pub fn new() -> Self {
-        return Self {
-            root: BTreeMap::new(),
-        };
+impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
+    const BRANCHING: usize = usize::MAX;
+
+    const BRANCHING_TOTAL: usize = usize::MAX;
+
+    const SIZE: usize = usize::MAX;
+
+    fn new_inactive(origin: Vector3<isize>) -> Self {
+        todo!()
     }
 
-    pub fn at(&self, index: &Vector3<isize>) -> bool {
+    fn new_active(origin: Vector3<isize>) -> Self {
+        todo!()
+    }
+
+    fn is_empty(&self) -> bool {
+        todo!()
+    }
+
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F) {
+        self.root.iter().for_each(|(_, node)| node.voxels(f));
+    }
+}
+
+impl<TChild: TreeNode> Accessor for RootNode<TChild> {
+    fn at(&self, index: &Vector3<isize>) -> bool {
         let root_key = Self::root_key(index);
 
         if let Some(child) = self.root.get(&root_key) {
@@ -28,7 +45,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         return false;
     }
 
-    pub fn insert(&mut self, index: &Vector3<isize>) {
+    fn insert(&mut self, index: &Vector3<isize>) {
         let root_key = Self::root_key(index);
 
         let child = if let Some(child) = self.root.get_mut(&root_key) {
@@ -42,7 +59,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
         child.insert(index);
     }
 
-    pub fn remove(&mut self, index: &Vector3<isize>) {
+    fn remove(&mut self, index: &Vector3<isize>) {
         let root_key = Self::root_key(index);
 
         if let Some(child) = self.root.get_mut(&root_key) {
@@ -50,11 +67,27 @@ impl<TChild: TreeNode> RootNode<TChild> {
         }
     }
 
+    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
+        todo!()
+    }
+}
+
+impl<TChild: TreeNode> RootNode<TChild> {
+    #[inline]
+    pub fn new() -> Self {
+        return Self {
+            root: BTreeMap::new(),
+        };
+    }
+
     #[inline]
     pub fn is_empty(&self) -> bool {
         return self.root.iter().all(|(_, node)| node.is_empty());
     }
 
+    ///
+    /// Inside is positive
+    /// 
     pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(
         grid_size: usize,
         min: f32,
@@ -73,7 +106,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
                 idx.z as f32 * spacing
             );
 
-            if f(&p) > 0.0 {
+            if f(&p) < 0.0 {
                 continue;
             }
 

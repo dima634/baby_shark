@@ -56,6 +56,11 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     pub const fn resolution(&self) -> usize {
         return 1 << BRANCHING;
     }
+
+    #[inline]
+    pub const fn size(&self) -> usize {
+        return 1 << BRANCHING * 3;
+    }
 }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Accessor
@@ -114,8 +119,8 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
         return is_mask_empty::<SIZE>(&self.value_mask.data);
     }
 
-    fn voxels<F: FnMut(Vector3<isize>)>(&self, mut f: F) {
-        for offset in 0..SIZE {
+    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F) {
+        for offset in 0..self.size() {
             if self.value_mask[offset] {
                 f(self.offset_to_global_index(offset));
             }
