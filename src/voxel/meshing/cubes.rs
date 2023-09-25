@@ -5,7 +5,7 @@ use nalgebra::{Vector3, Point3};
 use crate::{mesh::traits::Mesh, geometry::primitives::box3::Box3, algo::utils::cast, voxel::TreeNode};
 
 
-pub fn uniform<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
+pub fn cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
     let mut vertices: Vec<Vector3<isize>> = Vec::new();
     let mut indices: Vec<usize> = Vec::new();
     let mut index_vertex_map = HashMap::<Vector3<isize>, usize>::new();

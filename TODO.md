@@ -24,3 +24,4 @@
 - [ ] Cached accessor
 - [ ] Stencil accessor
 - [ ] Sequential accessor
+- [ ] BitSet implementation

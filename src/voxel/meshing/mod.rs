@@ -1,4 +1,5 @@
-mod uniform;
+mod cubes;
 mod marching_cubes;
 
-pub use uniform::uniform;
+pub use cubes::cubes;
+pub use marching_cubes::marching_cubes;
