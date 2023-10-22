@@ -4,8 +4,8 @@ use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
 use super::{
-    utils::{box_indices, is_mask_empty},
-    Accessor, HasChild, TreeNode, meshing::MarchingCubes, Leaf, Tile, Traverse, Child,
+    utils::{box_indices, is_mask_empty, is_mask_full},
+    Accessor, HasChild, TreeNode, Leaf, Tile, Traverse, Child,
 };
 
 pub struct InternalNode<
@@ -254,6 +254,11 @@ where
         if self.child_mask[offset] {
             let child = self.child_mut(offset);
             child.insert(index);
+
+            if child.is_full() {
+                self.remove_child(offset);
+                self.value_mask.set(offset, true);
+            }
         } else if !self.value_mask[offset] {
             self.add_child(offset, false);
             let child = self.child_mut(offset);
@@ -336,6 +341,27 @@ where
             && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
 
+    fn is_full(&self) -> bool {
+        // for offset in 0..SIZE {
+        //     let is_child_full = 
+        //         (self.child_mask[offset] && self.child(offset).is_full()) ||
+        //         (self.value_mask[offset]);
+
+        //     if !is_child_full {
+        //         return false;
+        //     }
+        // }
+
+        is_mask_full::<BIT_SIZE>(&self.value_mask.data)
+        
+        // if full {
+        //     assert!(false, "Internal node is full");
+        //     true
+        // } else {
+        //     false
+        // }
+    }
+
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
         for i in 0..SIZE {
             if self.child_mask[i] {
@@ -343,8 +369,8 @@ where
                 child.traverse_leafs(f);
             } else if self.value_mask[i] {
                 let tile = Leaf::Tile(Tile {
-                    origin: self.origin,
-                    size: Self::resolution()
+                    origin: self.offset_to_global_index(i),
+                    size: TChild::resolution()
                 });
 
                 f(tile);

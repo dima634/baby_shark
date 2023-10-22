@@ -45,12 +45,24 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
         for leaf in self.grid.leafs() {
             match leaf {
                 Leaf::Tile(tile) => {
-                    for x in 0..tile.size {
-                        for y in 0..tile.size {
-                            for z in 0..tile.size {
-                                let voxel = tile.origin + Vector3::new(x, y, z).cast();
-                                self.handle_voxel(voxel);
-                            }
+                    // Test only boundary voxels
+                    for i in 0..tile.size {
+                        for j in 0..tile.size {
+                            let left  = tile.origin + Vector3::new(0, i, j).cast();
+                            let right = tile.origin + Vector3::new(tile.size - 1, i, j).cast();
+                            
+                            let top    = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
+                            let bottom = tile.origin + Vector3::new(i, j, 0).cast();
+                            
+                            let front = tile.origin + Vector3::new(i, tile.size - 1, j).cast();
+                            let back  = tile.origin + Vector3::new(i, 0, j).cast();
+
+                            self.test_voxel(left);
+                            self.test_voxel(right);
+                            self.test_voxel(top);
+                            self.test_voxel(bottom);
+                            self.test_voxel(front);
+                            self.test_voxel(back);
                         }
                     }
                 },
@@ -58,6 +70,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                     let size = T::LeafNode::resolution();
                     let origin = node.origin();
 
+                    // Test all voxels in the node
                     for x in 0..size {
                         for y in 0..size {
                             for z in 0..size {
@@ -67,7 +80,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                                     continue;
                                 }
 
-                                self.handle_voxel(voxel);
+                                self.test_voxel(voxel);
                             }
                         }
                     }
@@ -81,7 +94,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
         mesh
     }
 
-    fn handle_voxel(&mut self, voxel: Vector3<isize>) {
+    fn test_voxel(&mut self, voxel: Vector3<isize>) {
         let top_index     = voxel + Vector3::new(0, 0, 1);
         let bottom_index  = voxel + Vector3::new(0, 0, -1);
         let left_index    = voxel + Vector3::new(-1, 0, 0);

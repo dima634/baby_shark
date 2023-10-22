@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    utils::{box_indices, is_mask_empty},
+    utils::{box_indices, is_mask_empty, is_mask_full},
     Accessor, TreeNode, Leaf, Traverse,
 };
 
@@ -139,6 +139,11 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     #[inline]
     fn is_empty(&self) -> bool {
         return is_mask_empty::<SIZE>(&self.value_mask.data);
+    }
+
+    #[inline]
+    fn is_full(&self) -> bool {
+        return is_mask_full::<SIZE>(&self.value_mask.data);
     }
 
     #[inline]

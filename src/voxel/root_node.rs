@@ -46,6 +46,10 @@ where
         todo!()
     }
 
+    fn is_full(&self) -> bool {
+        todo!()
+    }
+
     #[inline]
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
         self.root.iter().for_each(|(_, node)| node.traverse_leafs(f));

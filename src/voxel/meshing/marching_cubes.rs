@@ -2,7 +2,9 @@ use std::{collections::{BTreeMap, HashSet}, rc::Rc, mem::swap, ops::Not};
 
 use nalgebra::Vector3;
 
-use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, mesh::traits::Mesh, voxel::{TreeNode, InternalNode}, algo::{merge_points::merge_points, utils::cast}};
+use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, mesh::traits::Mesh, voxel::{TreeNode, InternalNode, Grid, Leaf, Tile, meshing::bool_grid::BoolGrid}, algo::{merge_points::merge_points, utils::cast}};
+
+use super::bool_grid::intersection_grid;
 
 const V1: u8 = 1 << 0;
 const V2: u8 = 1 << 1;
@@ -251,11 +253,54 @@ fn rotate_and_insert(mut pattern: Pattern, map: &mut BTreeMap<Cube, Pattern>) {
     }
 }
 
-pub fn  marching_cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
+pub fn  marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
     let mut vertices: Vec<Vector3<f32>> = Vec::new();
 
     let lookup_table = generate_lookup_table();
-    let mut voxels = HashSet::new();
+    let int_grid = intersection_grid(grid);
+
+    println!("TRAVERSE LEAFS");
+
+    let mut i = 0;
+    let mut j = 0;
+
+    // grid.traverse_leafs(&mut |leaf| {
+    //     let tile = match leaf {
+    //         Leaf::Tile(t) => t, 
+    //         Leaf::Node(n) => Tile {
+    //             origin: n.origin(),
+    //             size: n.size_t(),
+    //         },
+    //     };
+
+    //     j += tile.size * tile.size * tile.size;
+    // });
+
+    int_grid.traverse_leafs(&mut |leaf| {
+        let tile = match leaf {
+            Leaf::Tile(t) => t,
+            Leaf::Node(n) => Tile {
+                origin: *n.origin(),
+                size: n.size_t(),
+            },
+        };
+
+        let max = tile.origin + Vector3::new(tile.size, tile.size, tile.size).cast();
+        i += tile.size * tile.size * tile.size;
+        for x in tile.origin.x..max.x {
+            for y in tile.origin.y..max.y {
+                for z in tile.origin.z..max.z {
+                    let v = Vector3::new(x, y, z);
+                    handle_cube(v, grid, &lookup_table, &mut vertices);
+                }
+            }
+        }
+    });
+
+    
+    println!("src = {j}");
+    println!("i = {i}");
+    println!("TRAVERSE LEAFS ============");
 
     // grid.voxels(&mut |v1_idx| {
     //     voxels.insert(v1_idx);
@@ -270,9 +315,11 @@ pub fn  marching_cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
     //     }
     // });
 
-    for v in voxels {
-        handle_cube(v, grid, &lookup_table, &mut vertices);
-    }
+    // for v in voxels {
+    //     handle_cube(v, grid, &lookup_table, &mut vertices);
+    // }
+
+
 
     let vertices: Vec<_> = vertices.into_iter().map(|v| cast(&v).into()).collect();
     let indexed = merge_points(&vertices);
@@ -341,12 +388,6 @@ fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
     let mid = (v1 + v2) / 2.0;
 
     mid
-}
-
-pub trait MarchingCubes {
-    type Cubes<'tree>: Iterator<Item = Vector3<isize>> where Self: 'tree;
-
-    fn cubes(&self) -> Self::Cubes<'_>;
 }
 
 #[cfg(test)]

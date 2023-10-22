@@ -62,6 +62,7 @@ pub trait TreeNode: Accessor {
     fn origin(&self) -> Vector3<isize>;
 
     fn is_empty(&self) -> bool;
+    fn is_full(&self) -> bool;
 
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F);
 
@@ -75,6 +76,12 @@ pub trait TreeNode: Accessor {
     #[inline]
     fn size() -> usize {
         1 << Self::BRANCHING_TOTAL * 3
+    }
+
+    /// Total number of voxels 
+    #[inline]
+    fn size_t(&self) -> usize {
+        1 << Self::BRANCHING_TOTAL
     }
 }
 

@@ -1,8 +1,7 @@
 use nalgebra::Vector3;
 
-use crate::{voxel::{InternalNode, TreeNode, Tile, Accessor}, dynamic_vdb};
+use crate::{voxel::{InternalNode, TreeNode, Tile, Accessor, Grid, Leaf, Traverse, utils::box_indices}, dynamic_vdb};
 
-use super::MarchingCubes;
 
 // impl<TChild: TreeNode<LeafNode = TLeaf>, TLeaf: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> MarchingCubes for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
 //     type Cubes<'tree> = CubesIter<'tree, TLeaf> where TLeaf: 'tree;
@@ -12,53 +11,83 @@ use super::MarchingCubes;
 //     }
 // }
 
-type BoolGrid = dynamic_vdb!(4, 3, 2);
+pub type BoolGrid = dynamic_vdb!(4, 3, 2);
 
-struct CubesIter {
-    intersection_grid: BoolGrid,
-}
+pub fn intersection_grid<T: Grid>(grid: &T) -> BoolGrid {
+    let mut intersection_grid = BoolGrid::new();
 
-impl<T: TreeNode> From<T> for CubesIter {
-    fn from(value: T) -> Self {
-        let intersection_grid = BoolGrid::new();
+    let mut i = 0;
 
-        
+    for leaf in grid.leafs() {
+        i+= 1;
 
-        Self { intersection_grid }
-    }
-}
+        if i %1000 == 0 {
+            println!("i = {}", i);
+        }   
 
-fn tile<'a, T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, tile: Tile) {
-    for x in tile.origin.x..tile.size as isize {
-        for y in tile.origin.y..tile.size as isize {
-            insert_external_voxels(int_grid, src_grid, &Vector3::new(x, y, tile.origin.z));
+        match leaf {
+            Leaf::Tile(t) => tile(&mut intersection_grid, grid, t),
+            Leaf::Node(n) => node(&mut intersection_grid, grid, n),
         }
     }
 
-    for y in tile.origin.y..tile.size as isize {
-        for z in tile.origin.z..tile.size as isize {
-            insert_external_voxels(int_grid, src_grid, &Vector3::new(tile.origin.x, y, z));
-        }
+    println!("DONE ITERATING");
+
+    intersection_grid
+}
+
+fn tile<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, tile: Tile) {
+    if tile.size != 4 {
+        println!("Tile size = {}", tile.size);
     }
 
-    for x in tile.origin.x..tile.size as isize {
-        for z in tile.origin.z..tile.size as isize {
-            insert_external_voxels(int_grid, src_grid, &Vector3::new(x, tile.origin.y, z));
+    for i in 0..tile.size {
+        for j in 0..tile.size {
+            let left  = tile.origin + Vector3::new(0, i, j).cast();
+            let right = tile.origin + Vector3::new(tile.size - 1, i, j).cast();
+            
+            let top    = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
+            let bottom = tile.origin + Vector3::new(i, j, 0).cast();
+            
+            let front = tile.origin + Vector3::new(i, tile.size - 1, j).cast();
+            let back  = tile.origin + Vector3::new(i, 0, j).cast();
+
+            insert_external_voxels(int_grid, src_grid, &left);
+            insert_external_voxels(int_grid, src_grid, &right);
+            insert_external_voxels(int_grid, src_grid, &top);
+            insert_external_voxels(int_grid, src_grid, &bottom);
+            insert_external_voxels(int_grid, src_grid, &front);
+            insert_external_voxels(int_grid, src_grid, &back);
         }
     }
 }
 
-fn insert_external_voxels<'a, T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, voxel: &Vector3<isize>) {
+fn insert_external_voxels<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, voxel: &Vector3<isize>) {
     for x in -1..1 {
         for y in -1..1 {
             for z in -1..1 {
                 let external_voxel = voxel + Vector3::new(x, y, z);
+
+                // if src_grid.at(&external_voxel) {
+                //     continue;
+                // }
+
                 int_grid.insert(&external_voxel);
             }
         }
     }
 }
 
-fn node<'a, T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, leaf: &T) {
-    
+fn node<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, leaf: &T::LeafNode) {
+    let size = T::LeafNode::resolution() as isize;
+    let origin = leaf.origin();
+
+    for x in -1..=size {
+        for y in -1..=size {
+            for z in -1..=size {
+                let voxel = origin + Vector3::new(x, y, z);
+                int_grid.insert(&voxel);
+            }
+        }
+    }
 }

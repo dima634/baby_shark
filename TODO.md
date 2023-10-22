@@ -20,7 +20,9 @@
 - [ ] Add assertions for BRANCHING (>=2 for leaf, decreasing for tree), SIZE
 - [ ] Root is not tree node?
 - [ ] Visualization
-- [ ] Insert (full node)
+- [ ] Insert
+    - [ ] Full node
+    - [ ] Insert and prune. Move prune out of insert.
 - [ ] Cached accessor
     - Typed list to avoid vtable calls https://crates.io/crates/frunk#hlist
     - Fix issue with caching
