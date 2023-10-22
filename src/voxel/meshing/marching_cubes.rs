@@ -2,7 +2,7 @@ use std::{collections::{BTreeMap, HashSet}, rc::Rc, mem::swap, ops::Not};
 
 use nalgebra::Vector3;
 
-use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, mesh::traits::Mesh, voxel::TreeNode, algo::{merge_points::merge_points, utils::cast}};
+use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, mesh::traits::Mesh, voxel::{TreeNode, InternalNode}, algo::{merge_points::merge_points, utils::cast}};
 
 const V1: u8 = 1 << 0;
 const V2: u8 = 1 << 1;
@@ -212,10 +212,10 @@ fn generate_lookup_table() -> BTreeMap<Cube, Pattern> {
         Pattern { cube: Cube::new(V1 | V2 | V6 | V5), triangles: [E6, E2, E4, E6, E4, E8].into(),                               root_pattern: 8 },
         Pattern { cube: Cube::new(V1 | V8 | V6 | V5), triangles: [E7, E4, E11, E1, E4, E7, E1, E7, E6, E1, E6, E10].into(),     root_pattern: 9 },
         Pattern { cube: Cube::new(V1 | V4 | V6 | V7), triangles: [E9, E3, E11, E9, E1, E3, E12, E5, E7, E10, E5, E12].into(),   root_pattern: 10 },
-        Pattern { cube: Cube::new(V1 | V5 | V6 | V7), triangles: [E8,   E1, E4, E1,  E8, E12,  E8,  E7, E12,  E1,   E12, E10].into(),   root_pattern: 11 },
-        Pattern { cube: Cube::new(V4 | V2 | V6 | V5), triangles: [E4,  E3, E11, E2,   E8, E6,  E2,   E9, E8,  E1,    E9, E2].into(),      root_pattern: 12 },
-        Pattern { cube: Cube::new(V1 | V8 | V3 | V6), triangles: [E1,   E4, E9, E8,   E11, E7, E2,   E12, E3, E10,   E5, E6].into(),    root_pattern: 13 },
-        Pattern { cube: Cube::new(V8 | V2 | V6 | V5), triangles: [E1,  E9, E11, E1,   E6, E2,  E1,   E11, E6, E6,    E11, E7].into(),    root_pattern: 14 },
+        Pattern { cube: Cube::new(V1 | V5 | V6 | V7), triangles: [E8, E1, E4, E1, E8, E12, E8, E7, E12, E1, E12, E10].into(),   root_pattern: 11 },
+        Pattern { cube: Cube::new(V4 | V2 | V6 | V5), triangles: [E4, E3, E11, E2, E8, E6, E2, E9, E8, E1, E9, E2].into(),      root_pattern: 12 },
+        Pattern { cube: Cube::new(V1 | V8 | V3 | V6), triangles: [E1, E4, E9, E8, E11, E7, E2, E12, E3, E10, E5, E6].into(),    root_pattern: 13 },
+        Pattern { cube: Cube::new(V8 | V2 | V6 | V5), triangles: [E1, E9, E11, E1, E6, E2, E1, E11, E6, E6, E11, E7].into(),    root_pattern: 14 },
     ];
 
     let mut map = BTreeMap::new();
@@ -257,18 +257,18 @@ pub fn  marching_cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
     let lookup_table = generate_lookup_table();
     let mut voxels = HashSet::new();
 
-    grid.voxels(&mut |v1_idx| {
-        voxels.insert(v1_idx);
+    // grid.voxels(&mut |v1_idx| {
+    //     voxels.insert(v1_idx);
         
-        for x in -1..=1 {
-            for y in -1..=1 {
-                for z in -1..=1 {
-                    let v = v1_idx + Vector3::new(x, y, z);
-                    voxels.insert(v);
-                }
-            }
-        }
-    });
+    //     for x in -1..=1 {
+    //         for y in -1..=1 {
+    //             for z in -1..=1 {
+    //                 let v = v1_idx + Vector3::new(x, y, z);
+    //                 voxels.insert(v);
+    //             }
+    //         }
+    //     }
+    // });
 
     for v in voxels {
         handle_cube(v, grid, &lookup_table, &mut vertices);
@@ -341,6 +341,12 @@ fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
     let mid = (v1 + v2) / 2.0;
 
     mid
+}
+
+pub trait MarchingCubes {
+    type Cubes<'tree>: Iterator<Item = Vector3<isize>> where Self: 'tree;
+
+    fn cubes(&self) -> Self::Cubes<'_>;
 }
 
 #[cfg(test)]

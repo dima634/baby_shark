@@ -2,25 +2,86 @@ use std::collections::HashMap;
 
 use nalgebra::{Vector3, Point3};
 
-use crate::{mesh::traits::Mesh, geometry::primitives::box3::Box3, algo::utils::cast, voxel::TreeNode};
+use crate::{mesh::traits::Mesh, geometry::primitives::box3::Box3, algo::utils::cast, voxel::{TreeNode, Grid, Leaf}};
 
+pub struct CubesMeshing<'a, T: Grid> {
+    grid: &'a T,
+    vertices: Vec<Vector3<isize>>,
+    indices: Vec<usize>,
+    index_vertex_map: HashMap<Vector3<isize>, usize>,
+    v: [Vector3<isize>; 8],
+}
 
-pub fn cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
-    let mut vertices: Vec<Vector3<isize>> = Vec::new();
-    let mut indices: Vec<usize> = Vec::new();
-    let mut index_vertex_map = HashMap::<Vector3<isize>, usize>::new();
+impl<'a, T: Grid> CubesMeshing<'a, T> {
+    pub fn new(grid: &'a T) -> Self {
+        let bbox = Box3::new(
+            Point3::new(0, 0, 0), 
+            Point3::new(1, 1, 1)
+        );
 
-    let bbox = Box3::new(Point3::new(0, 0, 0), Point3::new(1, 1, 1));
-    let v0 = bbox.vertex(0).coords;
-    let v1 = bbox.vertex(1).coords;
-    let v2 = bbox.vertex(2).coords;
-    let v3 = bbox.vertex(3).coords;
-    let v4 = bbox.vertex(4).coords;
-    let v5 = bbox.vertex(5).coords;
-    let v6 = bbox.vertex(6).coords;
-    let v7 = bbox.vertex(7).coords;
+        let v_indices = [
+            bbox.vertex(0).coords,
+            bbox.vertex(1).coords,
+            bbox.vertex(2).coords,
+            bbox.vertex(3).coords,
+            bbox.vertex(4).coords,
+            bbox.vertex(5).coords,
+            bbox.vertex(6).coords,
+            bbox.vertex(7).coords,
+        ];
 
-    grid.voxels(&mut |voxel| {
+        Self {
+            grid,
+            v: v_indices,
+            vertices: Vec::new(),
+            indices: Vec::new(),
+            index_vertex_map: HashMap::new(),
+        }
+    }
+
+    pub fn mesh<TMesh: Mesh>(&mut self) -> TMesh {
+        self.reset();
+
+        for leaf in self.grid.leafs() {
+            match leaf {
+                Leaf::Tile(tile) => {
+                    for x in 0..tile.size {
+                        for y in 0..tile.size {
+                            for z in 0..tile.size {
+                                let voxel = tile.origin + Vector3::new(x, y, z).cast();
+                                self.handle_voxel(voxel);
+                            }
+                        }
+                    }
+                },
+                Leaf::Node(node) => {
+                    let size = T::LeafNode::resolution();
+                    let origin = node.origin();
+
+                    for x in 0..size {
+                        for y in 0..size {
+                            for z in 0..size {
+                                let voxel = origin + Vector3::new(x, y, z).cast();
+                                
+                                if !self.grid.at(&voxel) {
+                                    continue;
+                                }
+
+                                self.handle_voxel(voxel);
+                            }
+                        }
+                    }
+                },
+            }
+        }
+
+        let vertices: Vec<_> = self.vertices.iter().map(|v| cast(&v).into()).collect();
+        let mesh = TMesh::from_vertices_and_indices(vertices.as_slice(), &self.indices);
+
+        mesh
+    }
+
+    fn handle_voxel(&mut self, voxel: Vector3<isize>) {
         let top_index     = voxel + Vector3::new(0, 0, 1);
         let bottom_index  = voxel + Vector3::new(0, 0, -1);
         let left_index    = voxel + Vector3::new(-1, 0, 0);
@@ -28,125 +89,120 @@ pub fn cubes<TMesh: Mesh, TGrid: TreeNode>(grid: &TGrid) -> TMesh {
         let front_index   = voxel + Vector3::new(0, 1, 0);
         let back_index    = voxel + Vector3::new(0, -1, 0);
 
-        let top     = grid.at(&top_index);
-        let bottom  = grid.at(&bottom_index);
-        let left    = grid.at(&left_index);
-        let right   = grid.at(&right_index);
-        let front   = grid.at(&front_index);
-        let back    = grid.at(&back_index);
+        let top     = self.grid.at(&top_index);
+        let bottom  = self.grid.at(&bottom_index);
+        let left    = self.grid.at(&left_index);
+        let right   = self.grid.at(&right_index);
+        let front   = self.grid.at(&front_index);
+        let back    = self.grid.at(&back_index);
 
         if !top {
             let faces = [
-                voxel + v4,
-                voxel + v7,
-                voxel + v6,
+                voxel + self.v[4],
+                voxel + self.v[7],
+                voxel + self.v[6],
 
-                voxel + v4,
-                voxel + v5,
-                voxel + v7,
+                voxel + self.v[4],
+                voxel + self.v[5],
+                voxel + self.v[7],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
 
         if !bottom {
             let faces = [
-                voxel + v0,
-                voxel + v2,
-                voxel + v3,
+                voxel + self.v[0],
+                voxel + self.v[2],
+                voxel + self.v[3],
 
-                voxel + v0,
-                voxel + v3,
-                voxel + v1,
+                voxel + self.v[0],
+                voxel + self.v[3],
+                voxel + self.v[1],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
 
         if !left {
             let faces = [
-                voxel + v0,
-                voxel + v4,
-                voxel + v6,
+                voxel + self.v[0],
+                voxel + self.v[4],
+                voxel + self.v[6],
 
-                voxel + v0,
-                voxel + v6,
-                voxel + v2,
+                voxel + self.v[0],
+                voxel + self.v[6],
+                voxel + self.v[2],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
 
         if !right {
             let faces = [
-                voxel + v1,
-                voxel + v7,
-                voxel + v5,
+                voxel + self.v[1],
+                voxel + self.v[7],
+                voxel + self.v[5],
 
-                voxel + v1,
-                voxel + v3,
-                voxel + v7,
+                voxel + self.v[1],
+                voxel + self.v[3],
+                voxel + self.v[7],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
 
         if !front {
             let faces = [
-                voxel + v2,
-                voxel + v6,
-                voxel + v7,
+                voxel + self.v[2],
+                voxel + self.v[6],
+                voxel + self.v[7],
 
-                voxel + v2,
-                voxel + v7,
-                voxel + v3,
+                voxel + self.v[2],
+                voxel + self.v[7],
+                voxel + self.v[3],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
 
         if !back {
             let faces = [
-                voxel + v0,
-                voxel + v5,
-                voxel + v4,
+                voxel + self.v[0],
+                voxel + self.v[5],
+                voxel + self.v[4],
 
-                voxel + v0,
-                voxel + v1,
-                voxel + v5,
+                voxel + self.v[0],
+                voxel + self.v[1],
+                voxel + self.v[5],
             ];
 
-            add_faces(&mut index_vertex_map, &mut vertices, &faces, &mut indices);
+            self.add_faces(&faces);
         }
-    });
+    }
 
-    let vertices: Vec<_> = vertices.into_iter().map(|v| cast(&v).into()).collect();
-    TMesh::from_vertices_and_indices(vertices.as_slice(), &indices)
-}
+    fn add_faces(&mut self, faces: &[Vector3<isize>]) {
+        for vertex in faces {
+            let idx = self.get_or_insert_vertex(*vertex);
+            self.indices.push(idx);
+        }
+    }
 
-fn add_faces(
-    map: &mut HashMap::<Vector3<isize>, usize>,
-    vertices: &mut Vec<Vector3<isize>>,
-    faces: &[Vector3<isize>],
-    face_indices: &mut Vec<usize>
-) {
-    for face in faces {
-        let idx = get_or_insert_vertex(*face, map, vertices);
-        face_indices.push(idx);
+    fn get_or_insert_vertex(&mut self, vertex: Vector3<isize>) -> usize {
+        if let Some(idx) = self.index_vertex_map.get(&vertex) {
+            *idx
+        } else {
+            let idx = self.vertices.len();
+            self.vertices.push(vertex);
+            self.index_vertex_map.insert(vertex, idx);
+
+            idx
+        }
+    }
+
+    fn reset(&mut self) {
+        self.indices.clear();
+        self.vertices.clear();
+        self.index_vertex_map.clear();
     }
 }
-
-fn get_or_insert_vertex(
-    vertex: Vector3<isize>, 
-    map: &mut HashMap::<Vector3<isize>, usize>,
-    vertices: &mut Vec<Vector3<isize>>,
-) -> usize {
-    if let Some(idx) = map.get(&vertex) {
-        *idx
-    } else {
-        let idx = vertices.len();
-        vertices.push(vertex);
-        map.insert(vertex, idx);
-        idx
-    }
-} 

@@ -1,21 +1,38 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, marker::PhantomData};
 
 use nalgebra::Vector3;
 
-use crate::mesh::{builder, polygon_soup::data_structure::PolygonSoup};
+use super::{utils::box_indices, HasChild, TreeNode, Accessor, Leaf, Traverse};
 
-use super::{utils::box_indices, HasChild, TreeNode, Accessor};
-
-pub struct RootNode<TChild: TreeNode> {
+pub struct RootNode<TChild: TreeNode, TLeaf: TreeNode> {
     root: BTreeMap<RootKey, TChild>,
+    leaf_type: PhantomData<TLeaf>
 }
 
-impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
+impl<TChild, TLeaf> Traverse<TLeaf> for RootNode<TChild, TLeaf> 
+where 
+    TChild: TreeNode + Traverse<TLeaf>, 
+    TLeaf: TreeNode 
+{
+    #[inline]
+    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TLeaf>> + 'a> {
+        let it = self.root.values().map(|child| super::Child::Branch(child));
+        Box::new(it)
+    }
+}
+
+impl<TChild, TLeaf> TreeNode for RootNode<TChild, TLeaf> 
+where 
+    TChild: TreeNode<LeafNode = TLeaf>, 
+    TLeaf: TreeNode
+{
     const BRANCHING: usize = usize::MAX;
-
     const BRANCHING_TOTAL: usize = usize::MAX;
-
     const SIZE: usize = usize::MAX;
+
+    const IS_LEAF: bool = false;
+
+    type LeafNode = TLeaf;
 
     fn new_inactive(origin: Vector3<isize>) -> Self {
         todo!()
@@ -29,12 +46,17 @@ impl<TChild: TreeNode> TreeNode for RootNode<TChild> {
         todo!()
     }
 
-    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F) {
-        self.root.iter().for_each(|(_, node)| node.voxels(f));
+    #[inline]
+    fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
+        self.root.iter().for_each(|(_, node)| node.traverse_leafs(f));
+    }
+
+    fn origin(&self) -> Vector3<isize> {
+        todo!()
     }
 }
 
-impl<TChild: TreeNode> Accessor for RootNode<TChild> {
+impl<TChild: TreeNode, TLeaf: TreeNode> Accessor for RootNode<TChild, TLeaf> {
     fn at(&self, index: &Vector3<isize>) -> bool {
         let root_key = Self::root_key(index);
 
@@ -64,19 +86,20 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
 
         if let Some(child) = self.root.get_mut(&root_key) {
             child.remove(index);
-        }
-    }
 
-    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
-        todo!()
+            if child.is_empty() {
+                self.root.remove(&root_key);
+            }
+        }
     }
 }
 
-impl<TChild: TreeNode> RootNode<TChild> {
+impl<TChild: TreeNode, TLeaf: TreeNode> RootNode<TChild, TLeaf> {
     #[inline]
     pub fn new() -> Self {
         return Self {
             root: BTreeMap::new(),
+            leaf_type: PhantomData
         };
     }
 
@@ -126,7 +149,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
     }
 }
 
-impl<TChild: TreeNode> HasChild for RootNode<TChild> {
+impl<TChild: TreeNode, TLeaf: TreeNode> HasChild for RootNode<TChild, TLeaf> {
     type Child = TChild;
 }
 

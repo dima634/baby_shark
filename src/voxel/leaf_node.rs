@@ -8,13 +8,50 @@ use crate::{
 
 use super::{
     utils::{box_indices, is_mask_empty},
-    Accessor, TreeNode,
+    Accessor, TreeNode, Leaf, Traverse,
 };
 
 pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
     value_mask: BitArray<[usize; SIZE]>,
     origin: Vector3<isize>,
 }
+
+impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Traverse<Self> for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE> {
+    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
+        unimplemented!("Leaf node has no childs")
+    }
+}
+
+// impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Node<Self> for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE> {
+//     #[inline]
+//     fn childs_count(&self) -> usize {
+//         unimplemented!("Leaf node has no childs")
+//     }
+
+//     // fn child(&self, index: usize) -> Leaf<Self> {
+//     //     unimplemented!("Leaf node has no childs")
+//     // }
+
+//     #[inline]
+//     fn is_leaf(&self) -> bool {
+//         true
+//     }
+
+//     #[inline]
+//     fn next(&self, _: &Vector3<isize>) -> Option<&dyn Node<Self>> {
+//         unreachable!("Leaf node has no childs")
+//     }
+
+//     #[inline]
+//     fn total_branching(&self) -> usize {
+//         Self::BRANCHING_TOTAL
+//     }
+
+//     #[inline]
+//     fn at_if_leaf(&self, index: &Vector3<isize>) -> Option<bool> {
+//         Some(self.at(index))
+//     }
+// }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
@@ -51,16 +88,6 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     pub fn origin(&self) -> &Vector3<isize> {
         return &self.origin;
     }
-
-    #[inline]
-    pub const fn resolution(&self) -> usize {
-        return 1 << BRANCHING;
-    }
-
-    #[inline]
-    pub const fn size(&self) -> usize {
-        return 1 << BRANCHING * 3;
-    }
 }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Accessor
@@ -80,15 +107,6 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Ac
     fn remove(&mut self, index: &Vector3<isize>) {
         self.value_mask.set(Self::offset(index), false);
     }
-
-    #[inline]
-    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
-        Vector3::new(
-            index.x & !((1 << Self::BRANCHING_TOTAL) - 1),
-            index.y & !((1 << Self::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << Self::BRANCHING_TOTAL) - 1),
-        )
-    }
 }
 
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> TreeNode
@@ -97,6 +115,10 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
     const SIZE: usize = SIZE;
+
+    const IS_LEAF: bool = true;
+
+    type LeafNode = Self;
 
     #[inline]
     fn new_inactive(origin: Vector3<isize>) -> Self {
@@ -119,12 +141,14 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
         return is_mask_empty::<SIZE>(&self.value_mask.data);
     }
 
-    fn voxels<F: FnMut(Vector3<isize>)>(&self, f: &mut F) {
-        for offset in 0..self.size() {
-            if self.value_mask[offset] {
-                f(self.offset_to_global_index(offset));
-            }
-        }
+    #[inline]
+    fn traverse_leafs<F: FnMut(super::Leaf<Self::LeafNode>)>(&self, f: &mut F) {
+        f(Leaf::Node(self));
+    }
+
+    #[inline]
+    fn origin(&self) -> Vector3<isize> {
+        self.origin
     }
 }
 
