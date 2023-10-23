@@ -16,7 +16,7 @@ pub struct InternalNode<
     const SIZE: usize,
     const BIT_SIZE: usize,
 > {
-    childs: Vec<Option<TChild>>,
+    childs: [Option<Box<TChild>>; SIZE],
     child_mask: BitArray<[usize; BIT_SIZE]>,
     value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<isize>,
@@ -42,7 +42,7 @@ where
                         Some(Child::Branch(child))
                     };
                 }
-        
+
                 if self.value_mask[offset] {
                     let tile = Child::Tile(Tile {
                         origin: self.offset_to_global_index(offset),
@@ -155,7 +155,7 @@ where
         };
 
         self.child_mask.set(offset, true);
-        self.childs[offset] = Some(child_node);
+        self.childs[offset] = Some(Box::new(child_node));
     }
 
     #[inline]
@@ -310,12 +310,9 @@ where
     type LeafNode = TLeaf;
 
     fn new_inactive(origin: Vector3<isize>) -> Self {
-        let mut childs = Vec::new();
-        childs.resize_with(SIZE, || None);
-
         return Self {
             origin,
-            childs,
+            childs: std::array::from_fn(|_| None),
             value_mask: Default::default(),
             child_mask: Default::default(),
             leaf_type: PhantomData,
@@ -323,12 +320,9 @@ where
     }
 
     fn new_active(origin: Vector3<isize>) -> Self {
-        let mut childs = Vec::new();
-        childs.resize_with(SIZE, || None);
-
         return Self {
             origin,
-            childs,
+            childs: std::array::from_fn(|_| None),
             value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
             child_mask: Default::default(),
             leaf_type: PhantomData,
