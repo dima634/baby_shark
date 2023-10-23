@@ -52,8 +52,6 @@ impl BitSet {
     }
 }
 
-
-
 impl Not for BitSet {
     type Output = Self;
 
@@ -62,7 +60,6 @@ impl Not for BitSet {
         Self { bits: !self.bits }
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Cube(BitSet);
@@ -116,7 +113,7 @@ impl Cube {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Edge(Cube);
 
 impl Edge {
@@ -253,16 +250,16 @@ fn rotate_and_insert(mut pattern: Pattern, map: &mut BTreeMap<Cube, Pattern>) {
     }
 }
 
-pub fn  marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
+pub fn marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
     let mut vertices: Vec<Vector3<f32>> = Vec::new();
 
     let lookup_table = generate_lookup_table();
     let int_grid = intersection_grid(grid);
 
-    println!("TRAVERSE LEAFS");
+    // println!("TRAVERSE LEAFS");
 
-    let mut i = 0;
-    let mut j = 0;
+    // let mut i = 0;
+    // let mut j = 0;
 
     // grid.traverse_leafs(&mut |leaf| {
     //     let tile = match leaf {
@@ -286,7 +283,7 @@ pub fn  marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
         };
 
         let max = tile.origin + Vector3::new(tile.size, tile.size, tile.size).cast();
-        i += tile.size * tile.size * tile.size;
+        // i += tile.size * tile.size * tile.size;
         for x in tile.origin.x..max.x {
             for y in tile.origin.y..max.y {
                 for z in tile.origin.z..max.z {
@@ -298,9 +295,9 @@ pub fn  marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
     });
 
     
-    println!("src = {j}");
-    println!("i = {i}");
-    println!("TRAVERSE LEAFS ============");
+    // println!("src = {j}");
+    // println!("i = {i}");
+    // println!("TRAVERSE LEAFS ============");
 
     // grid.voxels(&mut |v1_idx| {
     //     voxels.insert(v1_idx);
@@ -347,17 +344,15 @@ fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &
         }
     }
 
-    let pattern = lookup_table.get(&cube).unwrap();
+    // let pattern = lookup_table.get(&cube).unwrap();
     // println!("Voxel = {:?}; Pattern = {}", v1_idx, pattern.root_pattern);
 
-    if pattern.root_pattern != 2 {
-        //return;
-    }
+    let triangles = LOOKUP_TABLE[(cube.0.bits) as usize];
 
-    for i in (0..pattern.triangles.len()).step_by(3) {
-        let e1 = pattern.triangles[i];
-        let e2 = pattern.triangles[i + 1];
-        let e3 = pattern.triangles[i + 2];
+    for i in (0..triangles.len()).step_by(3) {
+        let e1 = triangles[i];
+        let e2 = triangles[i + 1];
+        let e3 = triangles[i + 2];
 
         let v1 = interpolate(e1, &vertex_indices); 
         let v2 = interpolate(e2, &vertex_indices);
@@ -367,7 +362,7 @@ fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &
         vertices.push(v2);
         vertices.push(v3);
 
-        Triangle3::normal(&v1.into(), &v2.into(), &v3.into());
+        // Triangle3::normal(&v1.into(), &v2.into(), &v3.into());
 
         
         // println!("Add face = {:?}; {:?}; {:?}", v1, v2, v3);
@@ -390,6 +385,265 @@ fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
     mid
 }
 
+const LOOKUP_TABLE: [&[Edge]; 256] = [
+    [].as_slice(),
+    [E4, E9, E1].as_slice(),
+    [E1, E10, E2].as_slice(),
+    [E2, E9, E10, E2, E4, E9].as_slice(),
+    [E2, E12, E3].as_slice(),
+    [E9, E1, E4, E2, E12, E3].as_slice(),
+    [E3, E10, E12, E3, E1, E10].as_slice(),
+    [E3, E4, E12, E4, E9, E12, E9, E10, E12].as_slice(),
+    [E3, E11, E4].as_slice(),
+    [E1, E11, E9, E1, E3, E11].as_slice(),
+    [E11, E4, E3, E1, E10, E2].as_slice(),
+    [E2, E3, E10, E3, E11, E10, E11, E9, E10].as_slice(),
+    [E4, E12, E11, E4, E2, E12].as_slice(),
+    [E1, E2, E9, E2, E12, E9, E12, E11, E9].as_slice(),
+    [E4, E1, E11, E1, E10, E11, E10, E12, E11].as_slice(),
+    [E12, E11, E9, E12, E9, E10].as_slice(),
+    [E8, E5, E9].as_slice(),
+    [E4, E5, E1, E4, E8, E5].as_slice(),
+    [E8, E5, E9, E10, E2, E1].as_slice(),
+    [E5, E10, E8, E10, E2, E8, E2, E4, E8].as_slice(),
+    [E2, E12, E3, E8, E5, E9].as_slice(),
+    [E5, E4, E8, E5, E1, E4, E3, E2, E12].as_slice(),
+    [E3, E10, E12, E3, E1, E10, E5, E9, E8].as_slice(),
+    [E3, E4, E8, E3, E10, E12, E3, E8, E10, E10, E8, E5].as_slice(),
+    [E3, E11, E4, E8, E5, E9].as_slice(),
+    [E11, E8, E3, E8, E5, E3, E5, E1, E3].as_slice(),
+    [E11, E4, E3, E8, E5, E9, E1, E10, E2].as_slice(),
+    [E11, E2, E3, E10, E2, E11, E10, E11, E8, E10, E8, E5].as_slice(),
+    [E12, E4, E2, E12, E11, E4, E9, E8, E5].as_slice(),
+    [E11, E2, E12, E2, E11, E5, E11, E8, E5, E2, E5, E1].as_slice(),
+    [E9, E8, E5, E11, E10, E12, E11, E1, E10, E4, E1, E11].as_slice(),
+    [E5, E10, E8, E8, E10, E11, E11, E10, E12].as_slice(),
+    [E5, E6, E10].as_slice(),
+    [E4, E9, E1, E5, E6, E10].as_slice(),
+    [E1, E6, E2, E1, E5, E6].as_slice(),
+    [E9, E5, E4, E5, E6, E4, E6, E2, E4].as_slice(),
+    [E5, E6, E10, E12, E3, E2].as_slice(),
+    [E9, E1, E4, E5, E6, E10, E2, E12, E3].as_slice(),
+    [E6, E12, E5, E12, E3, E5, E3, E1, E5].as_slice(),
+    [E9, E3, E4, E12, E3, E9, E12, E9, E5, E12, E5, E6].as_slice(),
+    [E3, E11, E4, E5, E6, E10].as_slice(),
+    [E11, E1, E3, E11, E9, E1, E10, E5, E6].as_slice(),
+    [E6, E1, E5, E6, E2, E1, E4, E3, E11].as_slice(),
+    [E9, E3, E11, E3, E9, E6, E9, E5, E6, E3, E6, E2].as_slice(),
+    [E4, E12, E11, E4, E2, E12, E6, E10, E5].as_slice(),
+    [E10, E5, E6, E9, E12, E11, E9, E2, E12, E1, E2, E9].as_slice(),
+    [E4, E1, E5, E4, E12, E11, E4, E5, E12, E12, E5, E6].as_slice(),
+    [E6, E12, E5, E5, E12, E9, E9, E12, E11].as_slice(),
+    [E8, E10, E9, E8, E6, E10].as_slice(),
+    [E10, E1, E6, E1, E4, E6, E4, E8, E6].as_slice(),
+    [E1, E9, E2, E9, E8, E2, E8, E6, E2].as_slice(),
+    [E8, E6, E2, E8, E2, E4].as_slice(),
+    [E8, E10, E9, E8, E6, E10, E2, E12, E3].as_slice(),
+    [E2, E12, E3, E6, E4, E8, E6, E1, E4, E10, E1, E6].as_slice(),
+    [E1, E12, E3, E12, E1, E8, E1, E9, E8, E12, E8, E6].as_slice(),
+    [E3, E4, E12, E12, E4, E6, E6, E4, E8].as_slice(),
+    [E10, E8, E6, E10, E9, E8, E11, E4, E3].as_slice(),
+    [E10, E1, E3, E10, E8, E6, E10, E3, E8, E8, E3, E11].as_slice(),
+    [E4, E3, E11, E2, E8, E6, E2, E9, E8, E1, E9, E2].as_slice(),
+    [E11, E8, E3, E3, E8, E2, E2, E8, E6].as_slice(),
+    [E2, E11, E4, E2, E12, E11, E8, E10, E9, E6, E10, E8].as_slice(),
+    [E11, E8, E6, E11, E6, E12, E10, E1, E2].as_slice(),
+    [E6, E12, E11, E6, E11, E8, E4, E1, E9].as_slice(),
+    [E6, E12, E11, E6, E11, E8].as_slice(),
+    [E6, E7, E12].as_slice(),
+    [E4, E9, E1, E6, E7, E12].as_slice(),
+    [E1, E10, E2, E6, E7, E12].as_slice(),
+    [E9, E2, E4, E9, E10, E2, E12, E6, E7].as_slice(),
+    [E2, E7, E3, E2, E6, E7].as_slice(),
+    [E7, E2, E6, E7, E3, E2, E1, E4, E9].as_slice(),
+    [E10, E6, E1, E6, E7, E1, E7, E3, E1].as_slice(),
+    [E10, E4, E9, E4, E10, E7, E10, E6, E7, E4, E7, E3].as_slice(),
+    [E6, E7, E12, E11, E4, E3].as_slice(),
+    [E1, E11, E9, E1, E3, E11, E7, E12, E6].as_slice(),
+    [E10, E2, E1, E6, E7, E12, E3, E11, E4].as_slice(),
+    [E12, E6, E7, E10, E11, E9, E10, E3, E11, E2, E3, E10].as_slice(),
+    [E7, E11, E6, E11, E4, E6, E4, E2, E6].as_slice(),
+    [E1, E2, E6, E1, E11, E9, E1, E6, E11, E11, E6, E7].as_slice(),
+    [E10, E4, E1, E11, E4, E10, E11, E10, E6, E11, E6, E7].as_slice(),
+    [E7, E11, E6, E6, E11, E10, E10, E11, E9].as_slice(),
+    [E9, E8, E5, E7, E12, E6].as_slice(),
+    [E4, E5, E1, E4, E8, E5, E6, E7, E12].as_slice(),
+    [E1, E10, E2, E9, E8, E5, E6, E7, E12].as_slice(),
+    [E6, E7, E12, E8, E2, E4, E8, E10, E2, E5, E10, E8].as_slice(),
+    [E2, E7, E3, E2, E6, E7, E8, E5, E9].as_slice(),
+    [E8, E1, E4, E8, E5, E1, E2, E7, E3, E6, E7, E2].as_slice(),
+    [E5, E9, E8, E1, E7, E3, E1, E6, E7, E10, E6, E1].as_slice(),
+    [E3, E4, E8, E3, E8, E7, E5, E10, E6].as_slice(),
+    [E3, E11, E4, E12, E6, E7, E8, E5, E9].as_slice(),
+    [E7, E12, E6, E3, E5, E1, E3, E8, E5, E11, E8, E3].as_slice(),
+    [E11, E4, E3, E2, E1, E10, E8, E5, E9, E7, E12, E6].as_slice(),
+    [E2, E3, E12, E10, E6, E5, E7, E11, E8].as_slice(),
+    [E8, E5, E9, E6, E4, E2, E6, E11, E4, E7, E11, E6].as_slice(),
+    [E1, E2, E6, E1, E6, E5, E7, E11, E8].as_slice(),
+    [E4, E1, E9, E11, E8, E7, E5, E10, E6].as_slice(),
+    [E10, E6, E5, E8, E7, E11].as_slice(),
+    [E5, E12, E10, E5, E7, E12].as_slice(),
+    [E12, E5, E7, E12, E10, E5, E9, E1, E4].as_slice(),
+    [E12, E2, E7, E2, E1, E7, E1, E5, E7].as_slice(),
+    [E12, E2, E4, E12, E5, E7, E12, E4, E5, E5, E4, E9].as_slice(),
+    [E2, E10, E3, E10, E5, E3, E5, E7, E3].as_slice(),
+    [E1, E4, E9, E3, E5, E7, E3, E10, E5, E2, E10, E3].as_slice(),
+    [E5, E7, E3, E5, E3, E1].as_slice(),
+    [E9, E5, E4, E4, E5, E3, E3, E5, E7].as_slice(),
+    [E5, E12, E10, E5, E7, E12, E3, E11, E4].as_slice(),
+    [E3, E9, E1, E3, E11, E9, E5, E12, E10, E7, E12, E5].as_slice(),
+    [E3, E11, E4, E7, E1, E5, E7, E2, E1, E12, E2, E7].as_slice(),
+    [E9, E5, E7, E9, E7, E11, E12, E2, E3].as_slice(),
+    [E2, E11, E4, E11, E2, E5, E2, E10, E5, E11, E5, E7].as_slice(),
+    [E7, E11, E9, E7, E9, E5, E1, E2, E10].as_slice(),
+    [E4, E1, E11, E11, E1, E7, E7, E1, E5].as_slice(),
+    [E7, E11, E9, E7, E9, E5].as_slice(),
+    [E8, E7, E9, E7, E12, E9, E12, E10, E9].as_slice(),
+    [E10, E7, E12, E7, E10, E4, E10, E1, E4, E7, E4, E8].as_slice(),
+    [E1, E12, E2, E7, E12, E1, E7, E1, E9, E7, E9, E8].as_slice(),
+    [E12, E2, E7, E7, E2, E8, E8, E2, E4].as_slice(),
+    [E8, E7, E3, E8, E10, E9, E8, E3, E10, E10, E3, E2].as_slice(),
+    [E8, E7, E3, E8, E3, E4, E2, E10, E1].as_slice(),
+    [E8, E7, E9, E9, E7, E1, E1, E7, E3].as_slice(),
+    [E3, E4, E8, E3, E8, E7].as_slice(),
+    [E11, E4, E3, E9, E12, E10, E9, E7, E12, E8, E7, E9].as_slice(),
+    [E10, E1, E3, E10, E3, E12, E11, E8, E7].as_slice(),
+    [E12, E2, E3, E7, E11, E8, E4, E1, E9].as_slice(),
+    [E2, E3, E12, E7, E11, E8].as_slice(),
+    [E2, E10, E9, E2, E9, E4, E8, E7, E11].as_slice(),
+    [E1, E2, E10, E7, E11, E8].as_slice(),
+    [E7, E11, E8, E9, E4, E1].as_slice(),
+    [E7, E11, E8].as_slice(),
+    [E7, E8, E11].as_slice(),
+    [E7, E8, E11, E9, E1, E4].as_slice(),
+    [E1, E10, E2, E7, E8, E11].as_slice(),
+    [E2, E9, E10, E2, E4, E9, E8, E11, E7].as_slice(),
+    [E2, E12, E3, E7, E8, E11].as_slice(),
+    [E12, E3, E2, E7, E8, E11, E4, E9, E1].as_slice(),
+    [E10, E3, E1, E10, E12, E3, E11, E7, E8].as_slice(),
+    [E11, E7, E8, E12, E9, E10, E12, E4, E9, E3, E4, E12].as_slice(),
+    [E3, E8, E4, E3, E7, E8].as_slice(),
+    [E8, E9, E7, E9, E1, E7, E1, E3, E7].as_slice(),
+    [E8, E3, E7, E8, E4, E3, E2, E1, E10].as_slice(),
+    [E2, E3, E7, E2, E9, E10, E2, E7, E9, E9, E7, E8].as_slice(),
+    [E12, E7, E2, E7, E8, E2, E8, E4, E2].as_slice(),
+    [E12, E1, E2, E9, E1, E12, E9, E12, E7, E9, E7, E8].as_slice(),
+    [E12, E1, E10, E1, E12, E8, E12, E7, E8, E1, E8, E4].as_slice(),
+    [E8, E9, E7, E7, E9, E12, E12, E9, E10].as_slice(),
+    [E7, E9, E11, E7, E5, E9].as_slice(),
+    [E4, E11, E1, E11, E7, E1, E7, E5, E1].as_slice(),
+    [E7, E9, E11, E7, E5, E9, E1, E10, E2].as_slice(),
+    [E4, E10, E2, E10, E4, E7, E4, E11, E7, E10, E7, E5].as_slice(),
+    [E9, E7, E5, E9, E11, E7, E12, E3, E2].as_slice(),
+    [E3, E2, E12, E1, E7, E5, E1, E11, E7, E4, E11, E1].as_slice(),
+    [E1, E12, E3, E1, E10, E12, E7, E9, E11, E5, E9, E7].as_slice(),
+    [E5, E10, E12, E5, E12, E7, E3, E4, E11].as_slice(),
+    [E9, E4, E5, E4, E3, E5, E3, E7, E5].as_slice(),
+    [E7, E5, E1, E7, E1, E3].as_slice(),
+    [E1, E10, E2, E5, E3, E7, E5, E4, E3, E9, E4, E5].as_slice(),
+    [E2, E3, E10, E10, E3, E5, E5, E3, E7].as_slice(),
+    [E9, E4, E2, E9, E7, E5, E9, E2, E7, E7, E2, E12].as_slice(),
+    [E12, E7, E2, E2, E7, E1, E1, E7, E5].as_slice(),
+    [E12, E7, E5, E12, E5, E10, E9, E4, E1].as_slice(),
+    [E5, E10, E12, E5, E12, E7].as_slice(),
+    [E10, E5, E6, E8, E11, E7].as_slice(),
+    [E4, E9, E1, E11, E7, E8, E5, E6, E10].as_slice(),
+    [E1, E6, E2, E1, E5, E6, E7, E8, E11].as_slice(),
+    [E8, E11, E7, E4, E6, E2, E4, E5, E6, E9, E5, E4].as_slice(),
+    [E2, E12, E3, E10, E5, E6, E7, E8, E11].as_slice(),
+    [E9, E1, E4, E3, E2, E12, E5, E6, E10, E8, E11, E7].as_slice(),
+    [E7, E8, E11, E5, E3, E1, E5, E12, E3, E6, E12, E5].as_slice(),
+    [E3, E4, E11, E12, E7, E6, E8, E9, E5].as_slice(),
+    [E3, E8, E4, E3, E7, E8, E5, E6, E10].as_slice(),
+    [E5, E6, E10, E7, E1, E3, E7, E9, E1, E8, E9, E7].as_slice(),
+    [E7, E4, E3, E7, E8, E4, E1, E6, E2, E5, E6, E1].as_slice(),
+    [E2, E3, E7, E2, E7, E6, E8, E9, E5].as_slice(),
+    [E6, E10, E5, E2, E8, E4, E2, E7, E8, E12, E7, E2].as_slice(),
+    [E1, E2, E10, E9, E5, E8, E6, E12, E7].as_slice(),
+    [E4, E1, E5, E4, E5, E8, E6, E12, E7].as_slice(),
+    [E9, E5, E8, E7, E6, E12].as_slice(),
+    [E7, E6, E11, E6, E10, E11, E10, E9, E11].as_slice(),
+    [E4, E10, E1, E6, E10, E4, E6, E4, E11, E6, E11, E7].as_slice(),
+    [E7, E6, E2, E7, E9, E11, E7, E2, E9, E9, E2, E1].as_slice(),
+    [E7, E6, E11, E11, E6, E4, E4, E6, E2].as_slice(),
+    [E12, E3, E2, E11, E10, E9, E11, E6, E10, E7, E6, E11].as_slice(),
+    [E10, E1, E2, E6, E12, E7, E3, E4, E11].as_slice(),
+    [E1, E9, E11, E1, E11, E3, E7, E6, E12].as_slice(),
+    [E6, E12, E7, E11, E3, E4].as_slice(),
+    [E9, E6, E10, E6, E9, E3, E9, E4, E3, E6, E3, E7].as_slice(),
+    [E10, E1, E6, E6, E1, E7, E7, E1, E3].as_slice(),
+    [E7, E6, E2, E7, E2, E3, E1, E9, E4].as_slice(),
+    [E2, E3, E7, E2, E7, E6].as_slice(),
+    [E9, E4, E2, E9, E2, E10, E12, E7, E6].as_slice(),
+    [E1, E2, E10, E6, E12, E7].as_slice(),
+    [E4, E1, E9, E6, E12, E7].as_slice(),
+    [E6, E12, E7].as_slice(),
+    [E6, E11, E12, E6, E8, E11].as_slice(),
+    [E6, E11, E12, E6, E8, E11, E4, E9, E1].as_slice(),
+    [E11, E6, E8, E11, E12, E6, E10, E2, E1].as_slice(),
+    [E4, E10, E2, E4, E9, E10, E6, E11, E12, E8, E11, E6].as_slice(),
+    [E11, E3, E8, E3, E2, E8, E2, E6, E8].as_slice(),
+    [E4, E9, E1, E8, E2, E6, E8, E3, E2, E11, E3, E8].as_slice(),
+    [E11, E3, E1, E11, E6, E8, E11, E1, E6, E6, E1, E10].as_slice(),
+    [E10, E6, E8, E10, E8, E9, E11, E3, E4].as_slice(),
+    [E3, E12, E4, E12, E6, E4, E6, E8, E4].as_slice(),
+    [E3, E9, E1, E9, E3, E6, E3, E12, E6, E9, E6, E8].as_slice(),
+    [E2, E1, E10, E4, E6, E8, E4, E12, E6, E3, E12, E4].as_slice(),
+    [E8, E9, E10, E8, E10, E6, E2, E3, E12].as_slice(),
+    [E6, E8, E4, E6, E4, E2].as_slice(),
+    [E1, E2, E9, E9, E2, E8, E8, E2, E6].as_slice(),
+    [E10, E6, E1, E1, E6, E4, E4, E6, E8].as_slice(),
+    [E8, E9, E10, E8, E10, E6].as_slice(),
+    [E6, E5, E12, E5, E9, E12, E9, E11, E12].as_slice(),
+    [E6, E5, E1, E6, E11, E12, E6, E1, E11, E11, E1, E4].as_slice(),
+    [E10, E2, E1, E12, E9, E11, E12, E5, E9, E6, E5, E12].as_slice(),
+    [E4, E11, E12, E4, E12, E2, E6, E5, E10].as_slice(),
+    [E11, E5, E9, E5, E11, E2, E11, E3, E2, E5, E2, E6].as_slice(),
+    [E6, E5, E1, E6, E1, E2, E4, E11, E3].as_slice(),
+    [E11, E3, E1, E11, E1, E9, E10, E6, E5].as_slice(),
+    [E3, E4, E11, E5, E10, E6].as_slice(),
+    [E3, E9, E4, E5, E9, E3, E5, E3, E12, E5, E12, E6].as_slice(),
+    [E6, E5, E12, E12, E5, E3, E3, E5, E1].as_slice(),
+    [E9, E4, E1, E5, E10, E6, E2, E3, E12].as_slice(),
+    [E5, E10, E6, E12, E2, E3].as_slice(),
+    [E9, E4, E5, E5, E4, E6, E6, E4, E2].as_slice(),
+    [E1, E2, E6, E1, E6, E5].as_slice(),
+    [E4, E1, E9, E5, E10, E6].as_slice(),
+    [E5, E10, E6].as_slice(),
+    [E5, E8, E10, E8, E11, E10, E11, E12, E10].as_slice(),
+    [E9, E1, E4, E10, E11, E12, E10, E8, E11, E5, E8, E10].as_slice(),
+    [E12, E8, E11, E8, E12, E1, E12, E2, E1, E8, E1, E5].as_slice(),
+    [E12, E2, E4, E12, E4, E11, E9, E5, E8].as_slice(),
+    [E2, E11, E3, E8, E11, E2, E8, E2, E10, E8, E10, E5].as_slice(),
+    [E11, E3, E4, E8, E9, E5, E1, E2, E10].as_slice(),
+    [E11, E3, E8, E8, E3, E5, E5, E3, E1].as_slice(),
+    [E3, E4, E11, E8, E9, E5].as_slice(),
+    [E5, E8, E4, E5, E12, E10, E5, E4, E12, E12, E4, E3].as_slice(),
+    [E3, E12, E10, E3, E10, E1, E5, E8, E9].as_slice(),
+    [E5, E8, E4, E5, E4, E1, E3, E12, E2].as_slice(),
+    [E2, E3, E12, E8, E9, E5].as_slice(),
+    [E5, E8, E10, E10, E8, E2, E2, E8, E4].as_slice(),
+    [E8, E9, E5, E10, E1, E2].as_slice(),
+    [E4, E1, E5, E4, E5, E8].as_slice(),
+    [E8, E9, E5].as_slice(),
+    [E10, E9, E11, E10, E11, E12].as_slice(),
+    [E4, E11, E1, E1, E11, E10, E10, E11, E12].as_slice(),
+    [E1, E9, E2, E2, E9, E12, E12, E9, E11].as_slice(),
+    [E4, E11, E12, E4, E12, E2].as_slice(),
+    [E2, E10, E3, E3, E10, E11, E11, E10, E9].as_slice(),
+    [E11, E3, E4, E1, E2, E10].as_slice(),
+    [E1, E9, E11, E1, E11, E3].as_slice(),
+    [E3, E4, E11].as_slice(),
+    [E3, E12, E4, E4, E12, E9, E9, E12, E10].as_slice(),
+    [E3, E12, E10, E3, E10, E1].as_slice(),
+    [E9, E4, E1, E2, E3, E12].as_slice(),
+    [E2, E3, E12].as_slice(),
+    [E2, E10, E9, E2, E9, E4].as_slice(),
+    [E1, E2, E10].as_slice(),
+    [E4, E1, E9].as_slice(),
+    [].as_slice(),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,6 +657,27 @@ mod tests {
     #[test]
     fn test_marching_cubes() {
         let table = generate_lookup_table();
-        assert_eq!(table.len(), 256);
+
+        let name = |edge: Edge| {
+            match edge {
+                E1 => "E1",
+                E2 => "E2",
+                E3 => "E3",
+                E4 => "E4",
+                E5 => "E5",
+                E6 => "E6",
+                E7 => "E7",
+                E8 => "E8",
+                E9 => "E9",
+                E10 => "E10",
+                E11 => "E11",
+                E12 => "E12",
+                _ => unimplemented!()
+            }
+        };
+
+        for (cube, pattern) in table {
+            println!("{}\t{}", cube.0.bits, pattern.triangles.iter().map(|e| name(*e)).collect::<Vec<_>>().join(", "));
+        }
     }
 }
