@@ -250,7 +250,7 @@ fn rotate_and_insert(mut pattern: Pattern, map: &mut BTreeMap<Cube, Pattern>) {
     }
 }
 
-pub fn marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
+pub fn marching_cubes<TGrid: Grid>(grid: &TGrid) -> Vec<Vector3<f32>> {
     let mut vertices: Vec<Vector3<f32>> = Vec::new();
 
     let lookup_table = generate_lookup_table();
@@ -316,12 +316,7 @@ pub fn marching_cubes<TMesh: Mesh, TGrid: Grid>(grid: &TGrid) -> TMesh {
     //     handle_cube(v, grid, &lookup_table, &mut vertices);
     // }
 
-
-
-    let vertices: Vec<_> = vertices.into_iter().map(|v| cast(&v).into()).collect();
-    let indexed = merge_points(&vertices);
-    
-    TMesh::from_vertices_and_indices(indexed.points.as_slice(), &indexed.indices)
+    vertices
 }
 
 fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &BTreeMap<Cube, Pattern>, vertices: &mut Vec<Vector3<f32>>) {

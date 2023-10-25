@@ -16,31 +16,17 @@ pub type BoolGrid = dynamic_vdb!(4, 3, 2);
 pub fn intersection_grid<T: Grid>(grid: &T) -> BoolGrid {
     let mut intersection_grid = BoolGrid::new();
 
-    let mut i = 0;
-
     for leaf in grid.leafs() {
-        i+= 1;
-
-        if i %1000 == 0 {
-            println!("i = {}", i);
-        }   
-
         match leaf {
             Leaf::Tile(t) => tile(&mut intersection_grid, grid, t),
             Leaf::Node(n) => node(&mut intersection_grid, grid, n),
         }
     }
 
-    println!("DONE ITERATING");
-
     intersection_grid
 }
 
 fn tile<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, tile: Tile) {
-    if tile.size != 4 {
-        println!("Tile size = {}", tile.size);
-    }
-
     for i in 0..tile.size {
         for j in 0..tile.size {
             let left  = tile.origin + Vector3::new(0, i, j).cast();

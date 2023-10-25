@@ -15,6 +15,11 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
         return Default::default();
     }
 
+    #[inline]
+    pub fn from_vertices(vertices: Vec<Point3<TScalar>>) -> Self {
+        return Self { vertices };
+    }
+
     pub fn add_face(&mut self, v1: Point3<TScalar>, v2: Point3<TScalar>, v3: Point3<TScalar>) {
         self.vertices.push(v1);
         self.vertices.push(v2);
