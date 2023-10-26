@@ -1,14 +1,15 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
 use super::{
-    utils::{box_indices, is_mask_empty, is_mask_full},
+    utils::{is_mask_empty, is_mask_full},
     Accessor, HasChild, TreeNode, Leaf, Tile, Traverse, Child,
 };
 
 pub struct InternalNode<
+    TValue,
     TChild: TreeNode,
     TLeaf: TreeNode,
     const BRANCHING: usize,
@@ -18,15 +19,16 @@ pub struct InternalNode<
 > {
     childs: [Option<Box<TChild>>; SIZE],
     child_mask: BitArray<[usize; BIT_SIZE]>,
+    values: [TValue; SIZE],
     value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<isize>,
     leaf_type: PhantomData<TLeaf>,
 }
 
-impl<TChild, TLeaf, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<TLeaf> for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+impl<TChild, TLeaf, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<TLeaf> for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
     TChild: TreeNode<LeafNode = TLeaf> + Traverse<TLeaf>,
-    TLeaf: TreeNode
+    TLeaf: TreeNode<Value = TChild::Value>
 {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TLeaf>> + 'a> {
         let it = (0..SIZE).into_iter()
@@ -116,10 +118,10 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
     TChild: TreeNode<LeafNode = TLeaf>,
-    TLeaf: TreeNode
+    TLeaf: TreeNode<Value = TChild::Value>
 {
     #[inline]
     pub fn new() -> Self {
@@ -217,7 +219,7 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > HasChild for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > HasChild for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     type Child = TChild;
 }
@@ -229,23 +231,25 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > Accessor for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > Accessor for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
     TChild: TreeNode<LeafNode = TLeaf>, 
-    TLeaf: TreeNode
+    TLeaf: TreeNode<Value = TChild::Value>
 {
+    type Value = TChild::Value;
+
     #[inline(always)]
-    fn at(&self, index: &Vector3<isize>) -> bool {
+    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
         if self.child_mask[offset] {
             return self.child(offset).at(index);
         }
 
-        self.value_mask[offset]
+        Some(&self.values[offset])
     }
 
-    fn insert(&mut self, index: &Vector3<isize>) {
+    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         // Node is branch - insert voxel
         // Node is tile:
         //   if tile is active - do nothing
@@ -254,7 +258,7 @@ where
 
         if self.child_mask[offset] {
             let child = self.child_mut(offset);
-            child.insert(index);
+            child.insert(index, value);
 
             if child.is_full() {
                 self.remove_child(offset);
@@ -263,7 +267,7 @@ where
         } else if !self.value_mask[offset] {
             self.add_child(offset, false);
             let child = self.child_mut(offset);
-            child.insert(index);
+            child.insert(index, value);
         }
     }
 
@@ -297,10 +301,10 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > TreeNode for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > TreeNode for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
     TChild: TreeNode<LeafNode = TLeaf>, 
-    TLeaf: TreeNode
+    TLeaf: TreeNode<Value = TChild::Value>
 {
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
@@ -314,18 +318,21 @@ where
         return Self {
             origin,
             childs: std::array::from_fn(|_| None),
-            value_mask: Default::default(),
             child_mask: Default::default(),
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
+            value_mask: Default::default(),
             leaf_type: PhantomData,
         };
     }
 
     fn new_active(origin: Vector3<isize>) -> Self {
+        todo!("Fix active tile creation. ");
         return Self {
             origin,
             childs: std::array::from_fn(|_| None),
-            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
             child_mask: Default::default(),
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
+            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
             leaf_type: PhantomData,
         };
     }

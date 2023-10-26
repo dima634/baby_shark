@@ -58,7 +58,8 @@ fn insert_external_voxels<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, vo
                 //     continue;
                 // }
 
-                int_grid.insert(&external_voxel);
+                todo!();
+                int_grid.insert(&external_voxel, ());
             }
         }
     }
@@ -72,7 +73,8 @@ fn node<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, leaf: &T::LeafNode) 
         for y in -1..=size {
             for z in -1..=size {
                 let voxel = origin + Vector3::new(x, y, z);
-                int_grid.insert(&voxel);
+                todo!();
+                int_grid.insert(&voxel, ());
             }
         }
     }

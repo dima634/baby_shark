@@ -58,29 +58,32 @@ where
 }
 
 impl<TChild: TreeNode> Accessor for RootNode<TChild> {
+    type Value = TChild::Value;
+
     #[inline(always)]
-    fn at(&self, index: &Vector3<isize>) -> bool {
+    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let root_key = Self::root_key(index);
 
         if let Some(child) = self.root.get(&root_key) {
-            return child.at(index);
+            child.at(index)
+        } else {
+            None
         }
-
-        return false;
     }
 
-    fn insert(&mut self, index: &Vector3<isize>) {
+    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let root_key = Self::root_key(index);
 
-        let child = if let Some(child) = self.root.get_mut(&root_key) {
-            child
-        } else {
-            let new_child = TChild::new_inactive(root_key.0);
-            self.root.insert(root_key, new_child);
-            self.root.get_mut(&root_key).unwrap()
-        };
+        let child =
+            if let Some(child) = self.root.get_mut(&root_key) {
+                child
+            } else {
+                let new_child = TChild::new_inactive(root_key.0);
+                self.root.insert(root_key, new_child);
+                self.root.get_mut(&root_key).unwrap()
+            };
 
-        child.insert(index);
+        child.insert(index, value);
     }
 
     fn remove(&mut self, index: &Vector3<isize>) {
@@ -132,7 +135,8 @@ impl<TChild: TreeNode> RootNode<TChild> {
                 continue;
             }
 
-            tree.insert(&idx);
+            todo!()
+            //tree.insert(&idx);
         }
 
         return tree;

@@ -76,7 +76,8 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                             for z in 0..size {
                                 let voxel = origin + Vector3::new(x, y, z).cast();
                                 
-                                if !self.grid.at(&voxel) {
+                                todo!();
+                                if self.grid.at(&voxel).is_some() {
                                     continue;
                                 }
 
@@ -102,12 +103,14 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
         let front_index   = voxel + Vector3::new(0, 1, 0);
         let back_index    = voxel + Vector3::new(0, -1, 0);
 
-        let top     = self.grid.at(&top_index);
-        let bottom  = self.grid.at(&bottom_index);
-        let left    = self.grid.at(&left_index);
-        let right   = self.grid.at(&right_index);
-        let front   = self.grid.at(&front_index);
-        let back    = self.grid.at(&back_index);
+        todo!();
+
+        let top     = self.grid.at(&top_index).is_some();
+        let bottom  = self.grid.at(&bottom_index).is_some();
+        let left    = self.grid.at(&left_index).is_some();
+        let right   = self.grid.at(&right_index).is_some();
+        let front   = self.grid.at(&front_index).is_some();
+        let back    = self.grid.at(&back_index).is_some();
 
         if !top {
             let faces = [

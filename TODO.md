@@ -23,6 +23,7 @@
 - [ ] Insert
     - [x] Full node
     - [ ] Insert and prune. Move prune out of insert.
+    - [ ] There should not be a pruning on insert
 - [ ] Cached accessor
     - Typed list to avoid vtable calls https://crates.io/crates/frunk#hlist
     - Fix issue with caching

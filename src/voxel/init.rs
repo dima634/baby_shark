@@ -1,7 +1,13 @@
 #[macro_export]
 macro_rules! leaf_type {
     ($branching:expr,) => {
-        $crate::voxel::LeafNode<$branching, $branching, { $crate::voxel::leaf_node_size($branching) }>
+        $crate::voxel::LeafNode<
+            (),
+            $branching, 
+            $branching, 
+            { $crate::voxel::leaf_node_size($branching) },
+            { $crate::voxel::leaf_node_bit_size($branching) }
+        >
     };
 
     ($branching:expr, $($rest:expr),+ $(,)?) => {
@@ -12,11 +18,18 @@ macro_rules! leaf_type {
 #[macro_export]
 macro_rules! static_vdb {
     (@internal $branching:expr,) => {
-        $crate::voxel::LeafNode<$branching, $branching, { $crate::voxel::leaf_node_size($branching) }>
+        $crate::voxel::LeafNode<
+            (),
+            $branching, 
+            $branching, 
+            { $crate::voxel::leaf_node_size($branching) },
+            { $crate::voxel::leaf_node_bit_size($branching) }
+        >
     };
 
     ($(@internal)? $branching:expr, $($rest:expr),+ $(,)?) => {
         $crate::voxel::InternalNode::<
+            (), 
             $crate::static_vdb!(@internal $($rest,)*),
             $crate::leaf_type!($($rest,)*),
             $branching,

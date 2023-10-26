@@ -37,8 +37,10 @@ pub trait TreeNodeConsts {
 }
 
 pub trait Accessor {
-    fn at(&self, index: &Vector3<isize>) -> bool;
-    fn insert(&mut self, index: &Vector3<isize>);
+    type Value;
+
+    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value>;
+    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value);
     fn remove(&mut self, index: &Vector3<isize>);
 }
 
@@ -88,19 +90,6 @@ pub trait TreeNode: Accessor {
 pub trait HasChild {
     type Child: TreeNode;
 }
-
-pub trait TreeNodeTypes {
-    type LeafNode: TreeNode;
-}
-
-// pub trait Node<TLeaf: Accessor>: Accessor {
-//     fn childs_count(&self) -> usize;
-//     // fn child(&self, offset: usize) -> Leaf<TChild>;
-//     fn is_leaf(&self) -> bool;
-//     fn at_if_leaf(&self, index: &Vector3<isize>) -> Option<bool>;
-//     fn next(&self, index: &Vector3<isize>) -> Option<&dyn Node<TLeaf>>;
-//     fn total_branching(&self) -> usize;
-// }
 
 pub struct Tile {
     pub origin: Vector3<isize>,

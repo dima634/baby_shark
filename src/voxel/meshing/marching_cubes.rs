@@ -334,7 +334,8 @@ fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &
     let mut cube = Cube::new(0);
 
     for i in 0..vertex_indices.len() {
-        if grid.at(&vertex_indices[i]) {
+        todo!();
+        if grid.at(&vertex_indices[i]).is_some() {
             cube.0.set(i as u8, true);
         }
     }

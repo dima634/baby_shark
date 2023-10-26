@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
@@ -11,12 +13,13 @@ use super::{
     Accessor, TreeNode, Leaf, Traverse,
 };
 
-pub struct LeafNode<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> {
-    value_mask: BitArray<[usize; SIZE]>,
+pub struct LeafNode<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
+    values: [TValue; SIZE],
+    value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<isize>,
 }
 
-impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Traverse<Self> for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE> {
+impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
         unimplemented!("Leaf node has no childs")
     }
@@ -53,8 +56,8 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
 //     }
 // }
 
-impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
-    LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
+impl<TValue: , const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
+    LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     #[inline]
     fn offset(index: &Vector3<isize>) -> usize {
@@ -81,6 +84,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
         return Self {
             origin: Vector3::new(0, 0, 0),
             value_mask: Default::default(),
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
         };
     }
 
@@ -90,17 +94,27 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
     }
 }
 
-impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Accessor
-    for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
+impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
+    for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
+    type Value = TValue;
+
     #[inline(always)]
-    fn at(&self, index: &Vector3<isize>) -> bool {
-        return self.value_mask[Self::offset(index)];
+    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
+        let offset = Self::offset(index);
+
+        if self.value_mask[offset] {
+            Some(&self.values[offset])
+        } else {
+            None
+        }
     }
 
     #[inline]
-    fn insert(&mut self, index: &Vector3<isize>) {
-        self.value_mask.set(Self::offset(index), true);
+    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
+        let offset = Self::offset(index);
+        self.value_mask.set(offset, true);
+        self.values[offset] = value;
     }
 
     #[inline]
@@ -109,12 +123,12 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Ac
     }
 }
 
-impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> TreeNode
-    for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
+impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
+    for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = SIZE;
+    const SIZE: usize = BIT_SIZE;
 
     const IS_LEAF: bool = true;
 
@@ -125,6 +139,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
         return Self {
             origin,
             value_mask: Default::default(),
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
         };
     }
 
@@ -132,18 +147,19 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
     fn new_active(origin: Vector3<isize>) -> Self {
         return Self {
             origin,
-            value_mask: BitArray::new([usize::MAX; SIZE]),
+            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
         };
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        return is_mask_empty::<SIZE>(&self.value_mask.data);
+        return is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
     }
 
     #[inline]
     fn is_full(&self) -> bool {
-        return is_mask_full::<SIZE>(&self.value_mask.data);
+        return is_mask_full::<BIT_SIZE>(&self.value_mask.data);
     }
 
     #[inline]
@@ -158,5 +174,9 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Tr
 }
 
 pub const fn leaf_node_size(branching: usize) -> usize {
-    return (1 << branching * 3) / usize::BITS as usize;
+    1 << branching * 3
+}
+
+pub const fn leaf_node_bit_size(branching: usize) -> usize {
+    leaf_node_size(branching) / usize::BITS as usize
 }

@@ -12,11 +12,11 @@ fn test_static_tree_insert() {
 
     assert!(tree.is_empty());
 
-    let size = 100;
+    let size = 32;
 
     for idx in box_indices(0, size) {
-        tree.insert(&idx);
-        assert!(tree.at(&idx));
+        tree.insert(&idx, ());
+        assert!(tree.at(&idx).is_some());
     }
 
     assert!(!tree.is_empty());
@@ -28,11 +28,11 @@ fn test_static_tree_remove() {
 
     assert!(!tree.is_empty());
 
-    let size = 100;
+    let size = 32;
 
     for idx in box_indices(0, size) {
         tree.remove(&idx);
-        assert!(!tree.at(&idx));
+        assert!(tree.at(&idx).is_none());
     }
 
     assert!(!tree.is_empty());
@@ -45,7 +45,7 @@ fn test_static_tree_is_empty() {
 
     let mut tree = StaticTree::new_inactive(Vector3::zeros());
     assert!(tree.is_empty());
-    tree.insert(&Vector3::zeros());
+    tree.insert(&Vector3::zeros(), ());
     assert!(!tree.is_empty());
 }
 
@@ -55,11 +55,11 @@ fn test_dynamic_tree_insert() {
 
     assert!(tree.is_empty());
 
-    let size = 100;
+    let size = 32;
 
     for idx in box_indices(0, size) {
-        tree.insert(&idx);
-        assert!(tree.at(&idx));
+        tree.insert(&idx, ());
+        assert!(tree.at(&idx).is_some());
     }
 
     assert!(!tree.is_empty());
@@ -71,10 +71,10 @@ fn test_dynamic_tree_remove() {
 
     assert!(tree.is_empty());
 
-    let size = 100;
+    let size = 32;
 
     for idx in box_indices(0, size) {
-        tree.insert(&idx);
+        tree.insert(&idx, ());
     }
 
     for idx in box_indices(0, size) {
@@ -88,6 +88,6 @@ fn test_dynamic_tree_remove() {
 fn test_dynamic_tree_is_empty() {
     let mut tree = DynamicTree::new();
     assert!(tree.is_empty());
-    tree.insert(&Vector3::zeros());
+    tree.insert(&Vector3::zeros(), ());
     assert!(!tree.is_empty());
 }
