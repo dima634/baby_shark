@@ -21,7 +21,7 @@
 - [ ] Root is not tree node?
 - [ ] Visualization
 - [ ] Insert
-    - [ ] Full node
+    - [x] Full node
     - [ ] Insert and prune. Move prune out of insert.
 - [ ] Cached accessor
     - Typed list to avoid vtable calls https://crates.io/crates/frunk#hlist
@@ -34,4 +34,7 @@
     - Iterate over seams cubes
     - Only on DEPTH - 1 level? skip rest. THIS ONE. Only active tiles/leaf should be considered. How to avoid duplicates?
     - AAAHHHHHHH create a separate tree containing intersected voxels (make borders active) and iterate over it
-- [ ] Internal node size: vec of union
+    - Make border active???
+- [x] Internal node size: vec of union
+- [ ] Marching cubes: intersection grid
+- [ ] Ability to pick between BTree and HashMap for root node
