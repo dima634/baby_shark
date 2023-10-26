@@ -30,7 +30,7 @@ macro_rules! static_vdb {
 #[macro_export]
 macro_rules! dynamic_vdb {
     ($($rest:expr),+) => {
-        $crate::voxel::RootNode::<$crate::static_vdb!(@internal $($rest,)*), $crate::leaf_type!($($rest,)*)>
+        $crate::voxel::RootNode::<$crate::static_vdb!(@internal $($rest,)*)>
     };
 }
 

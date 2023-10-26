@@ -4,27 +4,24 @@ use nalgebra::Vector3;
 
 use super::{utils::box_indices, HasChild, TreeNode, Accessor, Leaf, Traverse};
 
-pub struct RootNode<TChild: TreeNode, TLeaf: TreeNode> {
-    root: BTreeMap<RootKey, TChild>,
-    leaf_type: PhantomData<TLeaf>
+pub struct RootNode<TChild: TreeNode> {
+    root: BTreeMap<RootKey, TChild>
 }
 
-impl<TChild, TLeaf> Traverse<TLeaf> for RootNode<TChild, TLeaf> 
+impl<TChild> Traverse<TChild::LeafNode> for RootNode<TChild> 
 where 
-    TChild: TreeNode + Traverse<TLeaf>, 
-    TLeaf: TreeNode 
+    TChild: TreeNode + Traverse<TChild::LeafNode>
 {
     #[inline]
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TLeaf>> + 'a> {
+    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TChild::LeafNode>> + 'a> {
         let it = self.root.values().map(|child| super::Child::Branch(child));
         Box::new(it)
     }
 }
 
-impl<TChild, TLeaf> TreeNode for RootNode<TChild, TLeaf> 
+impl<TChild> TreeNode for RootNode<TChild> 
 where 
-    TChild: TreeNode<LeafNode = TLeaf>, 
-    TLeaf: TreeNode
+    TChild: TreeNode
 {
     const BRANCHING: usize = usize::MAX;
     const BRANCHING_TOTAL: usize = usize::MAX;
@@ -32,7 +29,7 @@ where
 
     const IS_LEAF: bool = false;
 
-    type LeafNode = TLeaf;
+    type LeafNode = TChild::LeafNode;
 
     fn new_inactive(origin: Vector3<isize>) -> Self {
         todo!()
@@ -60,7 +57,7 @@ where
     }
 }
 
-impl<TChild: TreeNode, TLeaf: TreeNode> Accessor for RootNode<TChild, TLeaf> {
+impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     #[inline(always)]
     fn at(&self, index: &Vector3<isize>) -> bool {
         let root_key = Self::root_key(index);
@@ -99,18 +96,15 @@ impl<TChild: TreeNode, TLeaf: TreeNode> Accessor for RootNode<TChild, TLeaf> {
     }
 }
 
-impl<TChild: TreeNode, TLeaf: TreeNode> RootNode<TChild, TLeaf> {
+impl<TChild: TreeNode> RootNode<TChild> {
     #[inline]
     pub fn new() -> Self {
-        return Self {
-            root: Default::default(),
-            leaf_type: PhantomData,
-        };
+        Self { root: Default::default() }
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        return self.root.iter().all(|(_, node)| node.is_empty());
+        self.root.iter().all(|(_, node)| node.is_empty())
     }
 
     ///
@@ -154,7 +148,7 @@ impl<TChild: TreeNode, TLeaf: TreeNode> RootNode<TChild, TLeaf> {
     }
 }
 
-impl<TChild: TreeNode, TLeaf: TreeNode> HasChild for RootNode<TChild, TLeaf> {
+impl<TChild: TreeNode> HasChild for RootNode<TChild> {
     type Child = TChild;
 }
 
