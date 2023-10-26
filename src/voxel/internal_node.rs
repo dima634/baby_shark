@@ -234,6 +234,7 @@ where
     TChild: TreeNode<LeafNode = TLeaf>, 
     TLeaf: TreeNode
 {
+    #[inline(always)]
     fn at(&self, index: &Vector3<isize>) -> bool {
         let offset = Self::offset(index);
 

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::{collections::{BTreeMap, HashMap}, marker::PhantomData, hash::{Hash, Hasher}};
 
 use nalgebra::Vector3;
 
@@ -61,6 +61,7 @@ where
 }
 
 impl<TChild: TreeNode, TLeaf: TreeNode> Accessor for RootNode<TChild, TLeaf> {
+    #[inline(always)]
     fn at(&self, index: &Vector3<isize>) -> bool {
         let root_key = Self::root_key(index);
 
@@ -102,8 +103,8 @@ impl<TChild: TreeNode, TLeaf: TreeNode> RootNode<TChild, TLeaf> {
     #[inline]
     pub fn new() -> Self {
         return Self {
-            root: BTreeMap::new(),
-            leaf_type: PhantomData
+            root: Default::default(),
+            leaf_type: PhantomData,
         };
     }
 
@@ -171,5 +172,17 @@ impl Ord for RootKey {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.data.0.cmp(&other.0.data.0)
+    }
+}
+
+impl Hash for RootKey {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let hash = 
+            ((1 << 8) - 1) &
+            (self.0.x * 73856093 ^
+             self.0.y * 19349663 ^
+             self.0.z * 83492791);
+        state.write_isize(hash);
     }
 }

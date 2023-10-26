@@ -93,7 +93,7 @@ impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize>
 impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Accessor
     for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE>
 {
-    #[inline]
+    #[inline(always)]
     fn at(&self, index: &Vector3<isize>) -> bool {
         return self.value_mask[Self::offset(index)];
     }
