@@ -19,7 +19,7 @@ pub struct LeafNode<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize
     origin: Vector3<isize>,
 }
 
-impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
+impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
         unimplemented!("Leaf node has no childs")
     }
@@ -56,7 +56,7 @@ impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: u
 //     }
 // }
 
-impl<TValue: , const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
+impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
     LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     #[inline]
@@ -94,7 +94,7 @@ impl<TValue: , const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE:
     }
 }
 
-impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
+impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
     for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     type Value = TValue;
@@ -123,7 +123,7 @@ impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: u
     }
 }
 
-impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
+impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
     for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     const BRANCHING: usize = BRANCHING;
@@ -135,19 +135,10 @@ impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: u
     type LeafNode = Self;
 
     #[inline]
-    fn new_inactive(origin: Vector3<isize>) -> Self {
+    fn empty(origin: Vector3<isize>) -> Self {
         return Self {
             origin,
             value_mask: Default::default(),
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-        };
-    }
-
-    #[inline]
-    fn new_active(origin: Vector3<isize>) -> Self {
-        return Self {
-            origin,
-            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
         };
     }
@@ -158,11 +149,6 @@ impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: u
     }
 
     #[inline]
-    fn is_full(&self) -> bool {
-        return is_mask_full::<BIT_SIZE>(&self.value_mask.data);
-    }
-
-    #[inline]
     fn traverse_leafs<F: FnMut(super::Leaf<Self::LeafNode>)>(&self, f: &mut F) {
         f(Leaf::Node(self));
     }
@@ -170,6 +156,12 @@ impl<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: u
     #[inline]
     fn origin(&self) -> Vector3<isize> {
         self.origin
+    }
+
+    #[inline]
+    fn fill(&mut self, value: Self::Value) {
+        self.value_mask.data = [usize::MAX; BIT_SIZE];
+        self.values = [value; SIZE];
     }
 }
 

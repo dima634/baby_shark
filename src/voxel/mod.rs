@@ -37,7 +37,7 @@ pub trait TreeNodeConsts {
 }
 
 pub trait Accessor {
-    type Value;
+    type Value: Copy + PartialEq; // Remove Copy?
 
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value>;
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value);
@@ -49,7 +49,7 @@ pub trait TreeNode: Accessor {
     const BRANCHING: usize;
     /// Total number of tiles in one dimension
     const BRANCHING_TOTAL: usize;
-    /// Total number of voxels in node
+    /// Number of childs/voxels in node
     const SIZE: usize;
 
     const IS_LEAF: bool;
@@ -57,15 +57,10 @@ pub trait TreeNode: Accessor {
     type LeafNode: TreeNode;
 
     /// Creates empty node
-    fn new_inactive(origin: Vector3<isize>) -> Self;
-    /// Creates active node
-    fn new_active(origin: Vector3<isize>) -> Self;
-
+    fn empty(origin: Vector3<isize>) -> Self;
     fn origin(&self) -> Vector3<isize>;
-
     fn is_empty(&self) -> bool;
-    fn is_full(&self) -> bool;
-
+    fn fill(&mut self, value: Self::Value);
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F);
 
     /// Number of voxels in one dimension

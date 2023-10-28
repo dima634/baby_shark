@@ -31,20 +31,14 @@ where
 
     type LeafNode = TChild::LeafNode;
 
-    fn new_inactive(origin: Vector3<isize>) -> Self {
-        todo!()
+    #[inline]
+    fn empty(_: Vector3<isize>) -> Self {
+        Self::new()
     }
 
-    fn new_active(origin: Vector3<isize>) -> Self {
-        todo!()
-    }
-
+    #[inline]
     fn is_empty(&self) -> bool {
-        todo!()
-    }
-
-    fn is_full(&self) -> bool {
-        todo!()
+        self.root.is_empty() || self.root.iter().all(|(_, node)| node.is_empty())
     }
 
     #[inline]
@@ -53,7 +47,11 @@ where
     }
 
     fn origin(&self) -> Vector3<isize> {
-        todo!()
+        unimplemented!("Dynamic root node has no origin");
+    }
+
+    fn fill(&mut self, _: Self::Value) {
+        unimplemented!("Root node can't be filled");
     }
 }
 
@@ -78,7 +76,7 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
             if let Some(child) = self.root.get_mut(&root_key) {
                 child
             } else {
-                let new_child = TChild::new_inactive(root_key.0);
+                let new_child = TChild::empty(root_key.0);
                 self.root.insert(root_key, new_child);
                 self.root.get_mut(&root_key).unwrap()
             };

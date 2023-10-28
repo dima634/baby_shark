@@ -125,7 +125,7 @@ where
 {
     #[inline]
     pub fn new() -> Self {
-        return Self::new_inactive(Vector3::zeros());
+        return Self::empty(Vector3::zeros());
     }
 
     // #[inline]
@@ -143,20 +143,14 @@ where
         return local.cast() + self.origin;
     }
 
-    fn add_child(&mut self, offset: usize, active: bool) {
+    fn add_child(&mut self, offset: usize) {
         debug_assert!(!self.child_mask[offset]);
 
-        // Do we really need this?
-        // self.value_mask.set(offset, false);
+        self.child_mask.set(offset, true);
+        self.value_mask.set(offset, false);
 
         let child_origin = self.offset_to_global_index(offset);
-        let child_node = if active {
-            TChild::new_active(child_origin)
-        } else {
-            TChild::new_inactive(child_origin)
-        };
-
-        self.child_mask.set(offset, true);
+        let child_node = TChild::empty(child_origin);
         self.childs[offset] = Some(Box::new(child_node));
     }
 
@@ -164,9 +158,7 @@ where
     fn remove_child(&mut self, offset: usize) {
         debug_assert!(self.child_mask[offset]);
 
-        // Do we really need this?
         // self.value_mask.set(offset, false);
-
         self.child_mask.set(offset, false);
         self.childs[offset] = None;
     }
@@ -238,12 +230,16 @@ where
 {
     type Value = TChild::Value;
 
-    #[inline(always)]
+    #[inline]
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
         if self.child_mask[offset] {
             return self.child(offset).at(index);
+        }
+
+        if !self.value_mask[offset] {
+            return None;
         }
 
         Some(&self.values[offset])
@@ -252,20 +248,30 @@ where
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         // Node is branch - insert voxel
         // Node is tile:
-        //   if tile is active - do nothing
+        //   if tile is active - convert to branch, fill with tile value and insert voxel
         //   else - add empty child and insert voxel
         let offset = Self::offset(index);
 
         if self.child_mask[offset] {
             let child = self.child_mut(offset);
             child.insert(index, value);
+            return;
+        }
 
-            if child.is_full() {
-                self.remove_child(offset);
-                self.value_mask.set(offset, true);
-            }
-        } else if !self.value_mask[offset] {
-            self.add_child(offset, false);
+        if self.value_mask[offset] {
+            let tile_value = self.values[offset];
+            
+            // No need to add child if tile value is equal to inserted one
+            if tile_value == value {
+                return;
+            } 
+
+            self.add_child(offset);
+            let child = self.child_mut(offset);
+            child.fill(tile_value);
+            child.insert(index, value);
+        } else {
+            self.add_child(offset);
             let child = self.child_mut(offset);
             child.insert(index, value);
         }
@@ -274,7 +280,7 @@ where
     fn remove(&mut self, index: &Vector3<isize>) {
         // Node is branch - remove voxel from child, prune child if empty
         // Node is tile:
-        //   active - add active child, remove voxel
+        //   active - add active child, fill with tile value and remove voxel
         //   inactive - do nothing
         let offset = Self::offset(index);
 
@@ -284,11 +290,13 @@ where
 
             if child.is_empty() {
                 self.remove_child(offset);
-                self.value_mask.set(offset, false);
+                self.value_mask.set(offset, false); // Remove?
             }
         } else if self.value_mask[offset] {
-            self.add_child(offset, true);
+            let tile_value = self.values[offset];
+            self.add_child(offset);
             let child = self.child_mut(offset);
+            child.fill(tile_value);
             child.remove(index);
         }
     }
@@ -314,7 +322,7 @@ where
 
     type LeafNode = TLeaf;
 
-    fn new_inactive(origin: Vector3<isize>) -> Self {
+    fn empty(origin: Vector3<isize>) -> Self {
         return Self {
             origin,
             childs: std::array::from_fn(|_| None),
@@ -325,43 +333,10 @@ where
         };
     }
 
-    fn new_active(origin: Vector3<isize>) -> Self {
-        todo!("Fix active tile creation. ");
-        return Self {
-            origin,
-            childs: std::array::from_fn(|_| None),
-            child_mask: Default::default(),
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-            value_mask: BitArray::new([usize::MAX; BIT_SIZE]),
-            leaf_type: PhantomData,
-        };
-    }
-
     #[inline]
     fn is_empty(&self) -> bool {
         return is_mask_empty::<BIT_SIZE>(&self.child_mask.data)
             && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
-    }
-
-    fn is_full(&self) -> bool {
-        // for offset in 0..SIZE {
-        //     let is_child_full = 
-        //         (self.child_mask[offset] && self.child(offset).is_full()) ||
-        //         (self.value_mask[offset]);
-
-        //     if !is_child_full {
-        //         return false;
-        //     }
-        // }
-
-        is_mask_full::<BIT_SIZE>(&self.value_mask.data)
-        
-        // if full {
-        //     assert!(false, "Internal node is full");
-        //     true
-        // } else {
-        //     false
-        // }
     }
 
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
@@ -383,6 +358,13 @@ where
     #[inline]
     fn origin(&self) -> Vector3<isize> {
         self.origin
+    }
+
+    #[inline]
+    fn fill(&mut self, value: Self::Value) {
+        self.child_mask.data = [0; BIT_SIZE];
+        self.value_mask.data = [usize::MAX; BIT_SIZE];
+        self.values = [value; SIZE];
     }
 }
 
