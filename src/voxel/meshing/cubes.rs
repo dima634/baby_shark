@@ -66,7 +66,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                         }
                     }
                 },
-                Leaf::Node(node) => {
+                Leaf::Dense(node) => {
                     let size = T::LeafNode::resolution();
                     let origin = node.origin();
 

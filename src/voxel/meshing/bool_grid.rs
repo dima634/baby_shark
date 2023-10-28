@@ -19,7 +19,7 @@ pub fn intersection_grid<T: Grid>(grid: &T) -> BoolGrid {
     for leaf in grid.leafs() {
         match leaf {
             Leaf::Tile(t) => tile(&mut intersection_grid, grid, t),
-            Leaf::Node(n) => node(&mut intersection_grid, grid, n),
+            Leaf::Dense(n) => node(&mut intersection_grid, grid, n),
         }
     }
 

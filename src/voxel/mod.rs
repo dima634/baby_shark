@@ -3,17 +3,19 @@ pub mod internal_node;
 pub mod leaf_node;
 pub mod root_node;
 pub mod meshing;
+pub mod utils;
 
 mod traverse;
 mod cached_accessor;
+mod grid_value;
 
 #[cfg(test)]
 mod tests;
-pub mod utils;
 
 pub use internal_node::*;
 pub use leaf_node::*;
 pub use root_node::*;
+pub use grid_value::*;
 
 use nalgebra::Vector3;
 
@@ -36,8 +38,10 @@ pub trait TreeNodeConsts {
     }
 }
 
+pub trait GridValue: Copy + PartialEq {}
+
 pub trait Accessor {
-    type Value: Copy + PartialEq; // Remove Copy?
+    type Value: GridValue; // Remove Copy?
 
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value>;
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value);
@@ -91,9 +95,9 @@ pub struct Tile {
     pub size: usize,
 }
 
-pub enum Leaf<'a, TLeafNode: Accessor> {
+pub enum Leaf<'a, T: Accessor> {
     Tile(Tile),
-    Node(&'a TLeafNode),
+    Dense(&'a T),
 }
 
 pub trait Traverse<TLeaf: Accessor> {

@@ -39,7 +39,7 @@ impl<'a, TLeaf: Accessor> Iterator for LeafsIter<'a, TLeaf> {
                 self.stack.push(branch.childs());
                 self.next()
             }
-            Child::Leaf(leaf_node) => Some(Leaf::Node(leaf_node)),
+            Child::Leaf(leaf_node) => Some(Leaf::Dense(leaf_node)),
             Child::Tile(tile) => Some(Leaf::Tile(tile)),
         }
     }

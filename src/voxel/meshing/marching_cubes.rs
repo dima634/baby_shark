@@ -276,7 +276,7 @@ pub fn marching_cubes<TGrid: Grid>(grid: &TGrid) -> Vec<Vector3<f32>> {
     int_grid.traverse_leafs(&mut |leaf| {
         let tile = match leaf {
             Leaf::Tile(t) => t,
-            Leaf::Node(n) => Tile {
+            Leaf::Dense(n) => Tile {
                 origin: *n.origin(),
                 size: n.size_t(),
             },

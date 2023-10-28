@@ -29,7 +29,7 @@ macro_rules! static_vdb {
 
     ($(@internal)? $branching:expr, $($rest:expr),+ $(,)?) => {
         $crate::voxel::InternalNode::<
-            (), 
+            (),
             $crate::static_vdb!(@internal $($rest,)*),
             $crate::leaf_type!($($rest,)*),
             $branching,

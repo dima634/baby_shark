@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     utils::{box_indices, is_mask_empty, is_mask_full},
-    Accessor, TreeNode, Leaf, Traverse,
+    Accessor, TreeNode, Leaf, Traverse, GridValue,
 };
 
 pub struct LeafNode<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
@@ -19,7 +19,7 @@ pub struct LeafNode<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize
     origin: Vector3<isize>,
 }
 
-impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
+impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
         unimplemented!("Leaf node has no childs")
     }
@@ -56,7 +56,7 @@ impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: us
 //     }
 // }
 
-impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
+impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
     LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     #[inline]
@@ -94,7 +94,7 @@ impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: us
     }
 }
 
-impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
+impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
     for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     type Value = TValue;
@@ -123,7 +123,7 @@ impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: us
     }
 }
 
-impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
+impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
     for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     const BRANCHING: usize = BRANCHING;
@@ -150,7 +150,7 @@ impl<TValue: Copy + PartialEq, const BRANCHING: usize, const BRANCHING_TOTAL: us
 
     #[inline]
     fn traverse_leafs<F: FnMut(super::Leaf<Self::LeafNode>)>(&self, f: &mut F) {
-        f(Leaf::Node(self));
+        f(Leaf::Dense(self));
     }
 
     #[inline]
