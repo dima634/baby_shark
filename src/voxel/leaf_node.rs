@@ -132,6 +132,7 @@ impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, co
 
     const IS_LEAF: bool = true;
 
+    type Child = Self;
     type LeafNode = Self;
 
     #[inline]

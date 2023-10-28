@@ -2,7 +2,7 @@ use std::{collections::{BTreeMap, HashMap}, marker::PhantomData, hash::{Hash, Ha
 
 use nalgebra::Vector3;
 
-use super::{utils::box_indices, HasChild, TreeNode, Accessor, Leaf, Traverse};
+use super::{utils::box_indices, TreeNode, Accessor, Leaf, Traverse};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, TChild>
@@ -29,6 +29,7 @@ where
 
     const IS_LEAF: bool = false;
 
+    type Child = TChild;
     type LeafNode = TChild::LeafNode;
 
     #[inline]
@@ -148,10 +149,6 @@ impl<TChild: TreeNode> RootNode<TChild> {
             index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
         ));
     }
-}
-
-impl<TChild: TreeNode> HasChild for RootNode<TChild> {
-    type Child = TChild;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

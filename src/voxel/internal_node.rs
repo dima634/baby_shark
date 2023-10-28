@@ -5,13 +5,12 @@ use nalgebra::Vector3;
 
 use super::{
     utils::{is_mask_empty, is_mask_full},
-    Accessor, HasChild, TreeNode, Leaf, Tile, Traverse, Child,
+    Accessor, TreeNode, Leaf, Tile, Traverse, Child,
 };
 
 pub struct InternalNode<
     TValue,
     TChild: TreeNode,
-    TLeaf: TreeNode,
     const BRANCHING: usize,
     const BRANCHING_TOTAL: usize,
     const SIZE: usize,
@@ -22,15 +21,13 @@ pub struct InternalNode<
     values: [TValue; SIZE],
     value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<isize>,
-    leaf_type: PhantomData<TLeaf>,
 }
 
-impl<TChild, TLeaf, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<TLeaf> for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+impl<TChild, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<TChild::LeafNode> for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
-    TChild: TreeNode<LeafNode = TLeaf> + Traverse<TLeaf>,
-    TLeaf: TreeNode<Value = TChild::Value>
+    TChild: TreeNode + Traverse<TChild::LeafNode>
 {
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TLeaf>> + 'a> {
+    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TChild::LeafNode>> + 'a> {
         let it = (0..SIZE).into_iter()
             .filter_map(|offset| {
                 if self.child_mask[offset] {
@@ -113,15 +110,13 @@ where
 
 impl<
         TChild,
-        TLeaf,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
-    TChild: TreeNode<LeafNode = TLeaf>,
-    TLeaf: TreeNode<Value = TChild::Value>
+    TChild: TreeNode
 {
     #[inline]
     pub fn new() -> Self {
@@ -184,9 +179,9 @@ where
     #[inline]
     fn offset(index: &Vector3<isize>) -> usize {
         let offset =
-            (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
-            (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
-             ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as HasChild>::Child::BRANCHING_TOTAL);
+            (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))+
+            (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << Self::BRANCHING) +
+             ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL);
 
         offset as usize
     }
@@ -206,27 +201,13 @@ where
 
 impl<
         TChild: TreeNode,
-        TLeaf: TreeNode,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > HasChild for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-{
-    type Child = TChild;
-}
-
-impl<
-        TChild: TreeNode,
-        TLeaf: TreeNode,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > Accessor for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > Accessor for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
-    TChild: TreeNode<LeafNode = TLeaf>, 
-    TLeaf: TreeNode<Value = TChild::Value>
+    TChild: TreeNode
 {
     type Value = TChild::Value;
 
@@ -304,15 +285,13 @@ where
 
 impl<
         TChild,
-        TLeaf,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > TreeNode for InternalNode<TChild::Value, TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > TreeNode for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 where 
-    TChild: TreeNode<LeafNode = TLeaf>, 
-    TLeaf: TreeNode<Value = TChild::Value>
+    TChild: TreeNode
 {
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
@@ -320,7 +299,8 @@ where
 
     const IS_LEAF: bool = false;
 
-    type LeafNode = TLeaf;
+    type Child = TChild;
+    type LeafNode = TChild::LeafNode;
 
     fn empty(origin: Vector3<isize>) -> Self {
         return Self {
@@ -329,7 +309,6 @@ where
             child_mask: Default::default(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
             value_mask: Default::default(),
-            leaf_type: PhantomData,
         };
     }
 

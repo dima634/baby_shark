@@ -1,19 +1,3 @@
-#[macro_export]
-macro_rules! leaf_type {
-    ($value_type:ty, $branching:expr,) => {
-        $crate::voxel::LeafNode<
-            $value_type,
-            $branching, 
-            $branching, 
-            { $crate::voxel::leaf_node_size($branching) },
-            { $crate::voxel::leaf_node_bit_size($branching) }
-        >
-    };
-
-    ($value_type:ty, $branching:expr, $($rest:expr),+ $(,)?) => {
-        $crate::leaf_type!($value_type, $($rest,)*)
-    };
-}
 
 #[macro_export]
 macro_rules! static_vdb {
@@ -31,7 +15,6 @@ macro_rules! static_vdb {
         $crate::voxel::InternalNode::<
             $value_type,
             $crate::static_vdb!(@internal $value_type, $($rest,)*),
-            $crate::leaf_type!($value_type, $($rest,)*),
             $branching,
             { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>($branching) },
             { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>($branching) },
@@ -54,8 +37,8 @@ mod tests {
     #[test]
     fn test_static_vdb_macro_5_4_3() {
         type Grid = static_vdb!((), 5, 4, 3);
-        type Lvl1 = <Grid as HasChild>::Child;
-        type Lvl2 = <Lvl1 as HasChild>::Child;
+        type Lvl1 = <Grid as TreeNode>::Child;
+        type Lvl2 = <Lvl1 as TreeNode>::Child;
 
         assert_eq!(Grid::BRANCHING_TOTAL, 12);
         assert_eq!(Grid::BRANCHING, 5);
@@ -73,9 +56,9 @@ mod tests {
     #[test]
     fn test_dynamic_vdb_macro() {
         type Grid = dynamic_vdb!((), 5, 4, 3);
-        type Lvl1 = <Grid as HasChild>::Child;
-        type Lvl2 = <Lvl1 as HasChild>::Child;
-        type Lvl3 = <Lvl2 as HasChild>::Child;
+        type Lvl1 = <Grid as TreeNode>::Child;
+        type Lvl2 = <Lvl1 as TreeNode>::Child;
+        type Lvl3 = <Lvl2 as TreeNode>::Child;
 
         assert_eq!(Lvl1::BRANCHING_TOTAL, 12);
         assert_eq!(Lvl1::BRANCHING, 5);

@@ -59,6 +59,7 @@ pub trait TreeNode: Accessor {
     const IS_LEAF: bool;
 
     type LeafNode: TreeNode;
+    type Child: TreeNode;
 
     /// Creates empty node
     fn empty(origin: Vector3<isize>) -> Self;
@@ -84,10 +85,6 @@ pub trait TreeNode: Accessor {
     fn size_t(&self) -> usize {
         1 << Self::BRANCHING_TOTAL
     }
-}
-
-pub trait HasChild {
-    type Child: TreeNode;
 }
 
 pub struct Tile {
