@@ -6,6 +6,13 @@ pub struct Empty;
 
 impl GridValue for Empty {}
 
+impl From<()> for Empty {
+    #[inline]
+    fn from(_: ()) -> Self {
+        Self
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Scalar {
     value: f32,

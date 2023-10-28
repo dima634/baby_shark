@@ -11,7 +11,7 @@ use crate::{voxel::{InternalNode, TreeNode, Tile, Accessor, Grid, Leaf, Traverse
 //     }
 // }
 
-pub type BoolGrid = dynamic_vdb!(4, 3, 2);
+pub type BoolGrid = dynamic_vdb!((), 4, 3, 2);
 
 pub fn intersection_grid<T: Grid>(grid: &T) -> BoolGrid {
     let mut intersection_grid = BoolGrid::new();

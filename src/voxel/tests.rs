@@ -3,8 +3,8 @@ use crate::static_vdb;
 use crate::voxel::utils::box_indices;
 use crate::voxel::*;
 
-type StaticTree = static_vdb!(4, 3, 2);
-type DynamicTree = dynamic_vdb!(4, 3, 2);
+type StaticTree = static_vdb!((), 4, 3, 2);
+type DynamicTree = dynamic_vdb!((), 4, 3, 2);
 
 #[test]
 fn test_static_tree_insert_remove() {
@@ -57,7 +57,7 @@ fn test_static_tree_remove() {
 
 #[test]
 fn test_static_tree_fill() {
-    type Tree = static_vdb!(3, 2);
+    type Tree = static_vdb!((), 3, 2);
 
     let mut tree = Tree::empty(Vector3::zeros());
     let voxels_per_dim = Tree::resolution();
