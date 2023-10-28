@@ -1,7 +1,9 @@
 use nalgebra::Vector3;
 
-use crate::{voxel::{InternalNode, TreeNode, Tile, Accessor, Grid, Leaf, Traverse, utils::box_indices}, dynamic_vdb};
-
+use crate::{
+    dynamic_vdb,
+    voxel::{Accessor, Grid, Leaf, Tile, TreeNode},
+};
 
 // impl<TChild: TreeNode<LeafNode = TLeaf>, TLeaf: TreeNode, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> MarchingCubes for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
 //     type Cubes<'tree> = CubesIter<'tree, TLeaf> where TLeaf: 'tree;
@@ -29,14 +31,14 @@ pub fn intersection_grid<T: Grid>(grid: &T) -> BoolGrid {
 fn tile<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, tile: Tile) {
     for i in 0..tile.size {
         for j in 0..tile.size {
-            let left  = tile.origin + Vector3::new(0, i, j).cast();
+            let left = tile.origin + Vector3::new(0, i, j).cast();
             let right = tile.origin + Vector3::new(tile.size - 1, i, j).cast();
-            
-            let top    = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
+
+            let top = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
             let bottom = tile.origin + Vector3::new(i, j, 0).cast();
-            
+
             let front = tile.origin + Vector3::new(i, tile.size - 1, j).cast();
-            let back  = tile.origin + Vector3::new(i, 0, j).cast();
+            let back = tile.origin + Vector3::new(i, 0, j).cast();
 
             insert_external_voxels(int_grid, src_grid, &left);
             insert_external_voxels(int_grid, src_grid, &right);
@@ -48,7 +50,11 @@ fn tile<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, tile: Tile) {
     }
 }
 
-fn insert_external_voxels<T: TreeNode>(int_grid: &mut BoolGrid, src_grid: &T, voxel: &Vector3<isize>) {
+fn insert_external_voxels<T: TreeNode>(
+    int_grid: &mut BoolGrid,
+    src_grid: &T,
+    voxel: &Vector3<isize>,
+) {
     for x in -1..1 {
         for y in -1..1 {
             for z in -1..1 {

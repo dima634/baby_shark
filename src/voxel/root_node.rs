@@ -1,16 +1,19 @@
-use std::{collections::{BTreeMap, HashMap}, marker::PhantomData, hash::{Hash, Hasher}};
+use std::{
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+};
 
 use nalgebra::Vector3;
 
-use super::{utils::box_indices, TreeNode, Accessor, Leaf, Traverse};
+use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode};
 
 pub struct RootNode<TChild: TreeNode> {
-    root: BTreeMap<RootKey, TChild>
+    root: BTreeMap<RootKey, TChild>,
 }
 
-impl<TChild> Traverse<TChild::LeafNode> for RootNode<TChild> 
-where 
-    TChild: TreeNode + Traverse<TChild::LeafNode>
+impl<TChild> Traverse<TChild::LeafNode> for RootNode<TChild>
+where
+    TChild: TreeNode + Traverse<TChild::LeafNode>,
 {
     #[inline]
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TChild::LeafNode>> + 'a> {
@@ -19,9 +22,9 @@ where
     }
 }
 
-impl<TChild> TreeNode for RootNode<TChild> 
-where 
-    TChild: TreeNode
+impl<TChild> TreeNode for RootNode<TChild>
+where
+    TChild: TreeNode,
 {
     const BRANCHING: usize = usize::MAX;
     const BRANCHING_TOTAL: usize = usize::MAX;
@@ -44,7 +47,9 @@ where
 
     #[inline]
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
-        self.root.iter().for_each(|(_, node)| node.traverse_leafs(f));
+        self.root
+            .iter()
+            .for_each(|(_, node)| node.traverse_leafs(f));
     }
 
     fn origin(&self) -> Vector3<isize> {
@@ -73,14 +78,13 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let root_key = Self::root_key(index);
 
-        let child =
-            if let Some(child) = self.root.get_mut(&root_key) {
-                child
-            } else {
-                let new_child = TChild::empty(root_key.0);
-                self.root.insert(root_key, new_child);
-                self.root.get_mut(&root_key).unwrap()
-            };
+        let child = if let Some(child) = self.root.get_mut(&root_key) {
+            child
+        } else {
+            let new_child = TChild::empty(root_key.0);
+            self.root.insert(root_key, new_child);
+            self.root.get_mut(&root_key).unwrap()
+        };
 
         child.insert(index, value);
     }
@@ -101,7 +105,9 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
 impl<TChild: TreeNode> RootNode<TChild> {
     #[inline]
     pub fn new() -> Self {
-        Self { root: Default::default() }
+        Self {
+            root: Default::default(),
+        }
     }
 
     #[inline]
@@ -111,7 +117,7 @@ impl<TChild: TreeNode> RootNode<TChild> {
 
     ///
     /// Inside is positive
-    /// 
+    ///
     pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(
         grid_size: usize,
         min: f32,
@@ -124,11 +130,12 @@ impl<TChild: TreeNode> RootNode<TChild> {
         let spacing = (max - min) / grid_size as f32;
 
         for idx in box_indices(0, grid_size as isize) {
-            let p = origin + Vector3::new(
-                idx.x as f32 * spacing, 
-                idx.y as f32 * spacing, 
-                idx.z as f32 * spacing
-            );
+            let p = origin
+                + Vector3::new(
+                    idx.x as f32 * spacing,
+                    idx.y as f32 * spacing,
+                    idx.z as f32 * spacing,
+                );
 
             if f(&p) < 0.0 {
                 continue;
@@ -171,11 +178,8 @@ impl Ord for RootKey {
 impl Hash for RootKey {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let hash = 
-            ((1 << 8) - 1) &
-            (self.0.x * 73856093 ^
-             self.0.y * 19349663 ^
-             self.0.z * 83492791);
+        let hash =
+            ((1 << 8) - 1) & (self.0.x * 73856093 ^ self.0.y * 19349663 ^ self.0.z * 83492791);
         state.write_isize(hash);
     }
 }

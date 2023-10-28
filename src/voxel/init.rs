@@ -1,11 +1,10 @@
-
 #[macro_export]
 macro_rules! static_vdb {
     (@internal $value_type:ty, $branching:expr,) => {
         $crate::voxel::LeafNode<
             $value_type,
-            $branching, 
-            $branching, 
+            $branching,
+            $branching,
             { $crate::voxel::leaf_node_size($branching) },
             { $crate::voxel::leaf_node_bit_size($branching) }
         >

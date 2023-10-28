@@ -3,23 +3,31 @@ use std::mem::MaybeUninit;
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
-use crate::{
-    geometry::traits::RealNumber,
-    mesh::{builder, polygon_soup::data_structure::PolygonSoup, traits::Mesh},
-};
-
 use super::{
-    utils::{box_indices, is_mask_empty, is_mask_full},
-    Accessor, TreeNode, Leaf, Traverse, GridValue,
+    utils::is_mask_empty,
+    Accessor, GridValue, Leaf, Traverse, TreeNode,
 };
 
-pub struct LeafNode<TValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> {
+pub struct LeafNode<
+    TValue,
+    const BRANCHING: usize,
+    const BRANCHING_TOTAL: usize,
+    const SIZE: usize,
+    const BIT_SIZE: usize,
+> {
     values: [TValue; SIZE],
     value_mask: BitArray<[usize; BIT_SIZE]>,
     origin: Vector3<isize>,
 }
 
-impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> {
+impl<
+        TValue: GridValue,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
         unimplemented!("Leaf node has no childs")
     }
@@ -56,19 +64,24 @@ impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, co
 //     }
 // }
 
-impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize>
-    LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+impl<
+        TValue: GridValue,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     #[inline]
     fn offset(index: &Vector3<isize>) -> usize {
-        let offset =
-            ((index.x & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING + Self::BRANCHING) +
-            ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING) + 
-             (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
+        let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1)
+            << Self::BRANCHING + Self::BRANCHING)
+            + ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING)
+            + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
 
         offset as usize
     }
-    
+
     #[inline]
     fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
         let x = self.origin.x + (offset >> BRANCHING_TOTAL + BRANCHING_TOTAL) as isize;
@@ -94,8 +107,13 @@ impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, co
     }
 }
 
-impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Accessor
-    for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+impl<
+        TValue: GridValue,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > Accessor for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     type Value = TValue;
 
@@ -123,8 +141,13 @@ impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, co
     }
 }
 
-impl<TValue: GridValue, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> TreeNode
-    for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+impl<
+        TValue: GridValue,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > TreeNode for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;

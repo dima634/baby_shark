@@ -1,6 +1,5 @@
 use super::GridValue;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct Empty;
 
@@ -22,7 +21,7 @@ impl GridValue for Scalar {}
 
 impl From<f32> for Scalar {
     #[inline]
-    fn from(value: f32) -> Self { 
+    fn from(value: f32) -> Self {
         Self { value }
     }
 }
@@ -46,7 +45,7 @@ impl GridValue for () {}
 const SMALL_NUMBER: f32 = 1e-6;
 
 mod tests {
-    use super::{Scalar, Empty};
+    use super::{Empty, Scalar};
 
     #[test]
     fn test_none() {

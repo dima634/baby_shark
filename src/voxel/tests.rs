@@ -30,7 +30,7 @@ fn test_static_tree_insert_remove() {
 #[test]
 fn test_static_tree_remove() {
     let mut tree = StaticTree::empty(Vector3::zeros());
-    
+
     let size = 32;
     let indices = box_indices(0, size).collect::<Vec<_>>();
 
@@ -46,7 +46,7 @@ fn test_static_tree_remove() {
 
     for (i, idx) in indices.iter().enumerate() {
         let at = tree.at(idx);
-        
+
         if i < half {
             assert!(at.is_none());
         } else {
@@ -65,7 +65,7 @@ fn test_static_tree_fill() {
     assert!(tree.is_empty());
 
     tree.fill(());
-    
+
     for idx in box_indices(0, voxels_per_dim as isize) {
         assert!(tree.at(&idx).is_some());
     }

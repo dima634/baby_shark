@@ -1,8 +1,11 @@
-use std::{collections::{BTreeMap, HashSet}, rc::Rc, mem::swap, ops::Not};
+use std::{
+    collections::BTreeMap,
+    ops::Not,
+};
 
 use nalgebra::Vector3;
 
-use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, mesh::traits::Mesh, voxel::{TreeNode, InternalNode, Grid, Leaf, Tile, meshing::bool_grid::BoolGrid}, algo::{merge_points::merge_points, utils::cast}};
+use crate::voxel::{Grid, Leaf, Tile, TreeNode};
 
 use super::bool_grid::intersection_grid;
 
@@ -15,15 +18,15 @@ const V6: u8 = 1 << 5;
 const V7: u8 = 1 << 6;
 const V8: u8 = 1 << 7;
 
-const E1: Edge  = Edge::new(V1 | V2);
-const E2: Edge  = Edge::new(V2 | V3);
-const E3: Edge  = Edge::new(V3 | V4);
-const E4: Edge  = Edge::new(V4 | V1);
-const E5: Edge  = Edge::new(V5 | V6);
-const E6: Edge  = Edge::new(V6 | V7);
-const E7: Edge  = Edge::new(V7 | V8);
-const E8: Edge  = Edge::new(V8 | V5);
-const E9: Edge  = Edge::new(V1 | V5);
+const E1: Edge = Edge::new(V1 | V2);
+const E2: Edge = Edge::new(V2 | V3);
+const E3: Edge = Edge::new(V3 | V4);
+const E4: Edge = Edge::new(V4 | V1);
+const E5: Edge = Edge::new(V5 | V6);
+const E6: Edge = Edge::new(V6 | V7);
+const E7: Edge = Edge::new(V7 | V8);
+const E8: Edge = Edge::new(V8 | V5);
+const E9: Edge = Edge::new(V1 | V5);
 const E10: Edge = Edge::new(V2 | V6);
 const E11: Edge = Edge::new(V4 | V8);
 const E12: Edge = Edge::new(V3 | V7);
@@ -194,27 +197,91 @@ impl Pattern {
             triangles.swap(i + 1, i + 2);
         }
 
-        Self { cube, triangles, root_pattern: self.root_pattern }
+        Self {
+            cube,
+            triangles,
+            root_pattern: self.root_pattern,
+        }
     }
 }
 
 fn generate_lookup_table() -> BTreeMap<Cube, Pattern> {
     let patterns = [
-        Pattern { cube: Cube::new(0),                 triangles: vec![],                                                        root_pattern: 0 },
-        Pattern { cube: Cube::new(V1),                triangles: [E9, E1, E4].into(),                                           root_pattern: 1 },
-        Pattern { cube: Cube::new(V1 | V2),           triangles: [E9, E2, E4, E9, E10, E2].into(),                              root_pattern: 2 },
-        Pattern { cube: Cube::new(V1 | V3),           triangles: [E9, E1, E4, E2, E12, E3].into(),                              root_pattern: 3 },
-        Pattern { cube: Cube::new(V1 | V7),           triangles: [E9, E1, E4, E12, E6, E7].into(),                              root_pattern: 4 },
-        Pattern { cube: Cube::new(V2 | V6 | V5),      triangles: [E1, E9, E2, E9, E8, E2, E8, E6, E2].into(),                   root_pattern: 5 },
-        Pattern { cube: Cube::new(V1 | V2 | V7),      triangles: [E9, E2, E4, E9, E10, E2, E12, E6, E7].into(),                 root_pattern: 6 },
-        Pattern { cube: Cube::new(V4 | V2 | V7),      triangles: [E4, E3, E11, E1, E10, E2, E12, E6, E7].into(),                root_pattern: 7 },
-        Pattern { cube: Cube::new(V1 | V2 | V6 | V5), triangles: [E6, E2, E4, E6, E4, E8].into(),                               root_pattern: 8 },
-        Pattern { cube: Cube::new(V1 | V8 | V6 | V5), triangles: [E7, E4, E11, E1, E4, E7, E1, E7, E6, E1, E6, E10].into(),     root_pattern: 9 },
-        Pattern { cube: Cube::new(V1 | V4 | V6 | V7), triangles: [E9, E3, E11, E9, E1, E3, E12, E5, E7, E10, E5, E12].into(),   root_pattern: 10 },
-        Pattern { cube: Cube::new(V1 | V5 | V6 | V7), triangles: [E8, E1, E4, E1, E8, E12, E8, E7, E12, E1, E12, E10].into(),   root_pattern: 11 },
-        Pattern { cube: Cube::new(V4 | V2 | V6 | V5), triangles: [E4, E3, E11, E2, E8, E6, E2, E9, E8, E1, E9, E2].into(),      root_pattern: 12 },
-        Pattern { cube: Cube::new(V1 | V8 | V3 | V6), triangles: [E1, E4, E9, E8, E11, E7, E2, E12, E3, E10, E5, E6].into(),    root_pattern: 13 },
-        Pattern { cube: Cube::new(V8 | V2 | V6 | V5), triangles: [E1, E9, E11, E1, E6, E2, E1, E11, E6, E6, E11, E7].into(),    root_pattern: 14 },
+        Pattern {
+            cube: Cube::new(0),
+            triangles: vec![],
+            root_pattern: 0,
+        },
+        Pattern {
+            cube: Cube::new(V1),
+            triangles: [E9, E1, E4].into(),
+            root_pattern: 1,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V2),
+            triangles: [E9, E2, E4, E9, E10, E2].into(),
+            root_pattern: 2,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V3),
+            triangles: [E9, E1, E4, E2, E12, E3].into(),
+            root_pattern: 3,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V7),
+            triangles: [E9, E1, E4, E12, E6, E7].into(),
+            root_pattern: 4,
+        },
+        Pattern {
+            cube: Cube::new(V2 | V6 | V5),
+            triangles: [E1, E9, E2, E9, E8, E2, E8, E6, E2].into(),
+            root_pattern: 5,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V2 | V7),
+            triangles: [E9, E2, E4, E9, E10, E2, E12, E6, E7].into(),
+            root_pattern: 6,
+        },
+        Pattern {
+            cube: Cube::new(V4 | V2 | V7),
+            triangles: [E4, E3, E11, E1, E10, E2, E12, E6, E7].into(),
+            root_pattern: 7,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V2 | V6 | V5),
+            triangles: [E6, E2, E4, E6, E4, E8].into(),
+            root_pattern: 8,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V8 | V6 | V5),
+            triangles: [E7, E4, E11, E1, E4, E7, E1, E7, E6, E1, E6, E10].into(),
+            root_pattern: 9,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V4 | V6 | V7),
+            triangles: [E9, E3, E11, E9, E1, E3, E12, E5, E7, E10, E5, E12].into(),
+            root_pattern: 10,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V5 | V6 | V7),
+            triangles: [E8, E1, E4, E1, E8, E12, E8, E7, E12, E1, E12, E10].into(),
+            root_pattern: 11,
+        },
+        Pattern {
+            cube: Cube::new(V4 | V2 | V6 | V5),
+            triangles: [E4, E3, E11, E2, E8, E6, E2, E9, E8, E1, E9, E2].into(),
+            root_pattern: 12,
+        },
+        Pattern {
+            cube: Cube::new(V1 | V8 | V3 | V6),
+            triangles: [E1, E4, E9, E8, E11, E7, E2, E12, E3, E10, E5, E6].into(),
+            root_pattern: 13,
+        },
+        Pattern {
+            cube: Cube::new(V8 | V2 | V6 | V5),
+            triangles: [E1, E9, E11, E1, E6, E2, E1, E11, E6, E6, E11, E7].into(),
+            root_pattern: 14,
+        },
     ];
 
     let mut map = BTreeMap::new();
@@ -223,14 +290,14 @@ fn generate_lookup_table() -> BTreeMap<Cube, Pattern> {
         rotate_and_insert(pattern.clone(), &mut map);
         rotate_and_insert(pattern.reverse(), &mut map);
     }
-    
+
     map
 }
 
 fn rotate_and_insert(mut pattern: Pattern, map: &mut BTreeMap<Cube, Pattern>) {
     for _ in 0..4 {
         pattern.rotate_x();
-        
+
         for _ in 0..4 {
             pattern.rotate_y();
 
@@ -263,7 +330,7 @@ pub fn marching_cubes<TGrid: Grid>(grid: &TGrid) -> Vec<Vector3<f32>> {
 
     // grid.traverse_leafs(&mut |leaf| {
     //     let tile = match leaf {
-    //         Leaf::Tile(t) => t, 
+    //         Leaf::Tile(t) => t,
     //         Leaf::Node(n) => Tile {
     //             origin: n.origin(),
     //             size: n.size_t(),
@@ -294,32 +361,15 @@ pub fn marching_cubes<TGrid: Grid>(grid: &TGrid) -> Vec<Vector3<f32>> {
         }
     });
 
-    
-    // println!("src = {j}");
-    // println!("i = {i}");
-    // println!("TRAVERSE LEAFS ============");
-
-    // grid.voxels(&mut |v1_idx| {
-    //     voxels.insert(v1_idx);
-        
-    //     for x in -1..=1 {
-    //         for y in -1..=1 {
-    //             for z in -1..=1 {
-    //                 let v = v1_idx + Vector3::new(x, y, z);
-    //                 voxels.insert(v);
-    //             }
-    //         }
-    //     }
-    // });
-
-    // for v in voxels {
-    //     handle_cube(v, grid, &lookup_table, &mut vertices);
-    // }
-
     vertices
 }
 
-fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &BTreeMap<Cube, Pattern>, vertices: &mut Vec<Vector3<f32>>) {
+fn handle_cube<TGrid: TreeNode>(
+    v: Vector3<isize>,
+    grid: &TGrid,
+    lookup_table: &BTreeMap<Cube, Pattern>,
+    vertices: &mut Vec<Vector3<f32>>,
+) {
     let vertex_indices = [
         v,
         v + Vector3::new(1, 0, 0),
@@ -350,7 +400,7 @@ fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &
         let e2 = triangles[i + 1];
         let e3 = triangles[i + 2];
 
-        let v1 = interpolate(e1, &vertex_indices); 
+        let v1 = interpolate(e1, &vertex_indices);
         let v2 = interpolate(e2, &vertex_indices);
         let v3 = interpolate(e3, &vertex_indices);
 
@@ -360,7 +410,6 @@ fn handle_cube<TGrid: TreeNode>(v: Vector3<isize>, grid: &TGrid, lookup_table: &
 
         // Triangle3::normal(&v1.into(), &v2.into(), &v3.into());
 
-        
         // println!("Add face = {:?}; {:?}; {:?}", v1, v2, v3);
     }
 
@@ -373,7 +422,7 @@ fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
 
     // println!("{} - {}", v1_idx, v2_idx);
 
-    let v1 = vertices[v1_idx].cast();    
+    let v1 = vertices[v1_idx].cast();
     let v2 = vertices[v2_idx].cast();
 
     let mid = (v1 + v2) / 2.0;
@@ -654,26 +703,33 @@ mod tests {
     fn test_marching_cubes() {
         let table = generate_lookup_table();
 
-        let name = |edge: Edge| {
-            match edge {
-                E1 => "E1",
-                E2 => "E2",
-                E3 => "E3",
-                E4 => "E4",
-                E5 => "E5",
-                E6 => "E6",
-                E7 => "E7",
-                E8 => "E8",
-                E9 => "E9",
-                E10 => "E10",
-                E11 => "E11",
-                E12 => "E12",
-                _ => unimplemented!()
-            }
+        let name = |edge: Edge| match edge {
+            E1 => "E1",
+            E2 => "E2",
+            E3 => "E3",
+            E4 => "E4",
+            E5 => "E5",
+            E6 => "E6",
+            E7 => "E7",
+            E8 => "E8",
+            E9 => "E9",
+            E10 => "E10",
+            E11 => "E11",
+            E12 => "E12",
+            _ => unimplemented!(),
         };
 
         for (cube, pattern) in table {
-            println!("{}\t{}", cube.0.bits, pattern.triangles.iter().map(|e| name(*e)).collect::<Vec<_>>().join(", "));
+            println!(
+                "{}\t{}",
+                cube.0.bits,
+                pattern
+                    .triangles
+                    .iter()
+                    .map(|e| name(*e))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
     }
 }

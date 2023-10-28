@@ -1,21 +1,21 @@
 pub mod init;
 pub mod internal_node;
 pub mod leaf_node;
-pub mod root_node;
 pub mod meshing;
+pub mod root_node;
 pub mod utils;
 
-mod traverse;
 mod cached_accessor;
 mod grid_value;
+mod traverse;
 
 #[cfg(test)]
 mod tests;
 
+pub use grid_value::*;
 pub use internal_node::*;
 pub use leaf_node::*;
 pub use root_node::*;
-pub use grid_value::*;
 
 use nalgebra::Vector3;
 
@@ -74,13 +74,13 @@ pub trait TreeNode: Accessor {
         1 << Self::BRANCHING_TOTAL
     }
 
-    /// Total number of voxels 
+    /// Total number of voxels
     #[inline]
     fn size() -> usize {
         1 << Self::BRANCHING_TOTAL * 3
     }
 
-    /// Total number of voxels 
+    /// Total number of voxels
     #[inline]
     fn size_t(&self) -> usize {
         1 << Self::BRANCHING_TOTAL
@@ -101,7 +101,10 @@ pub trait Traverse<TLeaf: Accessor> {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TLeaf>> + 'a>;
 
     #[inline]
-    fn leafs(&self) -> LeafsIter<'_, TLeaf> where Self: Sized {
+    fn leafs(&self) -> LeafsIter<'_, TLeaf>
+    where
+        Self: Sized,
+    {
         LeafsIter::new(self)
     }
 }

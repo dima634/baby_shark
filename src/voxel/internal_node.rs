@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::mem::MaybeUninit;
 
 use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
 use super::{
-    utils::{is_mask_empty, is_mask_full},
-    Accessor, TreeNode, Leaf, Tile, Traverse, Child,
+    utils::is_mask_empty,
+    Accessor, Child, Leaf, Tile, Traverse, TreeNode,
 };
 
 pub struct InternalNode<
@@ -23,90 +23,45 @@ pub struct InternalNode<
     origin: Vector3<isize>,
 }
 
-impl<TChild, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Traverse<TChild::LeafNode> for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where 
-    TChild: TreeNode + Traverse<TChild::LeafNode>
+impl<
+        TChild,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > Traverse<TChild::LeafNode>
+    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+where
+    TChild: TreeNode + Traverse<TChild::LeafNode>,
 {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TChild::LeafNode>> + 'a> {
-        let it = (0..SIZE).into_iter()
-            .filter_map(|offset| {
-                if self.child_mask[offset] {
-                    let child = self.child(offset);
-            
-                    return if TChild::IS_LEAF {
-                        // Should I use specialization here once rust supports it?
-                        let as_leaf = unsafe { std::mem::transmute(child) };
-                        Some(Child::Leaf(as_leaf))
-                    } else {
-                        Some(Child::Branch(child))
-                    };
-                }
+        let it = (0..SIZE).into_iter().filter_map(|offset| {
+            if self.child_mask[offset] {
+                let child = self.child(offset);
 
-                if self.value_mask[offset] {
-                    let tile = Child::Tile(Tile {
-                        origin: self.offset_to_global_index(offset),
-                        size: TChild::resolution()
-                    });
-                    return Some(tile);
-                }
-        
-                None
-            });
+                return if TChild::IS_LEAF {
+                    // Should I use specialization here once rust supports it?
+                    let as_leaf = unsafe { std::mem::transmute(child) };
+                    Some(Child::Leaf(as_leaf))
+                } else {
+                    Some(Child::Branch(child))
+                };
+            }
+
+            if self.value_mask[offset] {
+                let tile = Child::Tile(Tile {
+                    origin: self.offset_to_global_index(offset),
+                    size: TChild::resolution(),
+                });
+                return Some(tile);
+            }
+
+            None
+        });
 
         Box::new(it)
     }
 }
-
-// impl<TChild, TLeaf, const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize, const BIT_SIZE: usize> Node<TLeaf> for InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE> 
-// where 
-//     TChild: TreeNode<LeafNode = TLeaf>,
-//     TLeaf: TreeNode
-// {
-//     #[inline]
-//     fn childs_count(&self) -> usize {
-//         SIZE
-//     }
-
-//     // #[inline]
-//     // fn child(&self, index: usize) -> Leaf<TLeaf> {
-//     //     debug_assert!(index < SIZE);
-
-//     //     if self.child_mask[index] {
-//     //         return Leaf::Node(self.child(index));
-//     //     }
-
-//     //     Leaf::Tile(Tile {
-//     //         origin: self.offset_to_global_index(index),
-//     //         size: TChild::resolution()
-//     //     })
-//     // }
-
-//     #[inline]
-//     fn is_leaf(&self) -> bool {
-//         false
-//     }
-
-//     #[inline]
-//     fn next(&self, index: &Vector3<isize>) -> Option<&dyn Node<TLeaf>> {
-//         let offset = Self::offset(index);
-
-//         if self.child_mask[offset] {
-//             return Some(self.child(offset));
-//         }
-
-//         None
-//     }
-
-//     #[inline]
-//     fn total_branching(&self) -> usize {
-//         Self::BRANCHING_TOTAL
-//     }
-
-//     #[inline]
-//     fn at_if_leaf(&self, _: &Vector3<isize>) -> Option<bool> {
-//         None
-//     }
-// }
 
 impl<
         TChild,
@@ -115,8 +70,8 @@ impl<
         const SIZE: usize,
         const BIT_SIZE: usize,
     > InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where 
-    TChild: TreeNode
+where
+    TChild: TreeNode,
 {
     #[inline]
     pub fn new() -> Self {
@@ -206,8 +161,8 @@ impl<
         const SIZE: usize,
         const BIT_SIZE: usize,
     > Accessor for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where 
-    TChild: TreeNode
+where
+    TChild: TreeNode,
 {
     type Value = TChild::Value;
 
@@ -241,11 +196,11 @@ where
 
         if self.value_mask[offset] {
             let tile_value = self.values[offset];
-            
+
             // No need to add child if tile value is equal to inserted one
             if tile_value == value {
                 return;
-            } 
+            }
 
             self.add_child(offset);
             let child = self.child_mut(offset);
@@ -290,8 +245,8 @@ impl<
         const SIZE: usize,
         const BIT_SIZE: usize,
     > TreeNode for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where 
-    TChild: TreeNode
+where
+    TChild: TreeNode,
 {
     const BRANCHING: usize = BRANCHING;
     const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
@@ -326,7 +281,7 @@ where
             } else if self.value_mask[i] {
                 let tile = Leaf::Tile(Tile {
                     origin: self.offset_to_global_index(i),
-                    size: TChild::resolution()
+                    size: TChild::resolution(),
                 });
 
                 f(tile);
@@ -346,58 +301,6 @@ where
         self.values = [value; SIZE];
     }
 }
-
-// impl<
-//         'tree,
-//         TChild: TreeNode + TreeTraverse + 'tree,
-//         const BRANCHING: usize,
-//         const BRANCHING_TOTAL: usize,
-//         const SIZE: usize,
-//         const BIT_SIZE: usize,
-//     > TreeTraverse for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-// {
-//     fn visit_and_cache(&mut self, index: &Vector3<usize>, cache: &mut Vec<CacheEntry>) {
-//         let offset = Self::offset(index);
-
-//         if self.child_mask[offset] {
-//             let child = &mut self.childs[offset];
-//             child.as_mut().unwrap().visit_and_cache(index, cache);
-//         }
-
-//         cache.push(CacheEntry {
-//             key: self.index_key(index),
-//             accessor: unsafe { NonNull::new_unchecked(self as *mut Self) },
-//         });
-//     }
-// }
-
-// impl<
-//         TChild: TreeNode,
-//         const BRANCHING: usize,
-//         const BRANCHING_TOTAL: usize,
-//         const SIZE: usize,
-//         const BIT_SIZE: usize,
-//     > MarchingCubes for InternalNode<TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-// {
-//     type Cubes;
-
-//     fn cubes(&self) -> Self::Cubes {
-//         todo!()
-//     }
-// }
-
-// struct CubesIter<
-//         TChild: TreeNode,
-//         TLeaf: TreeNode,
-//         const BRANCHING: usize,
-//         const BRANCHING_TOTAL: usize,
-//         const SIZE: usize,
-//         const BIT_SIZE: usize,
-//     >
-// {
-//     node: InternalNode<TChild, TLeaf, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>,
-//     offset: usize,
-// }
 
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
     return 1 << branching * 3;

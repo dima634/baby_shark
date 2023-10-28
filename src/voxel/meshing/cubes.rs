@@ -1,8 +1,13 @@
 use std::collections::HashMap;
 
-use nalgebra::{Vector3, Point3};
+use nalgebra::{Point3, Vector3};
 
-use crate::{mesh::traits::Mesh, geometry::primitives::box3::Box3, algo::utils::cast, voxel::{TreeNode, Grid, Leaf}};
+use crate::{
+    algo::utils::cast,
+    geometry::primitives::box3::Box3,
+    mesh::traits::Mesh,
+    voxel::{Grid, Leaf, TreeNode},
+};
 
 pub struct CubesMeshing<'a, T: Grid> {
     grid: &'a T,
@@ -14,10 +19,7 @@ pub struct CubesMeshing<'a, T: Grid> {
 
 impl<'a, T: Grid> CubesMeshing<'a, T> {
     pub fn new(grid: &'a T) -> Self {
-        let bbox = Box3::new(
-            Point3::new(0, 0, 0), 
-            Point3::new(1, 1, 1)
-        );
+        let bbox = Box3::new(Point3::new(0, 0, 0), Point3::new(1, 1, 1));
 
         let v_indices = [
             bbox.vertex(0).coords,
@@ -48,14 +50,14 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                     // Test only boundary voxels
                     for i in 0..tile.size {
                         for j in 0..tile.size {
-                            let left  = tile.origin + Vector3::new(0, i, j).cast();
+                            let left = tile.origin + Vector3::new(0, i, j).cast();
                             let right = tile.origin + Vector3::new(tile.size - 1, i, j).cast();
-                            
-                            let top    = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
+
+                            let top = tile.origin + Vector3::new(i, j, tile.size - 1).cast();
                             let bottom = tile.origin + Vector3::new(i, j, 0).cast();
-                            
+
                             let front = tile.origin + Vector3::new(i, tile.size - 1, j).cast();
-                            let back  = tile.origin + Vector3::new(i, 0, j).cast();
+                            let back = tile.origin + Vector3::new(i, 0, j).cast();
 
                             self.test_voxel(left);
                             self.test_voxel(right);
@@ -65,7 +67,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                             self.test_voxel(back);
                         }
                     }
-                },
+                }
                 Leaf::Dense(node) => {
                     let size = T::LeafNode::resolution();
                     let origin = node.origin();
@@ -75,7 +77,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                         for y in 0..size {
                             for z in 0..size {
                                 let voxel = origin + Vector3::new(x, y, z).cast();
-                                
+
                                 todo!();
                                 if self.grid.at(&voxel).is_some() {
                                     continue;
@@ -85,7 +87,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                             }
                         }
                     }
-                },
+                }
             }
         }
 
@@ -96,28 +98,27 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
     }
 
     fn test_voxel(&mut self, voxel: Vector3<isize>) {
-        let top_index     = voxel + Vector3::new(0, 0, 1);
-        let bottom_index  = voxel + Vector3::new(0, 0, -1);
-        let left_index    = voxel + Vector3::new(-1, 0, 0);
-        let right_index   = voxel + Vector3::new(1, 0, 0);
-        let front_index   = voxel + Vector3::new(0, 1, 0);
-        let back_index    = voxel + Vector3::new(0, -1, 0);
+        let top_index = voxel + Vector3::new(0, 0, 1);
+        let bottom_index = voxel + Vector3::new(0, 0, -1);
+        let left_index = voxel + Vector3::new(-1, 0, 0);
+        let right_index = voxel + Vector3::new(1, 0, 0);
+        let front_index = voxel + Vector3::new(0, 1, 0);
+        let back_index = voxel + Vector3::new(0, -1, 0);
 
         todo!();
 
-        let top     = self.grid.at(&top_index).is_some();
-        let bottom  = self.grid.at(&bottom_index).is_some();
-        let left    = self.grid.at(&left_index).is_some();
-        let right   = self.grid.at(&right_index).is_some();
-        let front   = self.grid.at(&front_index).is_some();
-        let back    = self.grid.at(&back_index).is_some();
+        let top = self.grid.at(&top_index).is_some();
+        let bottom = self.grid.at(&bottom_index).is_some();
+        let left = self.grid.at(&left_index).is_some();
+        let right = self.grid.at(&right_index).is_some();
+        let front = self.grid.at(&front_index).is_some();
+        let back = self.grid.at(&back_index).is_some();
 
         if !top {
             let faces = [
                 voxel + self.v[4],
                 voxel + self.v[7],
                 voxel + self.v[6],
-
                 voxel + self.v[4],
                 voxel + self.v[5],
                 voxel + self.v[7],
@@ -131,7 +132,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                 voxel + self.v[0],
                 voxel + self.v[2],
                 voxel + self.v[3],
-
                 voxel + self.v[0],
                 voxel + self.v[3],
                 voxel + self.v[1],
@@ -145,7 +145,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                 voxel + self.v[0],
                 voxel + self.v[4],
                 voxel + self.v[6],
-
                 voxel + self.v[0],
                 voxel + self.v[6],
                 voxel + self.v[2],
@@ -159,7 +158,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                 voxel + self.v[1],
                 voxel + self.v[7],
                 voxel + self.v[5],
-
                 voxel + self.v[1],
                 voxel + self.v[3],
                 voxel + self.v[7],
@@ -173,7 +171,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                 voxel + self.v[2],
                 voxel + self.v[6],
                 voxel + self.v[7],
-
                 voxel + self.v[2],
                 voxel + self.v[7],
                 voxel + self.v[3],
@@ -187,7 +184,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                 voxel + self.v[0],
                 voxel + self.v[5],
                 voxel + self.v[4],
-
                 voxel + self.v[0],
                 voxel + self.v[1],
                 voxel + self.v[5],

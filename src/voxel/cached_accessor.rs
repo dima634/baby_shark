@@ -11,16 +11,16 @@
 // impl<'a, T: TreeNode + Node<T::LeafNode>> Accessor for CachedAccessor<'a, T> {
 //     fn at(&self, index: &Vector3<isize>) -> bool {
 //         let mut cache = self.cache.borrow_mut();
-        
+
 //         debug_assert!(cache.len() > 0);
 
 //         let key = cache_key(index, T::BRANCHING_TOTAL);
-        
+
 //         // while let Some(mut entry) = cache.pop() {
 //         //     if entry.key != key {
 //         //         continue;
 //         //     }
-            
+
 //         //     cache.push(entry.clone());
 
 //         //     // if entry.node.is_leaf() { // 171 + 76
@@ -32,7 +32,7 @@
 //         //     }
 
 //         //     while let Some(next) = entry.node.next(index) {
-//         //         entry = CacheEntry { 
+//         //         entry = CacheEntry {
 //         //             key: cache_key(index, next.total_branching()),
 //         //             node: next,
 //         //         };
@@ -48,10 +48,8 @@
 //         //     }
 //         // }
 
-
-
 //         loop {
-            
+
 //             // println!("get {:?}", index);
 //             let mut entry = cache.last().unwrap().clone();
 
@@ -119,8 +117,8 @@
 // impl<'a, T: Accessor> Clone for CacheEntry<'a, T> {
 //     #[inline]
 //     fn clone(&self) -> Self {
-//         Self { 
-//             key: self.key.clone(), 
+//         Self {
+//             key: self.key.clone(),
 //             node: self.node.clone(),
 //         }
 //     }
@@ -135,7 +133,7 @@
 //     )
 // }
 
-// #[cfg(test)] 
+// #[cfg(test)]
 // mod tests {
 //     use crate::{static_vdb, voxel::{utils::box_indices, Accessor}};
 
@@ -148,7 +146,7 @@
 
 //         for idx in box_indices(0, size) {
 //             tree.insert(&idx);
-//         } 
+//         }
 
 //         let cached_accessor = tree.cached_accessor();
 
@@ -157,6 +155,6 @@
 //             let cached = cached_accessor.at(&idx);
 
 //             assert_eq!(direct, cached);
-//         } 
+//         }
 //     }
 // }
