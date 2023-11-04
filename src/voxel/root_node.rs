@@ -53,11 +53,25 @@ where
     }
 
     fn origin(&self) -> Vector3<isize> {
-        unimplemented!("Dynamic root node has no origin");
+        unimplemented!("Unsupported operation. Dynamic root node has no origin");
     }
 
     fn fill(&mut self, _: Self::Value) {
-        unimplemented!("Root node can't be filled");
+        unimplemented!("Unsupported operation. Dynamic root node can't be filled");
+    }
+
+    fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
+        unimplemented!("Unsupported operation. Dynamic root node can't be constant");
+    }
+
+    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value> {
+        for node in self.root.values_mut() {
+            node.prune(tolerance);
+        }
+        
+        todo!("Remove empty nodes");
+
+        None
     }
 }
 

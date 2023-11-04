@@ -38,7 +38,11 @@ pub trait TreeNodeConsts {
     }
 }
 
-pub trait GridValue: Copy + PartialEq {}
+pub trait IsWithinTolerance {
+    fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
+}
+
+pub trait GridValue: Copy + PartialEq + IsWithinTolerance {}
 
 pub trait Accessor {
     type Value: GridValue; // Remove Copy?
@@ -67,6 +71,19 @@ pub trait TreeNode: Accessor {
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F);
+
+    ///
+    /// Checks if node is constant within tolerance. 
+    /// Empty nodes are not constant.
+    /// 
+    /// Returns `None` if node is not constant, otherwise returns constant value
+    /// 
+    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value>;
+
+    ///
+    /// Prune all nodes where all values are within tolerance
+    /// 
+    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>;
 
     /// Number of voxels in one dimension
     #[inline]

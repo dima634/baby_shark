@@ -1,9 +1,16 @@
-use super::GridValue;
+use super::{GridValue, IsWithinTolerance};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Empty;
 
 impl GridValue for Empty {}
+
+impl IsWithinTolerance for Empty {
+    #[inline]
+    fn is_within_tolerance(&self, _: Self, _: Self) -> bool {
+        true
+    }
+}
 
 impl From<()> for Empty {
     #[inline]
@@ -19,6 +26,13 @@ pub struct Scalar {
 
 impl GridValue for Scalar {}
 
+impl IsWithinTolerance for Scalar {
+    #[inline]
+    fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool {
+        (self.value - value.value).abs() < tolerance.value
+    }
+}
+
 impl From<f32> for Scalar {
     #[inline]
     fn from(value: f32) -> Self {
@@ -33,6 +47,8 @@ impl Into<f32> for Scalar {
     }
 }
 
+impl Eq for Scalar {}
+
 impl PartialEq for Scalar {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -41,6 +57,13 @@ impl PartialEq for Scalar {
 }
 
 impl GridValue for () {}
+
+impl IsWithinTolerance for () {
+    #[inline]
+    fn is_within_tolerance(&self, _: Self, _: Self) -> bool {
+        true
+    }
+}
 
 const SMALL_NUMBER: f32 = 1e-6;
 

@@ -4,7 +4,7 @@ use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
 use super::{
-    utils::is_mask_empty,
+    utils::{is_mask_empty, is_mask_full},
     Accessor, GridValue, Leaf, Traverse, TreeNode,
 };
 
@@ -32,37 +32,6 @@ impl<
         unimplemented!("Leaf node has no childs")
     }
 }
-
-// impl<const BRANCHING: usize, const BRANCHING_TOTAL: usize, const SIZE: usize> Node<Self> for LeafNode<BRANCHING, BRANCHING_TOTAL, SIZE> {
-//     #[inline]
-//     fn childs_count(&self) -> usize {
-//         unimplemented!("Leaf node has no childs")
-//     }
-
-//     // fn child(&self, index: usize) -> Leaf<Self> {
-//     //     unimplemented!("Leaf node has no childs")
-//     // }
-
-//     #[inline]
-//     fn is_leaf(&self) -> bool {
-//         true
-//     }
-
-//     #[inline]
-//     fn next(&self, _: &Vector3<isize>) -> Option<&dyn Node<Self>> {
-//         unreachable!("Leaf node has no childs")
-//     }
-
-//     #[inline]
-//     fn total_branching(&self) -> usize {
-//         Self::BRANCHING_TOTAL
-//     }
-
-//     #[inline]
-//     fn at_if_leaf(&self, index: &Vector3<isize>) -> Option<bool> {
-//         Some(self.at(index))
-//     }
-// }
 
 impl<
         TValue: GridValue,
@@ -186,6 +155,35 @@ impl<
     fn fill(&mut self, value: Self::Value) {
         self.value_mask.data = [usize::MAX; BIT_SIZE];
         self.values = [value; SIZE];
+    }
+
+    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
+        if self.is_empty() || !is_mask_full::<BIT_SIZE>(&self.value_mask.data) {
+            return None;
+        }
+
+        let first_value_offset = self.value_mask.iter().position(|v| *v)?;
+        let first_value = self.values[first_value_offset];
+
+        // Check if all values are within tolerance
+        for offset in (first_value_offset + 1)..SIZE {
+            if !self.value_mask[offset] {
+                continue;
+            }
+
+            let value = &self.values[offset];
+
+            if !value.is_within_tolerance(first_value, tolerance) {
+                return None;
+            }
+        }
+
+        Some(first_value)
+    }
+
+    #[inline]
+    fn prune(&mut self, _: Self::Value) -> Option<Self::Value> {
+        unimplemented!("Unsupported operation. Leaf node should never be pruned")
     }
 }
 

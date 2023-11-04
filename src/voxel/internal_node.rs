@@ -4,8 +4,8 @@ use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
 use super::{
-    utils::is_mask_empty,
-    Accessor, Child, Leaf, Tile, Traverse, TreeNode,
+    utils::{is_mask_empty, is_mask_full},
+    Accessor, Child, Leaf, Tile, Traverse, TreeNode, IsWithinTolerance,
 };
 
 pub struct InternalNode<
@@ -111,6 +111,15 @@ where
         // self.value_mask.set(offset, false);
         self.child_mask.set(offset, false);
         self.childs[offset] = None;
+    }    
+    
+    #[inline]
+    fn replace_child_with_tile(&mut self, offset: usize, value: TChild::Value) {
+        debug_assert!(self.child_mask[offset]);
+
+        self.remove_child(offset);
+        self.value_mask.set(offset, true);
+        self.values[offset] = value;
     }
 
     #[inline]
@@ -299,6 +308,54 @@ where
         self.child_mask.data = [0; BIT_SIZE];
         self.value_mask.data = [usize::MAX; BIT_SIZE];
         self.values = [value; SIZE];
+    }
+
+    fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
+        unimplemented!("Unsupported operation. Internal node should never be constant");
+    }
+
+    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value> {
+        if self.is_empty() {
+            return None;
+        }
+
+        for offset in 0..SIZE {
+            if !self.child_mask[offset] {
+                continue;
+            }
+            
+            let child = self.child_mut(offset);
+            
+            if child.is_empty() {
+                self.remove_child(offset);
+                continue;
+            }
+
+            let pruned = if TChild::IS_LEAF {
+                child.is_constant(tolerance)
+            } else {
+                child.prune(tolerance)
+            };
+                
+            if let Some(value) = pruned {
+                self.replace_child_with_tile(offset, value);
+            }
+        }
+
+        if !is_mask_full::<BIT_SIZE>(&self.value_mask.data) {
+            return None;
+        }
+
+        let first_value = self.values[0];
+        let is_constant = self.values.iter()
+            .skip(1)
+            .all(|value| value.is_within_tolerance(first_value, tolerance));
+
+        if is_constant {
+            return Some(first_value);
+        }
+
+        None
     }
 }
 
