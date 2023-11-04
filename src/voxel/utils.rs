@@ -65,6 +65,7 @@ impl Iterator for GridIter {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use nalgebra::Vector3;
 

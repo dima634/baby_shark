@@ -44,6 +44,7 @@ impl GridValue for () {}
 
 const SMALL_NUMBER: f32 = 1e-6;
 
+#[cfg(test)]
 mod tests {
     use super::{Empty, Scalar};
 
