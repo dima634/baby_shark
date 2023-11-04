@@ -85,6 +85,20 @@ pub trait TreeNode: Accessor {
     fn size_t(&self) -> usize {
         1 << Self::BRANCHING_TOTAL
     }
+
+    ///
+    /// Returns number of tiles and dense leafs -> `(tiles_count, leafs_count)`
+    /// 
+    fn leafs_count(&self) -> (usize, usize) {
+        let mut tiles_count = 0;
+        let mut leafs_count = 0;
+        self.traverse_leafs(&mut |leaf| match leaf {
+            Leaf::Tile(_) => tiles_count += 1,
+            Leaf::Dense(_) => leafs_count += 1,
+        });
+
+        (tiles_count, leafs_count)
+    }
 }
 
 pub struct Tile {

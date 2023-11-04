@@ -115,6 +115,17 @@ impl<TChild: TreeNode> RootNode<TChild> {
         self.root.iter().all(|(_, node)| node.is_empty())
     }
 
+    #[inline]
+    fn root_key(index: &Vector3<isize>) -> RootKey {
+        return RootKey(Vector3::new(
+            index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
+            index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
+            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
+        ));
+    }
+}
+
+impl<TChild: TreeNode<Value = ()>> RootNode<TChild> {
     ///
     /// Inside is positive
     ///
@@ -141,20 +152,10 @@ impl<TChild: TreeNode> RootNode<TChild> {
                 continue;
             }
 
-            todo!()
-            //tree.insert(&idx);
+            tree.insert(&idx, ());
         }
 
         return tree;
-    }
-
-    #[inline]
-    fn root_key(index: &Vector3<isize>) -> RootKey {
-        return RootKey(Vector3::new(
-            index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
-        ));
     }
 }
 

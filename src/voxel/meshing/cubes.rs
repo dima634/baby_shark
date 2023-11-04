@@ -78,11 +78,6 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
                             for z in 0..size {
                                 let voxel = origin + Vector3::new(x, y, z).cast();
 
-                                todo!();
-                                if self.grid.at(&voxel).is_some() {
-                                    continue;
-                                }
-
                                 self.test_voxel(voxel);
                             }
                         }
@@ -98,14 +93,16 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
     }
 
     fn test_voxel(&mut self, voxel: Vector3<isize>) {
+        if self.grid.at(&voxel).is_none() {
+            return;
+        }
+
         let top_index = voxel + Vector3::new(0, 0, 1);
         let bottom_index = voxel + Vector3::new(0, 0, -1);
         let left_index = voxel + Vector3::new(-1, 0, 0);
         let right_index = voxel + Vector3::new(1, 0, 0);
         let front_index = voxel + Vector3::new(0, 1, 0);
         let back_index = voxel + Vector3::new(0, -1, 0);
-
-        todo!();
 
         let top = self.grid.at(&top_index).is_some();
         let bottom = self.grid.at(&bottom_index).is_some();
