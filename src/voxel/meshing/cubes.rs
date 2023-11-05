@@ -1,27 +1,21 @@
-use std::collections::HashMap;
-
 use nalgebra::{Point3, Vector3};
 
 use crate::{
-    algo::utils::cast,
     geometry::primitives::box3::Box3,
-    mesh::traits::Mesh,
     voxel::{Grid, Leaf, TreeNode},
 };
 
-pub struct CubesMeshing<'a, T: Grid> {
+pub struct CubesMesher<'a, T: Grid> {
     grid: &'a T,
     vertices: Vec<Vector3<isize>>,
-    indices: Vec<usize>,
-    index_vertex_map: HashMap<Vector3<isize>, usize>,
-    v: [Vector3<isize>; 8],
+    box_vertices: [Vector3<isize>; 8],
 }
 
-impl<'a, T: Grid> CubesMeshing<'a, T> {
+impl<'a, T: Grid> CubesMesher<'a, T> {
     pub fn new(grid: &'a T) -> Self {
         let bbox = Box3::new(Point3::new(0, 0, 0), Point3::new(1, 1, 1));
 
-        let v_indices = [
+        let box_vertices = [
             bbox.vertex(0).coords,
             bbox.vertex(1).coords,
             bbox.vertex(2).coords,
@@ -34,15 +28,16 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
 
         Self {
             grid,
-            v: v_indices,
+            box_vertices,
             vertices: Vec::new(),
-            indices: Vec::new(),
-            index_vertex_map: HashMap::new(),
         }
     }
 
-    pub fn mesh<TMesh: Mesh>(&mut self) -> TMesh {
-        self.reset();
+    ///
+    /// Returns a list where each tree consecutive vertices form a triangle.
+    /// 
+    pub fn mesh(&mut self) -> Vec<Vector3<isize>> {
+        self.vertices.clear();
 
         for leaf in self.grid.leafs() {
             match leaf {
@@ -86,10 +81,7 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
             }
         }
 
-        let vertices: Vec<_> = self.vertices.iter().map(|v| cast(&v).into()).collect();
-        let mesh = TMesh::from_vertices_and_indices(vertices.as_slice(), &self.indices);
-
-        mesh
+        self.vertices.clone()
     }
 
     fn test_voxel(&mut self, voxel: Vector3<isize>) {
@@ -113,105 +105,80 @@ impl<'a, T: Grid> CubesMeshing<'a, T> {
 
         if !top {
             let faces = [
-                voxel + self.v[4],
-                voxel + self.v[7],
-                voxel + self.v[6],
-                voxel + self.v[4],
-                voxel + self.v[5],
-                voxel + self.v[7],
+                voxel + self.box_vertices[4],
+                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[4],
+                voxel + self.box_vertices[5],
+                voxel + self.box_vertices[7],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
 
         if !bottom {
             let faces = [
-                voxel + self.v[0],
-                voxel + self.v[2],
-                voxel + self.v[3],
-                voxel + self.v[0],
-                voxel + self.v[3],
-                voxel + self.v[1],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[2],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[1],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
 
         if !left {
             let faces = [
-                voxel + self.v[0],
-                voxel + self.v[4],
-                voxel + self.v[6],
-                voxel + self.v[0],
-                voxel + self.v[6],
-                voxel + self.v[2],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[4],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[2],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
 
         if !right {
             let faces = [
-                voxel + self.v[1],
-                voxel + self.v[7],
-                voxel + self.v[5],
-                voxel + self.v[1],
-                voxel + self.v[3],
-                voxel + self.v[7],
+                voxel + self.box_vertices[1],
+                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[5],
+                voxel + self.box_vertices[1],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[7],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
 
         if !front {
             let faces = [
-                voxel + self.v[2],
-                voxel + self.v[6],
-                voxel + self.v[7],
-                voxel + self.v[2],
-                voxel + self.v[7],
-                voxel + self.v[3],
+                voxel + self.box_vertices[2],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[2],
+                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[3],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
 
         if !back {
             let faces = [
-                voxel + self.v[0],
-                voxel + self.v[5],
-                voxel + self.v[4],
-                voxel + self.v[0],
-                voxel + self.v[1],
-                voxel + self.v[5],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[5],
+                voxel + self.box_vertices[4],
+                voxel + self.box_vertices[0],
+                voxel + self.box_vertices[1],
+                voxel + self.box_vertices[5],
             ];
 
-            self.add_faces(&faces);
+            self.vertices.extend_from_slice(&faces);
         }
-    }
-
-    fn add_faces(&mut self, faces: &[Vector3<isize>]) {
-        for vertex in faces {
-            let idx = self.get_or_insert_vertex(*vertex);
-            self.indices.push(idx);
-        }
-    }
-
-    fn get_or_insert_vertex(&mut self, vertex: Vector3<isize>) -> usize {
-        if let Some(idx) = self.index_vertex_map.get(&vertex) {
-            *idx
-        } else {
-            let idx = self.vertices.len();
-            self.vertices.push(vertex);
-            self.index_vertex_map.insert(vertex, idx);
-
-            idx
-        }
-    }
-
-    fn reset(&mut self) {
-        self.indices.clear();
-        self.vertices.clear();
-        self.index_vertex_map.clear();
     }
 }
