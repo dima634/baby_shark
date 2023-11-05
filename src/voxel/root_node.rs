@@ -5,7 +5,7 @@ use std::{
 
 use nalgebra::Vector3;
 
-use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode};
+use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode, GridValue};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, TChild>,
@@ -34,6 +34,7 @@ where
 
     type Child = TChild;
     type LeafNode = TChild::LeafNode;
+    type As<TValue: GridValue> = RootNode<TChild::As<TValue>>;
 
     #[inline]
     fn empty(_: Vector3<isize>) -> Self {
@@ -72,6 +73,20 @@ where
         todo!("Remove empty nodes");
 
         None
+    }
+
+    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    where 
+        TNewValue: GridValue,
+        TCast: Fn(Self::Value) -> TNewValue 
+    {
+        let root = self.root.iter()
+            .map(|(key, child)| (*key, child.clone_topology(cast)))
+            .collect();
+
+        RootNode {
+            root
+        }
     }
 }
 

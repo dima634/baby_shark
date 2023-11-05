@@ -5,7 +5,7 @@ use nalgebra::Vector3;
 
 use super::{
     utils::{is_mask_empty, is_mask_full},
-    Accessor, Child, Leaf, Tile, Traverse, TreeNode, IsWithinTolerance,
+    Accessor, Child, Leaf, Tile, Traverse, TreeNode, IsWithinTolerance, GridValue,
 };
 
 pub struct InternalNode<
@@ -265,6 +265,7 @@ where
 
     type Child = TChild;
     type LeafNode = TChild::LeafNode;
+    type As<TNewValue: GridValue> = InternalNode<TNewValue, TChild::As<TNewValue>, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     fn empty(origin: Vector3<isize>) -> Self {
         return Self {
@@ -356,6 +357,31 @@ where
         }
 
         None
+    }
+
+    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    where 
+        TNewValue: super::GridValue,
+        TCast: Fn(Self::Value) -> TNewValue 
+    {
+        let mut new_node = InternalNode {
+            origin: self.origin,
+            childs: std::array::from_fn(|_| None),
+            child_mask: self.child_mask,
+            value_mask: self.value_mask,
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // We  will fill it later
+        };
+
+        for i in 0..SIZE {
+            if self.child_mask[i] {
+                let child = self.child(i);
+                new_node.childs[i] = Some(Box::new(child.clone_topology(cast)));
+            } else if self.value_mask[i] {
+                new_node.values[i] = cast(self.values[i]);
+            }
+        }
+
+        new_node
     }
 }
 

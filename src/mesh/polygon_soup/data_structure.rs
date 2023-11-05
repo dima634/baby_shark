@@ -106,3 +106,10 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
         todo!()
     }
 }
+
+impl<TScalar: RealNumber> From<Vec<Point3<TScalar>>> for PolygonSoup<TScalar> {
+    #[inline]
+    fn from(value: Vec<Point3<TScalar>>) -> Self {
+        Self::from_vertices(value)
+    }
+}

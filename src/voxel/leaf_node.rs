@@ -126,6 +126,7 @@ impl<
 
     type Child = Self;
     type LeafNode = Self;
+    type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
     fn empty(origin: Vector3<isize>) -> Self {
@@ -184,6 +185,28 @@ impl<
     #[inline]
     fn prune(&mut self, _: Self::Value) -> Option<Self::Value> {
         unimplemented!("Unsupported operation. Leaf node should never be pruned")
+    }
+
+    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    where 
+        TNewValue: GridValue,
+        TCast: Fn(Self::Value) -> TNewValue 
+    {
+        let mut new_node = LeafNode {
+            origin: self.origin,
+            value_mask: self.value_mask,
+            values: unsafe { MaybeUninit::uninit().assume_init() }, // We  will f
+        };
+
+        for i in 0..SIZE {
+            if !self.value_mask[i] {
+                continue;
+            }
+
+            new_node.values[i] = cast(self.values[i]);
+        }
+
+        new_node
     }
 }
 

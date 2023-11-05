@@ -64,6 +64,11 @@ pub trait TreeNode: Accessor {
 
     type LeafNode: TreeNode;
     type Child: TreeNode;
+    type As<TValue: GridValue>: TreeNode<
+        Value = TValue, 
+        Child = <Self::Child as TreeNode>::As<TValue>, 
+        LeafNode = <Self::LeafNode as TreeNode>::As<TValue>
+    >;
 
     /// Creates empty node
     fn empty(origin: Vector3<isize>) -> Self;
@@ -84,6 +89,14 @@ pub trait TreeNode: Accessor {
     /// Prune all nodes where all values are within tolerance
     /// 
     fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>;
+
+    /// 
+    /// Creates a copy of the node with same topology but with different values
+    /// 
+    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    where 
+        TNewValue: GridValue,
+        TCast: Fn(Self::Value) -> TNewValue;
 
     /// Number of voxels in one dimension
     #[inline]
