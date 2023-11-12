@@ -5,9 +5,18 @@ use std::{
 
 use nalgebra::Vector3;
 
-use crate::voxel::{Grid, Leaf, Tile, TreeNode};
+use crate::voxel::{Grid, Leaf, Tile, TreeNode, Accessor};
 
 use super::bool_grid::intersection_grid;
+
+pub struct Vertex<T> {
+    pub index: Vector3<isize>,
+    pub value: T,
+}
+
+pub trait MarchingCubes: Accessor {
+    fn interpolate(&self, v1: Vertex<Self::Value>, v2: Vertex<Self::Value>) -> f32;
+}
 
 const V1: u8 = 1 << 0;
 const V2: u8 = 1 << 1;
@@ -317,103 +326,81 @@ fn rotate_and_insert(mut pattern: Pattern, map: &mut BTreeMap<Cube, Pattern>) {
     }
 }
 
-pub fn marching_cubes<TGrid: Grid>(grid: &TGrid) -> Vec<Vector3<f32>> {
-    let mut vertices: Vec<Vector3<f32>> = Vec::new();
-
-    let lookup_table = generate_lookup_table();
-    let int_grid = intersection_grid(grid);
-
-    // println!("TRAVERSE LEAFS");
-
-    // let mut i = 0;
-    // let mut j = 0;
-
-    // grid.traverse_leafs(&mut |leaf| {
-    //     let tile = match leaf {
-    //         Leaf::Tile(t) => t,
-    //         Leaf::Node(n) => Tile {
-    //             origin: n.origin(),
-    //             size: n.size_t(),
-    //         },
-    //     };
-
-    //     j += tile.size * tile.size * tile.size;
-    // });
-
-    int_grid.traverse_leafs(&mut |leaf| {
-        let tile = match leaf {
-            Leaf::Tile(t) => t,
-            Leaf::Dense(n) => Tile {
-                origin: *n.origin(),
-                size: n.size_t(),
-            },
-        };
-
-        let max = tile.origin + Vector3::new(tile.size, tile.size, tile.size).cast();
-        // i += tile.size * tile.size * tile.size;
-        for x in tile.origin.x..max.x {
-            for y in tile.origin.y..max.y {
-                for z in tile.origin.z..max.z {
-                    let v = Vector3::new(x, y, z);
-                    handle_cube(v, grid, &lookup_table, &mut vertices);
-                }
-            }
-        }
-    });
-
-    vertices
+pub struct MarchingCubesMesher<'a, T: Grid + MarchingCubes> {
+    grid: &'a T,
+    vertices: Vec<Vector3<f32>>,
 }
 
-fn handle_cube<TGrid: TreeNode>(
-    v: Vector3<isize>,
-    grid: &TGrid,
-    lookup_table: &BTreeMap<Cube, Pattern>,
-    vertices: &mut Vec<Vector3<f32>>,
-) {
-    let vertex_indices = [
-        v,
-        v + Vector3::new(1, 0, 0),
-        v + Vector3::new(1, 1, 0),
-        v + Vector3::new(0, 1, 0),
-        v + Vector3::new(0, 0, 1),
-        v + Vector3::new(1, 0, 1),
-        v + Vector3::new(1, 1, 1),
-        v + Vector3::new(0, 1, 1),
-    ];
-
-    let mut cube = Cube::new(0);
-
-    for i in 0..vertex_indices.len() {
-        todo!();
-        if grid.at(&vertex_indices[i]).is_some() {
-            cube.0.set(i as u8, true);
+impl<'a, T: Grid + MarchingCubes> MarchingCubesMesher<'a, T> {
+    pub fn new(grid: &'a T) -> Self {
+        Self { 
+            grid,
+            vertices: Vec::new(),
         }
     }
 
-    // let pattern = lookup_table.get(&cube).unwrap();
-    // println!("Voxel = {:?}; Pattern = {}", v1_idx, pattern.root_pattern);
+    pub fn mesh(&mut self) -> Vec<Vector3<f32>> {
+        let int_grid = intersection_grid(self.grid);
 
-    let triangles = LOOKUP_TABLE[(cube.0.bits) as usize];
+        int_grid.traverse_leafs(&mut |leaf| {
+            let tile = match leaf {
+                Leaf::Tile(t) => t,
+                Leaf::Dense(n) => Tile {
+                    origin: *n.origin(),
+                    size: n.size_t(),
+                },
+            };
 
-    for i in (0..triangles.len()).step_by(3) {
-        let e1 = triangles[i];
-        let e2 = triangles[i + 1];
-        let e3 = triangles[i + 2];
+            let max = tile.origin + Vector3::new(tile.size, tile.size, tile.size).cast();
+            for x in tile.origin.x..max.x {
+                for y in tile.origin.y..max.y {
+                    for z in tile.origin.z..max.z {
+                        let v = Vector3::new(x, y, z);
+                        self.handle_cube(v);
+                    }
+                }
+            }
+        });
 
-        let v1 = interpolate(e1, &vertex_indices);
-        let v2 = interpolate(e2, &vertex_indices);
-        let v3 = interpolate(e3, &vertex_indices);
-
-        vertices.push(v1);
-        vertices.push(v2);
-        vertices.push(v3);
-
-        // Triangle3::normal(&v1.into(), &v2.into(), &v3.into());
-
-        // println!("Add face = {:?}; {:?}; {:?}", v1, v2, v3);
+        self.vertices.clone()
     }
 
-    // println!()
+    fn handle_cube(&mut self, v: Vector3<isize>) {
+        let vertex_indices = [
+            v,
+            v + Vector3::new(1, 0, 0),
+            v + Vector3::new(1, 1, 0),
+            v + Vector3::new(0, 1, 0),
+            v + Vector3::new(0, 0, 1),
+            v + Vector3::new(1, 0, 1),
+            v + Vector3::new(1, 1, 1),
+            v + Vector3::new(0, 1, 1),
+        ];
+    
+        let mut cube = Cube::new(0);
+    
+        for i in 0..vertex_indices.len() {
+            if self.grid.at(&vertex_indices[i]).is_some() {
+                cube.0.set(i as u8, true);
+            }
+        }
+    
+        let triangles = LOOKUP_TABLE[(cube.0.bits) as usize];
+    
+        for i in (0..triangles.len()).step_by(3) {
+            let e1 = triangles[i];
+            let e2 = triangles[i + 1];
+            let e3 = triangles[i + 2];
+    
+            let v1 = interpolate(e1, &vertex_indices);
+            let v2 = interpolate(e2, &vertex_indices);
+            let v3 = interpolate(e3, &vertex_indices);
+    
+            self.vertices.push(v1);
+            self.vertices.push(v2);
+            self.vertices.push(v3);
+        }
+    }
 }
 
 fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
