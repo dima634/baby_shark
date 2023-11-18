@@ -21,7 +21,7 @@ impl From<()> for Empty {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Scalar {
-    value: f32,
+    pub value: f32,
 }
 
 impl GridValue for Scalar {}

@@ -359,7 +359,7 @@ where
         None
     }
 
-    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where 
         TNewValue: super::GridValue,
         TCast: Fn(Self::Value) -> TNewValue 
@@ -375,7 +375,7 @@ where
         for i in 0..SIZE {
             if self.child_mask[i] {
                 let child = self.child(i);
-                new_node.childs[i] = Some(Box::new(child.clone_topology(cast)));
+                new_node.childs[i] = Some(Box::new(child.cast(cast)));
             } else if self.value_mask[i] {
                 new_node.values[i] = cast(self.values[i]);
             }

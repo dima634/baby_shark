@@ -5,17 +5,48 @@ use std::{
 
 use nalgebra::Vector3;
 
-use crate::voxel::{Grid, Leaf, Tile, TreeNode, Accessor};
-
-use super::bool_grid::intersection_grid;
+use crate::voxel::{Grid, Leaf, Tile, TreeNode, Accessor, Scalar};
 
 pub struct Vertex<T> {
     pub index: Vector3<isize>,
-    pub value: T,
+    pub value: Option<T>,
 }
 
 pub trait MarchingCubes: Accessor {
-    fn interpolate(&self, v1: Vertex<Self::Value>, v2: Vertex<Self::Value>) -> f32;
+    fn interpolate(&self, v1: Vertex<Self::Value>, v2: Vertex<Self::Value>) -> Vector3<f32>;
+    fn is_inside(&self, idx: &Vector3<isize>) -> bool;
+}
+
+// impl<T: Grid<Value = ()>> MarchingCubes for T {
+//     #[inline]
+//     fn interpolate(&self, v1: Vertex<Self::Value>, v2: Vertex<Self::Value>) -> Vector3<f32> {
+//         (v1.index + v2.index).cast() / 2.0
+//     }
+// }
+
+impl<T: Grid<Value = Scalar>> MarchingCubes for T {
+    #[inline]
+    fn interpolate(&self, v1: Vertex<Self::Value>, v2: Vertex<Self::Value>) -> Vector3<f32> {
+
+        let v1_val = v1.value.map(|v| v.value).unwrap_or(f32::MIN);
+        let v2_val = v2.value.map(|v| v.value).unwrap_or(f32::MIN);
+        let l = v1_val.abs() + v2_val.abs();
+        let dir = v2.index - v1.index;
+
+        // println!("{dir}");
+
+        let r  = v1.index.cast() + dir.cast() * v1_val.abs() / l;
+
+        // println!("v1: {:?}\tv1 val: {:?}\tdir: {dir:?}\tl: {l:?}\tr: {r:?}", v1.index, v1.value.unwrap().value);
+        // println!("{r}");
+
+        r
+    }
+
+    #[inline]
+    fn is_inside(&self, idx: &Vector3<isize>) -> bool {
+        self.at(idx).map(|v| v.value).unwrap_or(-1.0) > 0.0
+    }
 }
 
 const V1: u8 = 1 << 0;
@@ -340,13 +371,13 @@ impl<'a, T: Grid + MarchingCubes> MarchingCubesMesher<'a, T> {
     }
 
     pub fn mesh(&mut self) -> Vec<Vector3<f32>> {
-        let int_grid = intersection_grid(self.grid);
+        let int_grid = make_borders_active(self.grid);
 
-        int_grid.traverse_leafs(&mut |leaf| {
+        self.grid.traverse_leafs(&mut |leaf| {
             let tile = match leaf {
                 Leaf::Tile(t) => t,
                 Leaf::Dense(n) => Tile {
-                    origin: *n.origin(),
+                    origin: n.origin(),
                     size: n.size_t(),
                 },
             };
@@ -380,41 +411,49 @@ impl<'a, T: Grid + MarchingCubes> MarchingCubesMesher<'a, T> {
         let mut cube = Cube::new(0);
     
         for i in 0..vertex_indices.len() {
-            if self.grid.at(&vertex_indices[i]).is_some() {
+            // if self.grid.at(&vertex_indices[i]).is_none() {
+            //     return;
+            // }
+
+            if self.grid.is_inside(&vertex_indices[i]) {
                 cube.0.set(i as u8, true);
             }
         }
     
         let triangles = LOOKUP_TABLE[(cube.0.bits) as usize];
-    
+
         for i in (0..triangles.len()).step_by(3) {
             let e1 = triangles[i];
             let e2 = triangles[i + 1];
             let e3 = triangles[i + 2];
-    
-            let v1 = interpolate(e1, &vertex_indices);
-            let v2 = interpolate(e2, &vertex_indices);
-            let v3 = interpolate(e3, &vertex_indices);
+
+            // let v1 = self.grid.interpolate(Vertex { index: (), value: () }, v2)
+
+            let v1 = self.interpolate(e1, &vertex_indices);
+            let v2 = self.interpolate(e2, &vertex_indices);
+            let v3 = self.interpolate(e3, &vertex_indices);
+
+            //println!("{:?}\t{:?}\t{:?", v1, v2, v3);
     
             self.vertices.push(v1);
             self.vertices.push(v2);
             self.vertices.push(v3);
         }
     }
-}
+    
+    fn interpolate(&mut self, e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
+        let v1_idx = e.v1() as usize;
+        let v2_idx = e.v2() as usize;
 
-fn interpolate(e: Edge, vertices: &[Vector3<isize>]) -> Vector3<f32> {
-    let v1_idx = e.v1() as usize;
-    let v2_idx = e.v2() as usize;
+        // println!("{} - {}", v1_idx, v2_idx);
 
-    // println!("{} - {}", v1_idx, v2_idx);
+        let v1 = Vertex { index: vertices[v1_idx], value: self.grid.at(&vertices[v1_idx]).cloned() }; // vertices[v1_idx].cast();
+        let v2 = Vertex { index: vertices[v2_idx], value: self.grid.at(&vertices[v2_idx]).cloned() }; // vertices[v2_idx].cast();
 
-    let v1 = vertices[v1_idx].cast();
-    let v2 = vertices[v2_idx].cast();
+        let mid = self.grid.interpolate(v1, v2);
 
-    let mid = (v1 + v2) / 2.0;
-
-    mid
+        mid
+    }
 }
 
 const LOOKUP_TABLE: [&[Edge]; 256] = [
@@ -675,6 +714,50 @@ const LOOKUP_TABLE: [&[Edge]; 256] = [
     [E4, E1, E9].as_slice(),
     [].as_slice(),
 ];
+
+pub fn make_borders_active<T: Grid>(grid: &T) -> T::As<()> {
+    let mut active_mask = grid.cast(&|_| ());
+
+    for leaf in grid.leafs() {
+        match leaf {
+            Leaf::Tile(t) => tile(&mut active_mask, t),
+            Leaf::Dense(n) => node(&mut active_mask, n),
+        }
+    }
+
+    active_mask.prune(());
+    active_mask
+}
+
+fn tile<T: Accessor<Value = ()>>(grid: &mut T, tile: Tile) {
+    let size = tile.size as isize;
+
+    for i in 0..tile.size as isize {
+        for j in 0..tile.size as isize {
+            let left = tile.origin + Vector3::new(-1, i, j);
+            let bottom = tile.origin + Vector3::new(i, j, -1);
+            let back = tile.origin + Vector3::new(i, -1, j);
+
+            grid.insert(&left, ());
+            grid.insert(&bottom, ());
+            grid.insert(&back, ());
+        }
+    }
+}
+
+fn node<TGrid: Accessor<Value = ()>, TLeaf: TreeNode>(int_grid: &mut TGrid, leaf: &TLeaf) {
+    let size = TLeaf::resolution() as isize;
+    let origin = leaf.origin();
+
+    for x in -1..=size {
+        for y in -1..=size {
+            for z in -1..=size {
+                let voxel = origin + Vector3::new(x, y, z);
+                int_grid.insert(&voxel, ());
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

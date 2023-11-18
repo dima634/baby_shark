@@ -1,4 +1,3 @@
-mod bool_grid;
 mod cubes;
 mod marching_cubes;
 

@@ -93,7 +93,7 @@ pub trait TreeNode: Accessor {
     /// 
     /// Creates a copy of the node with same topology but with different values
     /// 
-    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where 
         TNewValue: GridValue,
         TCast: Fn(Self::Value) -> TNewValue;

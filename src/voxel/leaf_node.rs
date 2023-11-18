@@ -187,7 +187,7 @@ impl<
         unimplemented!("Unsupported operation. Leaf node should never be pruned")
     }
 
-    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where 
         TNewValue: GridValue,
         TCast: Fn(Self::Value) -> TNewValue 

@@ -5,7 +5,7 @@ use std::{
 
 use nalgebra::Vector3;
 
-use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode, GridValue};
+use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode, GridValue, Scalar};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, TChild>,
@@ -70,18 +70,18 @@ where
             node.prune(tolerance);
         }
         
-        todo!("Remove empty nodes");
+        // todo!("Remove empty nodes");
 
         None
     }
 
-    fn clone_topology<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where 
         TNewValue: GridValue,
         TCast: Fn(Self::Value) -> TNewValue 
     {
         let root = self.root.iter()
-            .map(|(key, child)| (*key, child.clone_topology(cast)))
+            .map(|(key, child)| (*key, child.cast(cast)))
             .collect();
 
         RootNode {
@@ -182,6 +182,36 @@ impl<TChild: TreeNode<Value = ()>> RootNode<TChild> {
             }
 
             tree.insert(&idx, ());
+        }
+
+        return tree;
+    }
+}
+
+impl<TChild: TreeNode<Value = Scalar>> RootNode<TChild> {
+    ///
+    /// Inside is positive
+    ///
+    pub fn from_singed_scalar_field_sdf<T: Fn(&Vector3<f32>) -> f32>(
+        grid_size: usize,
+        min: f32,
+        max: f32,
+        f: T,
+    ) -> Self {
+        let mut tree = Self::new();
+
+        let origin = Vector3::new(min, min, min);
+        let spacing = (max - min) / grid_size as f32;
+
+        for idx in box_indices(0, grid_size as isize) {
+            let p = origin
+                + Vector3::new(
+                    idx.x as f32 * spacing,
+                    idx.y as f32 * spacing,
+                    idx.z as f32 * spacing,
+                );
+
+            tree.insert(&idx, f(&p).into());
         }
 
         return tree;
