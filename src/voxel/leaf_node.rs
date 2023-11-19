@@ -1,10 +1,10 @@
 use std::mem::MaybeUninit;
 
-use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
+use crate::data_structures::bitset::BitSet;
+
 use super::{
-    utils::{is_mask_empty, is_mask_full},
     Accessor, GridValue, Leaf, Traverse, TreeNode,
 };
 
@@ -16,7 +16,7 @@ pub struct LeafNode<
     const BIT_SIZE: usize,
 > {
     values: [TValue; SIZE],
-    value_mask: BitArray<[usize; BIT_SIZE]>,
+    value_mask: BitSet<SIZE, BIT_SIZE>,
     origin: Vector3<isize>,
 }
 
@@ -65,7 +65,7 @@ impl<
     pub fn empty() -> Self {
         return Self {
             origin: Vector3::new(0, 0, 0),
-            value_mask: Default::default(),
+            value_mask: BitSet::zeroes(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
         };
     }
@@ -74,6 +74,35 @@ impl<
     pub fn origin(&self) -> &Vector3<isize> {
         return &self.origin;
     }
+
+    // pub fn dilate(&mut self, neighbor_masks: [&[usize]; 6]) {
+    //     let old_value_mask = self.value_mask;
+    //     let dim = Self::resolution();
+
+    //     for x in 0..dim {
+    //         let mut n = x << Self::BRANCHING_TOTAL;
+    //         let n_e = n + Self::resolution();
+
+    //         for y in 0..dim {
+    //             let b = old_value_mask[n..n_e].load::<usize>();
+                
+    //             // skip empty z-columns
+    //             if b.not_all() {
+    //                 continue;
+    //             }
+
+    //             self.value_mask[n]   |= b >> 1 | b << 1;  // +-z by itself
+    //             neighbor_masks[4][n] |= b << 7;           // -z by NN[5]
+    //             neighbor_masks[5][n] |= b >> 7;           // +z by NN[6]
+    //             if y > 0 { self.value_mask[n - 1] } else { neighbor_masks[2][n + 7] } |= b ; // -y
+    //             if y < 7 { self.value_mask[n + 1] } else { neighbor_masks[3][n - 7] } |= b ; // +y
+    //             if x > 0 { self.value_mask[n - 8] } else { neighbor_masks[0][n +56] } |= b ; // -x
+    //             if x < 7 { self.value_mask[n + 8] } else { neighbor_masks[1][n -56] } |= b ; // +x
+
+    //             n += 1;
+    //         }
+    //     }
+    // }
 }
 
 impl<
@@ -90,7 +119,7 @@ impl<
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
-        if self.value_mask[offset] {
+        if self.value_mask.at(offset) {
             Some(&self.values[offset])
         } else {
             None
@@ -130,16 +159,16 @@ impl<
 
     #[inline]
     fn empty(origin: Vector3<isize>) -> Self {
-        return Self {
+        Self {
             origin,
-            value_mask: Default::default(),
+            value_mask: BitSet::zeroes(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-        };
+        }
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        return is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
+        self.value_mask.is_empty()
     }
 
     #[inline]
@@ -154,21 +183,21 @@ impl<
 
     #[inline]
     fn fill(&mut self, value: Self::Value) {
-        self.value_mask.data = [usize::MAX; BIT_SIZE];
+        self.value_mask = BitSet::ones();
         self.values = [value; SIZE];
     }
 
     fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
-        if self.is_empty() || !is_mask_full::<BIT_SIZE>(&self.value_mask.data) {
+        if self.is_empty() || !self.value_mask.is_full() {
             return None;
         }
 
-        let first_value_offset = self.value_mask.iter().position(|v| *v)?;
+        let first_value_offset = self.value_mask.iter().position(|v| v)?;
         let first_value = self.values[first_value_offset];
 
         // Check if all values are within tolerance
         for offset in (first_value_offset + 1)..SIZE {
-            if !self.value_mask[offset] {
+            if !self.value_mask.at(offset) {
                 continue;
             }
 
@@ -199,7 +228,7 @@ impl<
         };
 
         for i in 0..SIZE {
-            if !self.value_mask[i] {
+            if !self.value_mask.at(i) {
                 continue;
             }
 

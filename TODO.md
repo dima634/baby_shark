@@ -41,3 +41,4 @@
 - [x] Prune on demand (within tolerance?)
 - [ ] Type list: change to enum. Each enum value is type at {idx} of list. Will compiler optimize match expr? Implement the same ways as TreeNode
 - [ ] Cubes meshing: optimize by testing only boundary of tile nodes
+- [ ] Remove redundant total branching from leaf node

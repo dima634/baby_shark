@@ -1,10 +1,10 @@
 use std::mem::MaybeUninit;
 
-use bitvec::prelude::BitArray;
 use nalgebra::Vector3;
 
+use crate::data_structures::bitset::BitSet;
+
 use super::{
-    utils::{is_mask_empty, is_mask_full},
     Accessor, Child, Leaf, Tile, Traverse, TreeNode, IsWithinTolerance, GridValue,
 };
 
@@ -17,9 +17,9 @@ pub struct InternalNode<
     const BIT_SIZE: usize,
 > {
     childs: [Option<Box<TChild>>; SIZE],
-    child_mask: BitArray<[usize; BIT_SIZE]>,
+    child_mask: BitSet<SIZE, BIT_SIZE>,
     values: [TValue; SIZE],
-    value_mask: BitArray<[usize; BIT_SIZE]>,
+    value_mask: BitSet<SIZE, BIT_SIZE>,
     origin: Vector3<isize>,
 }
 
@@ -36,7 +36,7 @@ where
 {
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TChild::LeafNode>> + 'a> {
         let it = (0..SIZE).into_iter().filter_map(|offset| {
-            if self.child_mask[offset] {
+            if self.child_mask.at(offset) {
                 let child = self.child(offset);
 
                 return if TChild::IS_LEAF {
@@ -48,7 +48,7 @@ where
                 };
             }
 
-            if self.value_mask[offset] {
+            if self.value_mask.at(offset) {
                 let tile = Child::Tile(Tile {
                     origin: self.offset_to_global_index(offset),
                     size: TChild::resolution(),
@@ -94,7 +94,7 @@ where
     }
 
     fn add_child(&mut self, offset: usize) {
-        debug_assert!(!self.child_mask[offset]);
+        debug_assert!(!self.child_mask.at(offset));
 
         self.child_mask.set(offset, true);
         self.value_mask.set(offset, false);
@@ -106,7 +106,7 @@ where
 
     #[inline]
     fn remove_child(&mut self, offset: usize) {
-        debug_assert!(self.child_mask[offset]);
+        debug_assert!(self.child_mask.at(offset));
 
         // self.value_mask.set(offset, false);
         self.child_mask.set(offset, false);
@@ -115,7 +115,7 @@ where
     
     #[inline]
     fn replace_child_with_tile(&mut self, offset: usize, value: TChild::Value) {
-        debug_assert!(self.child_mask[offset]);
+        debug_assert!(self.child_mask.at(offset));
 
         self.remove_child(offset);
         self.value_mask.set(offset, true);
@@ -125,7 +125,7 @@ where
     #[inline]
     fn child(&self, offset: usize) -> &TChild {
         let child = &self.childs[offset];
-        debug_assert!(self.child_mask[offset]);
+        debug_assert!(self.child_mask.at(offset));
         debug_assert!(child.is_some());
 
         return unsafe { child.as_ref().unwrap_unchecked() };
@@ -134,7 +134,7 @@ where
     #[inline]
     fn child_mut(&mut self, offset: usize) -> &mut TChild {
         let child = &mut self.childs[offset];
-        debug_assert!(self.child_mask[offset]);
+        debug_assert!(self.child_mask.at(offset));
         debug_assert!(child.is_some());
 
         return unsafe { child.as_mut().unwrap_unchecked() };
@@ -179,11 +179,11 @@ where
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
-        if self.child_mask[offset] {
+        if self.child_mask.at(offset) {
             return self.child(offset).at(index);
         }
 
-        if !self.value_mask[offset] {
+        if !self.value_mask.at(offset) {
             return None;
         }
 
@@ -197,13 +197,13 @@ where
         //   else - add empty child and insert voxel
         let offset = Self::offset(index);
 
-        if self.child_mask[offset] {
+        if self.child_mask.at(offset) {
             let child = self.child_mut(offset);
             child.insert(index, value);
             return;
         }
 
-        if self.value_mask[offset] {
+        if self.value_mask.at(offset) {
             let tile_value = self.values[offset];
 
             // No need to add child if tile value is equal to inserted one
@@ -229,7 +229,7 @@ where
         //   inactive - do nothing
         let offset = Self::offset(index);
 
-        if self.child_mask[offset] {
+        if self.child_mask.at(offset) {
             let child = self.child_mut(offset);
             child.remove(index);
 
@@ -237,7 +237,7 @@ where
                 self.remove_child(offset);
                 self.value_mask.set(offset, false); // Remove?
             }
-        } else if self.value_mask[offset] {
+        } else if self.value_mask.at(offset) {
             let tile_value = self.values[offset];
             self.add_child(offset);
             let child = self.child_mut(offset);
@@ -271,24 +271,24 @@ where
         return Self {
             origin,
             childs: std::array::from_fn(|_| None),
-            child_mask: Default::default(),
+            child_mask: BitSet::zeroes(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-            value_mask: Default::default(),
+            value_mask: BitSet::zeroes(),
         };
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        return is_mask_empty::<BIT_SIZE>(&self.child_mask.data)
-            && is_mask_empty::<BIT_SIZE>(&self.value_mask.data);
+        return self.child_mask.is_empty()
+            && self.value_mask.is_empty();
     }
 
     fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
         for i in 0..SIZE {
-            if self.child_mask[i] {
+            if self.child_mask.at(i) {
                 let child = self.child(i);
                 child.traverse_leafs(f);
-            } else if self.value_mask[i] {
+            } else if self.value_mask.at(i) {
                 let tile = Leaf::Tile(Tile {
                     origin: self.offset_to_global_index(i),
                     size: TChild::resolution(),
@@ -306,8 +306,8 @@ where
 
     #[inline]
     fn fill(&mut self, value: Self::Value) {
-        self.child_mask.data = [0; BIT_SIZE];
-        self.value_mask.data = [usize::MAX; BIT_SIZE];
+        self.child_mask = BitSet::zeroes();
+        self.value_mask = BitSet::ones();
         self.values = [value; SIZE];
     }
 
@@ -321,7 +321,7 @@ where
         }
 
         for offset in 0..SIZE {
-            if !self.child_mask[offset] {
+            if !self.child_mask.at(offset) {
                 continue;
             }
             
@@ -343,7 +343,7 @@ where
             }
         }
 
-        if !is_mask_full::<BIT_SIZE>(&self.value_mask.data) {
+        if !self.value_mask.is_full() {
             return None;
         }
 
@@ -373,10 +373,10 @@ where
         };
 
         for i in 0..SIZE {
-            if self.child_mask[i] {
+            if self.child_mask.at(i) {
                 let child = self.child(i);
                 new_node.childs[i] = Some(Box::new(child.cast(cast)));
-            } else if self.value_mask[i] {
+            } else if self.value_mask.at(i) {
                 new_node.values[i] = cast(self.values[i]);
             }
         }

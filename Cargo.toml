@@ -26,7 +26,6 @@ bitflags = "2.4.0"
 tabled = "0.14.0"
 petgraph = "0.6.2"
 svg = "0.13.1"
-bitvec = "1.0.1"
 
 [dev-dependencies]
 test-case = "3.0.0"
