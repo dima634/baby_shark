@@ -21,23 +21,6 @@ use nalgebra::Vector3;
 
 use self::traverse::LeafsIter;
 
-pub trait TreeNodeConsts {
-    /// Number of tiles in one dimension on current level
-    const BRANCHING: usize;
-    /// Total number of tiles in one dimension
-    const BRANCHING_TOTAL: usize;
-    /// Total number of voxels in node
-    const SIZE: usize;
-
-    fn index_key(&self, index: &Vector3<usize>) -> Vector3<usize> {
-        return Vector3::new(
-            index.x & !((1 << Self::BRANCHING_TOTAL) - 1),
-            index.y & !((1 << Self::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << Self::BRANCHING_TOTAL) - 1),
-        );
-    }
-}
-
 pub trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
 }
@@ -97,6 +80,9 @@ pub trait TreeNode: Accessor {
     where 
         TNewValue: GridValue,
         TCast: Fn(Self::Value) -> TNewValue;
+
+    ///
+    // fn dilate(&mut self, value: Self::Value, neighbor_masks: [&[usize]; 6]);
 
     /// Number of voxels in one dimension
     #[inline]
