@@ -1,3 +1,4 @@
+use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign, BitXor, BitAnd, BitOr};
 
 #[derive(Debug, Clone, Copy)]
 pub struct BitSet<const BITS: usize, const STORAGE_SIZE: usize> {
@@ -111,6 +112,84 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
         BitsIter {
             bit_set: self,
             bit: 0,
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitAndAssign for BitSet<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn bitand_assign(&mut self, rhs: Self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] &= rhs.storage[i];
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitAnd for BitSet<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    #[inline]
+    fn bitand(self, rhs: Self) -> Self::Output {
+        let mut storage: [usize; STORAGE_SIZE] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+        for i in 0..STORAGE_SIZE {
+            storage[i] = self.storage[i] & rhs.storage[i];
+        }
+
+        Self {
+            storage
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitOrAssign for BitSet<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] |= rhs.storage[i];
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitOr for BitSet<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut storage: [usize; STORAGE_SIZE] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+        for i in 0..STORAGE_SIZE {
+            storage[i] = self.storage[i] | rhs.storage[i];
+        }
+
+        Self {
+            storage
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitXorAssign for BitSet<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn bitxor_assign(&mut self, rhs: Self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] ^= rhs.storage[i];
+        }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitXor for BitSet<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    #[inline]
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let mut storage: [usize; STORAGE_SIZE] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+        for i in 0..STORAGE_SIZE {
+            storage[i] = self.storage[i] ^ rhs.storage[i];
+        }
+
+        Self {
+            storage
         }
     }
 }

@@ -96,8 +96,8 @@ where
     fn add_child(&mut self, offset: usize) {
         debug_assert!(!self.child_mask.at(offset));
 
-        self.child_mask.set(offset, true);
-        self.value_mask.set(offset, false);
+        self.child_mask.on(offset);
+        self.value_mask.off(offset);
 
         let child_origin = self.offset_to_global_index(offset);
         let child_node = TChild::empty(child_origin);
@@ -109,7 +109,7 @@ where
         debug_assert!(self.child_mask.at(offset));
 
         // self.value_mask.set(offset, false);
-        self.child_mask.set(offset, false);
+        self.child_mask.off(offset);
         self.childs[offset] = None;
     }    
     
@@ -118,7 +118,7 @@ where
         debug_assert!(self.child_mask.at(offset));
 
         self.remove_child(offset);
-        self.value_mask.set(offset, true);
+        self.value_mask.on(offset);
         self.values[offset] = value;
     }
 
@@ -235,7 +235,7 @@ where
 
             if child.is_empty() {
                 self.remove_child(offset);
-                self.value_mask.set(offset, false); // Remove?
+                self.value_mask.off(offset); // Remove?
             }
         } else if self.value_mask.at(offset) {
             let tile_value = self.values[offset];

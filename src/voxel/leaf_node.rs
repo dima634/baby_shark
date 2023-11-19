@@ -75,7 +75,7 @@ impl<
         return &self.origin;
     }
 
-    // pub fn dilate(&mut self, neighbor_masks: [&[usize]; 6]) {
+    // pub fn dilate(&mut self, neighbor_masks: [&BitSet<SIZE, BIT_SIZE>; 6]) {
     //     let old_value_mask = self.value_mask;
     //     let dim = Self::resolution();
 
@@ -129,13 +129,13 @@ impl<
     #[inline]
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let offset = Self::offset(index);
-        self.value_mask.set(offset, true);
+        self.value_mask.on(offset);
         self.values[offset] = value;
     }
 
     #[inline]
     fn remove(&mut self, index: &Vector3<isize>) {
-        self.value_mask.set(Self::offset(index), false);
+        self.value_mask.off(Self::offset(index));
     }
 }
 
