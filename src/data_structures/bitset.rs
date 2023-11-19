@@ -51,7 +51,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
 
     #[inline]
     pub fn is_full(&self) -> bool {
-        let mut value = 1;
+        let mut value = usize::MAX;
 
         for i in 0..STORAGE_SIZE - 1 {
             value &= self.storage[i];
@@ -59,7 +59,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
 
         value &= self.storage[STORAGE_SIZE - 1] | !Self::unused_mask();
 
-        value != usize::MAX
+        value == usize::MAX
     }
 
     #[inline]
@@ -67,9 +67,9 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
         debug_assert!(index < BITS);
 
         let storage_index = index / USIZE_BITS;
-        let bit_index = index % USIZE_BITS;
+        let value_mask = Self::value_mask(index);
 
-        self.storage[storage_index] & (1 << bit_index) != 0
+        self.storage[storage_index] & value_mask != 0
     }
     
     #[inline]
@@ -77,8 +77,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
         debug_assert!(index < BITS);
 
         let storage_index = index / USIZE_BITS;
-        let bit_index = index % USIZE_BITS;
-        let value_mask = 1 << bit_index;
+        let value_mask = Self::value_mask(index);
 
         if value {
             self.storage[storage_index] |= value_mask;
@@ -113,6 +112,18 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
             bit_set: self,
             bit: 0,
         }
+    }
+
+    #[cfg(target_endian = "little")]
+    #[inline]
+    fn value_mask(index: usize) -> usize {
+        (1 << USIZE_BITS - 1) >> (index % USIZE_BITS)
+    }
+
+    #[cfg(target_endian = "big")]
+    #[inline]
+    fn value_mask(index: usize) -> usize {
+        1 >> (index % USIZE_BITS)
     }
 }
 
