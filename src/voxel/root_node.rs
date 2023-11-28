@@ -8,7 +8,7 @@ use nalgebra::Vector3;
 use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode, GridValue, Scalar};
 
 pub struct RootNode<TChild: TreeNode> {
-    root: BTreeMap<RootKey, TChild>,
+    root: BTreeMap<RootKey, Box<TChild>>,
 }
 
 impl<TChild> Traverse<TChild::LeafNode> for RootNode<TChild>
@@ -17,7 +17,7 @@ where
 {
     #[inline]
     fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TChild::LeafNode>> + 'a> {
-        let it = self.root.values().map(|child| super::Child::Branch(child));
+        let it = self.root.values().map(|child| super::Child::Branch(child.as_ref()));
         Box::new(it)
     }
 }
@@ -81,7 +81,7 @@ where
         TCast: Fn(Self::Value) -> TNewValue 
     {
         let root = self.root.iter()
-            .map(|(key, child)| (*key, child.cast(cast)))
+            .map(|(key, child)| (*key, child.cast(cast).into()))
             .collect();
 
         RootNode {
@@ -93,7 +93,7 @@ where
 impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     type Value = TChild::Value;
 
-    #[inline(always)]
+    #[inline]
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let root_key = Self::root_key(index);
 
@@ -104,18 +104,21 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
         }
     }
 
+    #[inline]
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let root_key = Self::root_key(index);
 
-        let child = if let Some(child) = self.root.get_mut(&root_key) {
-            child
-        } else {
-            let new_child = TChild::empty(root_key.0);
-            self.root.insert(root_key, new_child);
-            self.root.get_mut(&root_key).unwrap()
-        };
+        // let child = if let Some(child) = self.root.get_mut(&root_key) {
+        //     child
+        // } else {
+        //     let new_child = TChild::empty(root_key.0);
+        //     self.root.insert(root_key, new_child);
+        //     self.root.get_mut(&root_key).unwrap()
+        // };
 
-        child.insert(index, value);
+        self.root.entry(root_key)
+            .or_insert_with(|| Box::new(TChild::empty(root_key.0)))
+            .insert(index, value);
     }
 
     fn remove(&mut self, index: &Vector3<isize>) {
@@ -151,70 +154,6 @@ impl<TChild: TreeNode> RootNode<TChild> {
             index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
         ));
-    }
-}
-
-impl<TChild: TreeNode<Value = ()>> RootNode<TChild> {
-    ///
-    /// Inside is positive
-    ///
-    pub fn from_singed_scalar_field<T: Fn(&Vector3<f32>) -> f32>(
-        grid_size: usize,
-        min: f32,
-        max: f32,
-        f: T,
-    ) -> Self {
-        let mut tree = Self::new();
-
-        let origin = Vector3::new(min, min, min);
-        let spacing = (max - min) / grid_size as f32;
-
-        for idx in box_indices(0, grid_size as isize) {
-            let p = origin
-                + Vector3::new(
-                    idx.x as f32 * spacing,
-                    idx.y as f32 * spacing,
-                    idx.z as f32 * spacing,
-                );
-
-            if f(&p) < 0.0 {
-                continue;
-            }
-
-            tree.insert(&idx, ());
-        }
-
-        return tree;
-    }
-}
-
-impl<TChild: TreeNode<Value = Scalar>> RootNode<TChild> {
-    ///
-    /// Inside is positive
-    ///
-    pub fn from_singed_scalar_field_sdf<T: Fn(&Vector3<f32>) -> f32>(
-        grid_size: usize,
-        min: f32,
-        max: f32,
-        f: T,
-    ) -> Self {
-        let mut tree = Self::new();
-
-        let origin = Vector3::new(min, min, min);
-        let spacing = (max - min) / grid_size as f32;
-
-        for idx in box_indices(0, grid_size as isize) {
-            let p = origin
-                + Vector3::new(
-                    idx.x as f32 * spacing,
-                    idx.y as f32 * spacing,
-                    idx.z as f32 * spacing,
-                );
-
-            tree.insert(&idx, f(&p).into());
-        }
-
-        return tree;
     }
 }
 

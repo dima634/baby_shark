@@ -4,6 +4,7 @@ pub mod leaf_node;
 pub mod meshing;
 pub mod root_node;
 pub mod utils;
+pub mod sdf;
 
 mod cached_accessor;
 mod grid_value;
@@ -16,6 +17,7 @@ pub use grid_value::*;
 pub use internal_node::*;
 pub use leaf_node::*;
 pub use root_node::*;
+pub use sdf::*;
 
 use nalgebra::Vector3;
 

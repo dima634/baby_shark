@@ -24,6 +24,8 @@ pub struct Scalar {
     pub value: f32,
 }
 
+pub const SMALL_SCALAR: Scalar = Scalar { value: SMALL_NUMBER };
+
 impl GridValue for Scalar {}
 
 impl IsWithinTolerance for Scalar {
