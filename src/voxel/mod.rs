@@ -6,6 +6,7 @@ pub mod root_node;
 pub mod utils;
 pub mod sdf;
 
+pub mod mesh_to_sdf;
 mod cached_accessor;
 mod grid_value;
 mod traverse;
@@ -47,8 +48,8 @@ pub trait TreeNode: Accessor {
 
     const IS_LEAF: bool;
 
-    type LeafNode: TreeNode;
-    type Child: TreeNode;
+    type LeafNode: TreeNode<Value = Self::Value>;
+    type Child: TreeNode<Value = Self::Value, LeafNode = Self::LeafNode>;
     type As<TValue: GridValue>: TreeNode<
         Value = TValue, 
         Child = <Self::Child as TreeNode>::As<TValue>, 
@@ -119,13 +120,14 @@ pub trait TreeNode: Accessor {
     }
 }
 
-pub struct Tile {
+pub struct Tile<T> {
     pub origin: Vector3<isize>,
     pub size: usize,
+    pub value: T,
 }
 
 pub enum Leaf<'a, T: Accessor> {
-    Tile(Tile),
+    Tile(Tile<T::Value>),
     Dense(&'a T),
 }
 
@@ -144,7 +146,7 @@ pub trait Traverse<TLeaf: Accessor> {
 pub enum Child<'a, TLeafNode: Accessor> {
     Branch(&'a dyn Traverse<TLeafNode>),
     Leaf(&'a TLeafNode),
-    Tile(Tile),
+    Tile(Tile<TLeafNode::Value>),
 }
 
 pub trait Grid: TreeNode + Traverse<Self::LeafNode> {}

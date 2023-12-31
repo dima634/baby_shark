@@ -1,6 +1,6 @@
 use nalgebra::Point3;
 use nalgebra_glm::{min2, max2};
-use num_traits::cast;
+use num_traits::{cast, Float};
 
 use crate::{geometry::traits::{ClosestPoint3, HasScalarType, RealNumber, Number}};
 
@@ -127,6 +127,12 @@ impl<TScalar: RealNumber> Box3<TScalar> {
     #[inline]
     pub fn diagonal(&self, i: u8) -> LineSegment3<TScalar> {
         return LineSegment3::new(&self.vertex(i), &self.vertex(7 - i));
+    }
+
+    #[inline]
+    pub fn size_max(&self) -> TScalar {
+        let xy = Float::max(self.size_x(), self.size_y());
+        return Float::max(xy, self.size_z());
     }
     
     /// Test bbox - plane intersection

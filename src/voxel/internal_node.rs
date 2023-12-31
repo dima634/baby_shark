@@ -52,6 +52,7 @@ where
                 let tile = Child::Tile(Tile {
                     origin: self.offset_to_global_index(offset),
                     size: TChild::resolution(),
+                    value: self.values[offset],
                 });
                 return Some(tile);
             }
@@ -292,6 +293,7 @@ where
                 let tile = Leaf::Tile(Tile {
                     origin: self.offset_to_global_index(i),
                     size: TChild::resolution(),
+                    value: self.values[i],
                 });
 
                 f(tile);

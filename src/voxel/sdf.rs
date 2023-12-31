@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 
 use crate::dynamic_vdb;
 
-use super::{Grid, Scalar, utils::box_indices, meshing::{MarchingCubes, Vertex}, Leaf, TreeNode, Tile, SMALL_SCALAR};
+use super::{Grid, Scalar, meshing::{MarchingCubes, Vertex}, Leaf, TreeNode, Tile};
 
 type DefaultGrid = dynamic_vdb!(Scalar, 5, 4, 3);
 
@@ -102,18 +102,15 @@ impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
     #[inline]
     fn cubes<TFn: FnMut(Vector3<isize>)> (&self, mut func: TFn) {
         self.grid.traverse_leafs(&mut |leaf| {
-            let tile = match leaf {
-                Leaf::Tile(t) => t,
-                Leaf::Dense(n) => Tile {
-                    origin: n.origin(),
-                    size: n.size_t(),
-                },
+            let (origin, size) = match leaf {
+                Leaf::Tile(t) => (t.origin, t.size),
+                Leaf::Dense(n) => (n.origin(), n.size_t())
             };
 
-            let max = tile.origin + Vector3::new(tile.size, tile.size, tile.size).cast();
-            for x in tile.origin.x..max.x {
-                for y in tile.origin.y..max.y {
-                    for z in tile.origin.z..max.z {
+            let max = origin + Vector3::new(size, size, size).cast();
+            for x in origin.x..max.x {
+                for y in origin.y..max.y {
+                    for z in origin.z..max.z {
                         let v = Vector3::new(x, y, z);
                         func(v);
                     }

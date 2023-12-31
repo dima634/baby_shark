@@ -44,3 +44,52 @@
 - [ ] Remove redundant total branching from leaf node
 - [ ] Internal node: merge childs and values into union to reduce memory footprint
 - [x] Artifacts during meshing
+- [ ] Leaf node: bit mask for inside/outside
+- [ ] Mesh to SDF: implement union for tree nodes to speed up stuff???
+
+
+TPMS:
+```rust
+        let cell_size = 3.0_f32;
+        let density = 0.2_f32;
+        let x = 2.0 * PI * p.x / cell_size;
+        let y = 2.0 * PI * p.y / cell_size;
+        let z = 2.0 * PI * p.z / cell_size;
+
+
+        // Tub-Primitive 
+        //-(x.cos() + y.cos() + z.cos() - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos()) - 1.0)
+
+        // Schoen-Gyroid
+        // (x.sin() * y.cos() + y.sin() * z.cos() + z.sin() * x.cos() - density)
+
+        // Schoen-I-WP (IWP)
+        // (
+        //     x.cos() * y.cos() + y.cos() * z.cos() + x.cos() * z.cos() - 
+        //     0.5 * ((x * 2.0).cos() + (y * 2.0).cos() + (z * 2.0).cos() - density)
+        // )
+
+        // if bbox.contains_point(&((*p).into())) {
+        //     f32::MIN
+        // } else {
+        //     bbox.squared_distance(&((*p).into())).sqrt()
+        // }
+
+        // (p - Vector3::new(0.0, 0.0, -5.0)).magnitude_squared().sqrt() - 3.0 // circle
+
+
+        // let p = (*p).into();
+        // let sphere = Sphere3::new(Point3::new(0.0, 0.0, -5.0), 3.0);
+        // let d = sphere.squared_distance_to_point(&p);
+
+        // if d < 0.0 {
+        //     // println!("neg");
+        //     -d.sqrt()
+        // } else {
+        //     d.sqrt()
+        // }
+
+        // p.y
+
+        p.x.cos() + p.y.cos() + p.z.cos()
+```
