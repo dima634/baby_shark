@@ -16,10 +16,10 @@ fn main() {
     type Mesh = PolygonSoup<f32>;
 
     let mut reader = StlReader::new();
-    let mesh: Mesh = reader.read_stl_from_file(Path::new("lucy.stl")).expect("Read mesh");
+    let mesh: Mesh = reader.read_stl_from_file(Path::new("caesar.stl")).expect("Read mesh");
     let triangles = mesh.faces().map(|f| mesh.face_positions(&f));
 
-    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(1.0);
+    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.005);
     let sdf: Box<Sdf> = mesh_to_sdf.approximate(triangles);
 
     let mut mc = MarchingCubesMesher::new(sdf.as_ref());

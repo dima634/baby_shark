@@ -20,7 +20,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     pub fn new() -> Self {
         let voxel_size = 1.0;
         Self {
-            band_width: 4,
+            band_width: 1,
             sdf: TGrid::empty(Vec3i::zeros()),
             points: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
@@ -119,15 +119,27 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
             // 3.0 / 2 => 1.5 => 2
             // 0.1 / 2 => 0.05 => 0
             let (tri, normal) = &self.points[i];
-            let point = tri.center();
-            let nbh_min = Vec3i::new(
-                (point.x * self.inverse_voxel_size).round() as isize - self.band_width, 
-                (point.y * self.inverse_voxel_size).round() as isize - self.band_width, 
-                (point.z * self.inverse_voxel_size).round() as isize - self.band_width,
-            );
-            let nbh_max = nbh_min.add_scalar(self.band_width * 2);
+            // let point = tri.center();
+            // let nbh_min = Vec3i::new(
+            //     (point.x * self.inverse_voxel_size).round() as isize - self.band_width, 
+            //     (point.y * self.inverse_voxel_size).round() as isize - self.band_width, 
+            //     (point.z * self.inverse_voxel_size).round() as isize - self.band_width,
+            // );
+            // let nbh_max = nbh_min.add_scalar(self.band_width * 2);
 
             // rintln!("new point");
+
+            let bbox = tri.bbox();
+            let nbh_min = Vec3i::new(
+                (bbox.get_min().x * self.inverse_voxel_size).floor() as isize - self.band_width, 
+                (bbox.get_min().y * self.inverse_voxel_size).floor() as isize - self.band_width, 
+                (bbox.get_min().z * self.inverse_voxel_size).floor() as isize - self.band_width,
+            );
+            let nbh_max = Vec3i::new(
+                (bbox.get_max().x * self.inverse_voxel_size).ceil() as isize + self.band_width, 
+                (bbox.get_max().y * self.inverse_voxel_size).ceil() as isize + self.band_width, 
+                (bbox.get_max().z * self.inverse_voxel_size).ceil() as isize + self.band_width,
+            );
 
             for x in nbh_min.x..nbh_max.x {
                 for y in nbh_min.y..nbh_max.y {
