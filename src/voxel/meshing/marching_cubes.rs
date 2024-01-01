@@ -1,18 +1,19 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, fmt::Debug};
 
 use nalgebra::Vector3;
 
-use crate::voxel::{Grid, Leaf, Tile, TreeNode, Accessor, Scalar, sdf::Sdf};
+use crate::{voxel::{Grid, Leaf, Tile, TreeNode, Accessor, Scalar, sdf::Sdf}, geometry::primitives::triangle3::Triangle3};
 
 use self::lookup_table::{Cube, LOOKUP_TABLE, Edge};
 
-pub struct Vertex<T> {
+#[derive(Debug)]
+pub struct Vertex<T: Debug> {
     pub index: Vector3<isize>,
     pub value: T,
 }
 
 pub trait MarchingCubes {
-    type Value;
+    type Value: Debug;
 
     fn interpolate(&self, v1: &Vertex<Self::Value>, v2: &Vertex<Self::Value>) -> Vector3<f32>;
     fn is_inside(&self, idx: &Self::Value) -> bool;
@@ -47,7 +48,7 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
 
     fn handle_cube(&mut self, v: Vector3<isize>) {
     
-        let mut cube = MCube::from_voxel(v, self.grid);
+        let cube = MCube::from_voxel(v, self.grid);
 
         if cube.is_none() {
             return;
@@ -64,6 +65,19 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
             let v1 = self.interpolate(e1, &cube);
             let v2 = self.interpolate(e2, &cube);
             let v3 = self.interpolate(e3, &cube);
+
+            if Triangle3::new(v1.into(), v2.into(), v3.into()).try_get_normal().is_none() {
+                // println!("Cube - {}", cube.id());
+                // println!("Triangle - {} {} {}", v1, v2, v3);
+                // print_edge(e1, &cube);
+                // print_edge(e2, &cube);
+                // print_edge(e3, &cube);
+
+                // println!();
+                // println!();
+                // println!();
+                // continue;
+            }
     
             self.vertices.push(v1);
             self.vertices.push(v2);
@@ -80,12 +94,20 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
     }
 }
 
-struct MCube<T> {
+fn print_edge<T:Debug>(e: Edge, cube: &MCube<T>) {
+    let v1 = cube.vertex(e.v1 as usize);
+    let v2 = cube.vertex(e.v2 as usize);
+    
+    println!("Edge: {:?}\t{:?}", v1.value, v2.value);
+}
+
+#[derive(Debug)]
+struct MCube<T: Debug> {
     bits: u8,
     vertices: [Vertex<T>; 8],
 }
 
-impl<T> MCube<T> {
+impl<T: Debug> MCube<T> {
     fn from_voxel<TGrid: MarchingCubes<Value = T>>(voxel: Vector3<isize>, grid: &TGrid) -> Option<Self> {
         let mut vertices: [Vertex<T>; 8] = unsafe { MaybeUninit::uninit().assume_init() }; 
         let mut bits = 0;

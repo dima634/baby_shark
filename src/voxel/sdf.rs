@@ -7,7 +7,7 @@ use super::{Grid, Scalar, meshing::{MarchingCubes, Vertex}, Leaf, TreeNode, Tile
 type DefaultGrid = dynamic_vdb!(Scalar, 5, 4, 3);
 
 pub struct Sdf<T = DefaultGrid> where T: Grid<Value = Scalar> {
-    pub grid: T,
+    pub grid: Box<T>,
 }
 
 impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {

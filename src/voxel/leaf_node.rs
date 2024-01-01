@@ -158,12 +158,12 @@ impl<
     type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
-    fn empty(origin: Vector3<isize>) -> Self {
-        Self {
+    fn empty(origin: Vector3<isize>) -> Box<Self> {
+        Box::new(Self {
             origin,
             value_mask: BitSet::zeroes(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-        }
+        })
     }
 
     #[inline]

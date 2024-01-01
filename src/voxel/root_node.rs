@@ -37,8 +37,8 @@ where
     type As<TValue: GridValue> = RootNode<TChild::As<TValue>>;
 
     #[inline]
-    fn empty(_: Vector3<isize>) -> Self {
-        Self::new()
+    fn empty(_: Vector3<isize>) -> Box<Self> {
+        Box::new(Self::new())
     }
 
     #[inline]
@@ -117,7 +117,7 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
         // };
 
         self.root.entry(root_key)
-            .or_insert_with(|| Box::new(TChild::empty(root_key.0)))
+            .or_insert_with(|| TChild::empty(root_key.0))
             .insert(index, value);
     }
 

@@ -14,7 +14,7 @@ use crate::{
         Number, 
         IntersectsPlane3
     }, basis2d::Basis2}, 
-    algo::utils::{has_same_sign, triple_product}
+    algo::utils::{has_same_sign, triple_product}, helpers::aliases::Vec3f
 };
 
 use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
@@ -49,7 +49,7 @@ impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
 }
 
 /// 3D triangle
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Triangle3<TScalar: Number> {
     a: Point3<TScalar>,
     b: Point3<TScalar>,
@@ -100,6 +100,15 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         return (self.a + self.b.coords + self.c.coords) / cast(3).unwrap();
     }
 
+    pub fn max_side(&self) -> TScalar {
+        let ab = (self.b - self.a).norm_squared();
+        let ac = (self.c - self.a).norm_squared();
+        let bc = (self.c - self.b).norm_squared();
+        let max = Float::max(Float::max(ab, ac), bc);
+
+        Float::sqrt(max)
+    }
+
     /// Computes barycentric coordinates of `point`
     pub fn barycentric(&self, point: &Point3<TScalar>) -> BarycentricCoordinates<TScalar> {
         let v0 = self.b - self.a;
@@ -127,6 +136,17 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn get_normal(&self) -> Vector3<TScalar> {
         return Triangle3::normal(&self.a, &self.b, &self.c);
+    }
+
+    #[inline]
+    pub fn try_get_normal(&self) -> Option<Vector3<TScalar>> {
+        let cross = (self.b - self.a).cross(&(self.c - self.a));
+        
+        if cross.norm_squared() == TScalar::zero() {
+            return None;
+        }
+
+        Some(cross.normalize())
     }
 
     #[inline]

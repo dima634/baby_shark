@@ -57,7 +57,7 @@ pub trait TreeNode: Accessor {
     >;
 
     /// Creates empty node
-    fn empty(origin: Vector3<isize>) -> Self;
+    fn empty(origin: Vector3<isize>) -> Box<Self>;
     fn origin(&self) -> Vector3<isize>;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);

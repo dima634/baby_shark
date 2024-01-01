@@ -2,91 +2,110 @@ use std::path::Path;
 
 use svg::node::Value;
 
-use crate::{geometry::{primitives::triangle3::Triangle3, traits::HasBBox3}, helpers::aliases::{Vec3f, Vec3i}, voxel::{Leaf, TreeNode}, mesh::polygon_soup::data_structure::PolygonSoup, io::stl::StlWriter};
+use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i}, voxel::{Leaf, TreeNode}, mesh::polygon_soup::data_structure::PolygonSoup, io::stl::StlWriter};
 
 use super::{Grid, Scalar, Accessor, Sdf, sdf, meshing::CubesMesher};
 
-const SMALL_NUMBER: f32 = 1e-6;
-const PHI: f32 = 0.05;
-const MAX_SUBDIVISIONS: usize = 1000; 
+const MAX_SUBDIVISIONS: f32 = 1000.0; 
 
 pub struct MeshToSdf<TGrid: Grid<Value = Scalar>> {
-    points: Vec<Vec3f>,
-    internal: Vec<Vec3f>,
-    external: Vec<Vec3f>,
+    points: Vec<(Triangle3<f32>, Vec3f)>,
     band_width: isize,
-    idf: Box<TGrid>,
-    edf: Box<TGrid>,
-    voxel_size: f32,
+    sdf: Box<TGrid>,
+    pub voxel_size: f32,
     inverse_voxel_size: f32,
 }
 
 impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     pub fn new() -> Self {
-        let voxel_size = 0.005;
+        let voxel_size = 1.0;
         Self {
-            band_width: 3,
-            edf: Box::new(TGrid::empty(Vec3i::zeros())),
-            idf: Box::new(TGrid::empty(Vec3i::zeros())),
+            band_width: 4,
+            sdf: TGrid::empty(Vec3i::zeros()),
             points: Vec::new(),
-            internal: Vec::new(),
-            external: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             voxel_size,
         }
+    }
+
+    pub fn voxel_size(mut self, size: f32) -> Self {
+        self.voxel_size = size;
+        self.inverse_voxel_size = 1.0 / size;
+        self
     }
 
     pub fn approximate(&mut self, mesh: impl Iterator<Item = Triangle3<f32>>) -> Box<Sdf<TGrid>> {
         for tri in mesh {
             self.subdivide_triangle(&tri);
         }
+        self.save_sub();
 
-        println!("Internal: {}", self.internal.len());
+        println!("Points: {}", self.points.len());
         self.compute_udfs();
         self.construct_sdf();
 
 
-        let mut sdf = Box::new(TGrid::empty(Vec3i::zeros()));
-        std::mem::swap(&mut sdf, &mut self.idf);
+        let mut sdf = TGrid::empty(Vec3i::zeros());
+        std::mem::swap(&mut sdf, &mut self.sdf);
 
-        Box::new(Sdf { grid: *sdf })
+        Box::new(Sdf { grid: sdf })
+    }
+
+    fn save_sub(&self) {
+        let writer = StlWriter::new();
+        let mesh = PolygonSoup::from_vertices(self.points.iter().map(|(t, _)| [*t.p1(), *t.p2(), *t.p3()]).flatten().collect());
+        writer.write_stl_to_file(&mesh, Path::new("subdiv.stl")).expect("Write mesh");
     }
 
     fn subdivide_triangle(&mut self, tri: &Triangle3<f32>) {
-        let num_subs = 40; // TODO !!!!!!!!!!
+        let n = match tri.try_get_normal() {
+            Some(n) => n,
+            None => return,
+        };
+
+        let num_subs = (tri.max_side() / self.voxel_size).floor(); // TODO !!!!!!!!!!
+        // println!("Num subs: {}", num_subs);
         let num_subs = num_subs.min(MAX_SUBDIVISIONS);
-        let num_subs_inv = 1.0 / num_subs as f32;
+        let num_subs_inv = 1.0 / num_subs;
+
+        //    p1
+        //    |
+        //    | s1
+        //    |     s2
+        //    p2--------p3
+
+        if num_subs < 2.0 {
+            self.points.push((tri.clone(), n));
+            return;
+        }
 
         let s1 = (tri.p2() - tri.p1()) * num_subs_inv;
         let s2 = (tri.p3() - tri.p2()) * num_subs_inv;
-        let s3 = (tri.p3() - tri.p1()) * num_subs_inv;
 
-        let a = tri.p1().coords;
-        let mut ps = (1.0 / 3.0) * (a + a + s1 + a + s3);
-        self.choose_internal_external(tri, ps);
+        let mut a = *tri.p1();
 
-        for i in 2..=num_subs {
-            ps = ps + s1;
-            self.choose_internal_external(tri, ps);
-            
-            let mut p = ps;
-            for _ in 2..=i {
-                p = p + s2;
-                self.choose_internal_external(tri, p);
+        for i in 0..num_subs as usize {
+            let b = a + s1;
+            let c = b + s2;
+
+            let mut a_s = a + s2;
+            let mut b_s = b + s2;
+            let mut c_s = c + s2;
+            let mut a_prev = a;
+
+            for _ in 0..i {
+                self.points.push((Triangle3::new(a_prev, b_s, a_s), n));
+                self.points.push((Triangle3::new(a_s, b_s, c_s), n));
+                a_prev = a_s;
+                a_s += s2;
+                b_s += s2;
+                c_s += s2;
             }
+
+            self.points.push((Triangle3::new(a, b, c), n));
+            a += s1;
         }
-    }
-
-    fn choose_internal_external(&mut self, tri: &Triangle3<f32>, p: Vec3f) {
-        let n = tri.get_normal();
-        
-        let internal = p - n * PHI;
-        self.internal.push(internal);
-
-        let external = p + n * PHI;
-        self.external.push(external);
-
-        self.points.push(p);
+    
     }
 
     fn compute_udfs(&mut self) {
@@ -99,7 +118,8 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
             // 2.1 / 2 => 1.05 => 1
             // 3.0 / 2 => 1.5 => 2
             // 0.1 / 2 => 0.05 => 0
-            let point = &self.points[i];
+            let (tri, normal) = &self.points[i];
+            let point = tri.center();
             let nbh_min = Vec3i::new(
                 (point.x * self.inverse_voxel_size).round() as isize - self.band_width, 
                 (point.y * self.inverse_voxel_size).round() as isize - self.band_width, 
@@ -114,20 +134,17 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                     for z in nbh_min.z..nbh_max.z {
                         let idx = Vec3i::new(x, y, z);
                         let grid_point = idx.cast() * self.voxel_size;
-                        let internal_distance = (grid_point - self.internal[i]).magnitude();
-                        let external_distance = (grid_point - self.external[i]).magnitude();
+                        let closest = tri.closest_point(&grid_point.into());
+                        let diff = (closest - grid_point).coords;
+                        let sign = -diff.dot(normal);
+                        let dist = (closest - grid_point).coords.norm().copysign(sign);
 
-                        // println!("{} {}", internal_distance, external_distance);
-                        // std::io::stdin().read_line(&mut String::new()).unwrap();
+                        debug_assert!(dist.is_finite(), "Distance from grid point to mesh is not finite");
 
-                        let idf_distance = self.idf.at(&idx).map(|v| v.value).unwrap_or(f32::INFINITY);
-                        if internal_distance < idf_distance {
-                            self.idf.insert(&idx, internal_distance.into());
-                        }
+                        let cur_dist = self.sdf.at(&idx).map(|v| v.value).unwrap_or(f32::INFINITY);
                         
-                        let edf_distance = self.edf.at(&idx).map(|v| v.value).unwrap_or(f32::INFINITY);
-                        if external_distance < edf_distance {
-                            self.edf.insert(&idx, external_distance.into());
+                        if dist.abs() < cur_dist.abs() {
+                            self.sdf.insert(&idx, dist.into());
                         }
                     }
                 }
@@ -137,57 +154,50 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
 
     fn construct_sdf(&mut self) {
         // Now we will treat internal grid as SDF to avoid constructing new grid
-        self.edf.traverse_leafs(&mut |leaf| match leaf {
-            Leaf::Tile(tile) => {
-                let o = tile.origin;
-                let size = tile.size as isize;
-                let external = tile.value;
+        // self.edf.traverse_leafs(&mut |leaf| match leaf {
+        //     Leaf::Tile(tile) => {
+        //         let o = tile.origin;
+        //         let size = tile.size as isize;
+        //         let external = tile.value;
 
-                for x in o.x..o.x + size {
-                    for y in o.y..o.y + size {
-                        for z in o.z..o.z + size {
-                            let idx = Vec3i::new(x, y, z);
-                            let internal = self.idf.at(&idx).cloned().unwrap();
-                            let sdf = sdf_value(internal.into(), external.into());
-                            self.idf.insert(&idx, sdf.into());
-                        }
-                    }
-                }
-            },
-            Leaf::Dense(node) => {
-                let o = node.origin();
-                let size = node.size_t() as isize;
+        //         for x in o.x..o.x + size {
+        //             for y in o.y..o.y + size {
+        //                 for z in o.z..o.z + size {
+        //                     let idx = Vec3i::new(x, y, z);
+        //                     let internal = self.sdff.at(&idx).cloned().unwrap();
+        //                     let sdf = sdf_value(internal.into(), external.into());
+        //                     self.sdff.insert(&idx, sdf.into());
+        //                 }
+        //             }
+        //         }
+        //     },
+        //     Leaf::Dense(node) => {
+        //         let o = node.origin();
+        //         let size = node.size_t() as isize;
 
-                for x in o.x..o.x + size {
-                    for y in o.y..o.y + size {
-                        for z in o.z..o.z + size {
-                            let idx = Vec3i::new(x, y, z);
-                            let external = node.at(&idx).cloned();
+        //         for x in o.x..o.x + size {
+        //             for y in o.y..o.y + size {
+        //                 for z in o.z..o.z + size {
+        //                     let idx = Vec3i::new(x, y, z);
+        //                     let external = node.at(&idx).cloned();
 
-                            if external.is_none() {
-                                continue;
-                            }
+        //                     if external.is_none() {
+        //                         continue;
+        //                     }
 
-                            let external = external.unwrap();
-                            let internal = self.idf.at(&idx).cloned().unwrap();
+        //                     let external = external.unwrap();
+        //                     let internal = self.sdff.at(&idx).cloned().unwrap();
 
-                            let sdf = sdf_value(internal.into(), external.into());
-                            self.idf.insert(&idx, sdf.into());
-                        }
-                    }
-                }
-            }
-        });
+        //                     let sdf = sdf_value(internal.into(), external.into());
+        //                     self.sdff.insert(&idx, sdf.into());
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
     }
 }
 
-fn sdf_value(internal: f32, external: f32) -> f32 {
-    if internal <= external {
-        0f32.min(-(external - PHI))
-    } else {
-        0f32.max(internal - PHI)
-    }
-}
 
 
 

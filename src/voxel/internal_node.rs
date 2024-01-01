@@ -74,15 +74,9 @@ impl<
 where
     TChild: TreeNode,
 {
-    #[inline]
-    pub fn new() -> Self {
-        return Self::empty(Vector3::zeros());
+    pub fn new() -> Box<Self> {
+        Self::empty(Vector3::zeros())
     }
-
-    // #[inline]
-    // pub fn cached_accessor(&self) -> CachedAccessor<Self> {
-    //     return CachedAccessor::new(self);
-    // }
 
     fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
         let mut local = Self::offset_to_local_index(offset);
@@ -102,7 +96,7 @@ where
 
         let child_origin = self.offset_to_global_index(offset);
         let child_node = TChild::empty(child_origin);
-        self.childs[offset] = Some(Box::new(child_node));
+        self.childs[offset] = Some(child_node);
     }
 
     #[inline]
@@ -268,14 +262,14 @@ where
     type LeafNode = TChild::LeafNode;
     type As<TNewValue: GridValue> = InternalNode<TNewValue, TChild::As<TNewValue>, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
-    fn empty(origin: Vector3<isize>) -> Self {
-        return Self {
+    fn empty(origin: Vector3<isize>) -> Box<Self> {
+        Box::new(Self {
             origin,
             childs: std::array::from_fn(|_| None),
             child_mask: BitSet::zeroes(),
             values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
             value_mask: BitSet::zeroes(),
-        };
+        })
     }
 
     #[inline]
