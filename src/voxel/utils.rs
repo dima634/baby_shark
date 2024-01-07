@@ -2,6 +2,8 @@ use std::ops::Range;
 
 use nalgebra::Vector3;
 
+use crate::helpers::aliases::Vec3i;
+
 pub fn box_indices(start: isize, end: isize) -> impl Iterator<Item = Vector3<isize>> {
     return (start..end).flat_map(move |x| {
         (start..end).flat_map(move |y| (start..end).map(move |z| Vector3::new(x, y, z)))
@@ -42,6 +44,17 @@ impl Iterator for GridIter {
         Some(Vector3::new(x, y, z))
     }
 }
+
+pub const CUBE_OFFSETS: [Vec3i; 8] = [
+    Vec3i::new(0, 0, 0),
+    Vec3i::new(1, 0, 0),
+    Vec3i::new(0, 1, 0),
+    Vec3i::new(1, 1, 0),
+    Vec3i::new(0, 0, 1),
+    Vec3i::new(1, 0, 1),
+    Vec3i::new(0, 1, 1),
+    Vec3i::new(1, 1, 1),
+];
 
 #[cfg(test)]
 mod tests {

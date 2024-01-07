@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, fs::File, io::Write};
 
 use svg::node::Value;
 
@@ -34,7 +34,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         self
     }
 
-    pub fn approximate(&mut self, mesh: impl Iterator<Item = Triangle3<f32>>) -> Box<Sdf<TGrid>> {
+    pub fn approximate(&mut self, mesh: impl Iterator<Item = Triangle3<f32>>) -> Sdf<TGrid> {
         for tri in mesh {
             self.subdivide_triangle(&tri);
         }
@@ -48,7 +48,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         let mut sdf = TGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.sdf);
 
-        Box::new(Sdf { grid: sdf })
+        Sdf { grid: sdf }
     }
 
     fn save_sub(&self) {
@@ -109,6 +109,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     }
 
     fn compute_udfs(&mut self) {
+        // let mut max = f32::MIN;
         for i in 0..self.points.len() {
             // Compute grid point index based on voxel size
             // 0       1       2
@@ -141,6 +142,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                 (bbox.get_max().z * self.inverse_voxel_size).ceil() as isize + self.band_width,
             );
 
+
             for x in nbh_min.x..nbh_max.x {
                 for y in nbh_min.y..nbh_max.y {
                     for z in nbh_min.z..nbh_max.z {
@@ -162,51 +164,46 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                 }
             }
         }
+
+        // println!("Max: {}", max);
     }
 
     fn construct_sdf(&mut self) {
+
+        let mut distances = Vec::new();
+        let mut xes = Vec::new();
+        let mut yes = Vec::new();
+        let mut zes = Vec::new();
+        
+
         // Now we will treat internal grid as SDF to avoid constructing new grid
-        // self.edf.traverse_leafs(&mut |leaf| match leaf {
-        //     Leaf::Tile(tile) => {
-        //         let o = tile.origin;
-        //         let size = tile.size as isize;
-        //         let external = tile.value;
+        self.sdf.traverse_leafs(&mut |leaf| {
+            let (o, s) = match leaf {
+                Leaf::Tile(tile) => (tile.origin, tile.size),
+                Leaf::Dense(node) => (node.origin(), node.size_t()),
+            };
 
-        //         for x in o.x..o.x + size {
-        //             for y in o.y..o.y + size {
-        //                 for z in o.z..o.z + size {
-        //                     let idx = Vec3i::new(x, y, z);
-        //                     let internal = self.sdff.at(&idx).cloned().unwrap();
-        //                     let sdf = sdf_value(internal.into(), external.into());
-        //                     self.sdff.insert(&idx, sdf.into());
-        //                 }
-        //             }
-        //         }
-        //     },
-        //     Leaf::Dense(node) => {
-        //         let o = node.origin();
-        //         let size = node.size_t() as isize;
+            for x in o.x..o.x + s as isize {
+                for y in o.y..o.y + s as isize {
+                    for z in o.z..o.z + s as isize {
+                        let idx = Vec3i::new(x, y, z);
 
-        //         for x in o.x..o.x + size {
-        //             for y in o.y..o.y + size {
-        //                 for z in o.z..o.z + size {
-        //                     let idx = Vec3i::new(x, y, z);
-        //                     let external = node.at(&idx).cloned();
+                        if let Some(dist) = self.sdf.at(&idx).map(|v| v.value) {
+                            distances.push(dist);
+                            xes.push(x);
+                            yes.push(y);
+                            zes.push(z);
+                        }
+                    }
+                }
+            }
+        });
 
-        //                     if external.is_none() {
-        //                         continue;
-        //                     }
-
-        //                     let external = external.unwrap();
-        //                     let internal = self.sdff.at(&idx).cloned().unwrap();
-
-        //                     let sdf = sdf_value(internal.into(), external.into());
-        //                     self.sdff.insert(&idx, sdf.into());
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
+        
+        let text = format!("distances = {:?}\nx = {:?}\ny = {:?}\nz = {:?}\n", distances, xes, yes, zes);
+        // Write text to file
+        let mut file = File::create("distances.py").expect("Unable to create file");
+        file.write_all(text.as_bytes()).expect("Unable to write data");
     }
 }
 

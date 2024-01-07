@@ -83,8 +83,6 @@ impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
 
     #[inline]
     fn interpolate(&self, v1: &Vertex<Self::Value>, v2: &Vertex<Self::Value>) -> Vector3<f32> {
-
-
         let v1_val = v1.value.value.abs();
         let v2_val = v2.value.value.abs();
         let l = v1_val + v2_val;
@@ -92,6 +90,8 @@ impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
         let t  = v1.index.cast() + dir.cast() * v1_val / l;
 
         t
+
+        // (v1.index.cast() + v2.index.cast()) * 0.5
     }
 
     #[inline]
