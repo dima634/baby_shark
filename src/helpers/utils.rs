@@ -1,4 +1,4 @@
-use std::mem::swap;
+use std::mem::{swap, MaybeUninit};
 
 pub fn sort3<T: Ord>(a: &mut T, b: &mut T, c: &mut T) {
     if a > c {
@@ -34,4 +34,22 @@ pub fn sort3_by<TValue, TBy: PartialOrd, TGetBy: Fn(&TValue) -> TBy>(a: &mut TVa
         swap(b, c);
         swap(&mut b_by, &mut c_by);
     }
+}
+
+#[macro_export]
+macro_rules! const_map_fn {
+    ($name:ident, $src:ty, $dest:ty, $map:path) => {
+        pub const fn $name<const SIZE: usize>(array: &[$src; SIZE]) -> [$dest; SIZE] {
+            let mut mapped: [$dest; SIZE] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        
+            let mut i = 0;
+        
+            while i < SIZE {
+                mapped[i] = $map(array[i]);
+                i += 1;
+            }
+        
+            mapped
+        }
+    };
 }

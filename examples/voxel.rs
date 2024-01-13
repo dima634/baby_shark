@@ -2,7 +2,7 @@ use std::{path::Path, f32::consts::PI, time::Instant};
 
 use baby_shark::{
     dynamic_vdb,
-    voxel::{TreeNode, LeafNode, meshing::{CubesMesher, MarchingCubesMesher}, utils::{box_indices, GridIter}, Accessor, Traverse, Scalar, Sdf, mesh_to_sdf::MeshToSdf}, static_vdb, io::stl::{StlWriter, StlReader}, mesh::{corner_table::prelude::CornerTableF, builder::cube, polygon_soup::data_structure::PolygonSoup, traits::Mesh}, geometry::primitives::{box3::Box3, sphere3::Sphere3}
+    voxel::{TreeNode, LeafNode, meshing::{CubesMesher, MarchingCubesMesher, DualContouringMesher}, utils::{box_indices, GridIter}, Accessor, Traverse, Scalar, Sdf, mesh_to_sdf::MeshToSdf}, static_vdb, io::stl::{StlWriter, StlReader}, mesh::{corner_table::prelude::CornerTableF, builder::cube, polygon_soup::data_structure::PolygonSoup, traits::Mesh}, geometry::primitives::{box3::Box3, sphere3::Sphere3}
 };
 use nalgebra::{Vector3, Point3};
 use rand::{rngs::StdRng, SeedableRng, Rng};
@@ -19,13 +19,17 @@ fn main() {
     let mesh: Mesh = reader.read_stl_from_file(Path::new("caesar.stl")).expect("Read mesh");
     let triangles = mesh.faces().map(|f| mesh.face_positions(&f));
 
-    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.005);
-    let sdf: Box<Sdf> = mesh_to_sdf.approximate(triangles);
+    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.002);
+    let sdf: Sdf = mesh_to_sdf.approximate(triangles);
 
-    let mut mc = MarchingCubesMesher::new(sdf.as_ref());
+    let mut mc = MarchingCubesMesher::new(&sdf);
     let vertices = mc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
     let mc_mesh = Mesh::from_vertices(vertices);
-    
+
+    // let mut dc = DualContouringMesher::new(sdf.grid.as_ref());
+    // let vertices = dc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
+    // let mc_mesh = Mesh::from_vertices(vertices);
+
     let writer = StlWriter::new();
     writer.write_stl_to_file(&mc_mesh, Path::new("mc.stl")).expect("Write mesh");
 

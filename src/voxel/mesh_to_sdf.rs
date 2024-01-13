@@ -20,7 +20,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     pub fn new() -> Self {
         let voxel_size = 1.0;
         Self {
-            band_width: 1,
+            band_width: 2,
             sdf: TGrid::empty(Vec3i::zeros()),
             points: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
