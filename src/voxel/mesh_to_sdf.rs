@@ -1,10 +1,8 @@
 use std::{path::Path, fs::File, io::Write};
 
-use svg::node::Value;
-
 use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i}, voxel::{Leaf, TreeNode}, mesh::polygon_soup::data_structure::PolygonSoup, io::stl::StlWriter};
 
-use super::{Grid, Scalar, Accessor, Sdf, sdf, meshing::CubesMesher};
+use super::{Grid, Scalar, Sdf};
 
 const MAX_SUBDIVISIONS: f32 = 1000.0; 
 

@@ -81,25 +81,6 @@ impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
 impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
     type Value = Scalar;
 
-    #[inline]
-    fn interpolate(&self, v1: &Vertex<Self::Value>, v2: &Vertex<Self::Value>) -> Vector3<f32> {
-        let v1_val = v1.value.value.abs();
-        let v2_val = v2.value.value.abs();
-        let l = v1_val + v2_val;
-        let dir = v2.index - v1.index;
-        let t  = v1.index.cast() + dir.cast() * v1_val / l;
-
-        t
-
-        // (v1.index.cast() + v2.index.cast()) * 0.5
-    }
-
-    #[inline]
-    fn is_inside(&self, value: &Self::Value) -> bool {
-        value.value < 0.0
-    }
-
-    #[inline]
     fn cubes<TFn: FnMut(Vector3<isize>)> (&self, mut func: TFn) {
         self.grid.traverse_leafs(&mut |leaf| {
             let (origin, size) = match leaf {
@@ -120,8 +101,8 @@ impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
     }
 
     #[inline]
-    fn at(&self, index: &Vector3<isize>) -> Option<Self::Value> {
-        self.grid.at(index).cloned()
+    fn at(&self, idx: &Vector3<isize>) -> Option<f32> {
+        self.grid.at(idx).map(|v| v.value)
     }
 }
 

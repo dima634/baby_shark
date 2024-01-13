@@ -1,9 +1,7 @@
-use std::{marker::PhantomData, rc::Rc};
-
-use nalgebra::Dim;
-
-use crate::{voxel::{Grid, Scalar, Sdf, TreeNode, Leaf, utils::CUBE_OFFSETS}, helpers::aliases::{Vec3f, Vec3i, Vec3u}};
-
+use crate::{
+    helpers::aliases::{Vec3f, Vec3i, Vec3u},
+    voxel::{utils::CUBE_OFFSETS, Grid, Leaf, Scalar, TreeNode},
+};
 
 pub struct DualContouringMesher<'a, T: Grid<Value = Scalar>> {
     vertices: Vec<Vec3f>,
@@ -24,7 +22,7 @@ impl<'a, T: Grid<Value = Scalar>> DualContouringMesher<'a, T> {
         self.grid.traverse_leafs(&mut |leaf| {
             let (origin, size) = match leaf {
                 Leaf::Tile(t) => (t.origin, t.size),
-                Leaf::Dense(n) => (n.origin(), n.size_t())
+                Leaf::Dense(n) => (n.origin(), n.size_t()),
             };
 
             let max = origin + Vec3u::new(size, size, size).cast();
@@ -32,7 +30,7 @@ impl<'a, T: Grid<Value = Scalar>> DualContouringMesher<'a, T> {
                 for y in origin.y..max.y {
                     for z in origin.z..max.z {
                         let v = Vec3i::new(x, y, z);
-                    
+
                         self.handle_edge(v, v + Vec3i::new(1, 0, 0));
                         self.handle_edge(v, v + Vec3i::new(0, 1, 0));
                         self.handle_edge(v, v + Vec3i::new(0, 0, 1));
@@ -86,7 +84,7 @@ impl<'a, T: Grid<Value = Scalar>> DualContouringMesher<'a, T> {
         };
 
         let [mut v1, v2, mut v3, v4] = cubes.map(|c| self.vertex(c));
-        
+
         if flip {
             std::mem::swap(&mut v1, &mut v3);
         }
@@ -94,19 +92,22 @@ impl<'a, T: Grid<Value = Scalar>> DualContouringMesher<'a, T> {
         self.vertices.push(v3);
         self.vertices.push(v1);
         self.vertices.push(v2);
-        
+
         self.vertices.push(v1);
         self.vertices.push(v3);
         self.vertices.push(v4);
     }
 
     fn vertex(&self, idx: Vec3i) -> Vec3f {
-        let vertices: Vec<_> = CUBE_OFFSETS.iter()
+        let vertices: Vec<_> = CUBE_OFFSETS
+            .iter()
             .map(|o| idx + o)
             .filter(|v| self.grid.at(v).is_some())
             .collect();
 
-        let sum = vertices.iter().fold(Vec3f::zeros(), |acc, v| acc + (*v).cast());
+        let sum = vertices
+            .iter()
+            .fold(Vec3f::zeros(), |acc, v| acc + (*v).cast());
         sum / vertices.len() as f32
     }
 }

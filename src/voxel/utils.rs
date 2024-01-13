@@ -48,12 +48,12 @@ impl Iterator for GridIter {
 pub const CUBE_OFFSETS: [Vec3i; 8] = [
     Vec3i::new(0, 0, 0),
     Vec3i::new(1, 0, 0),
-    Vec3i::new(0, 1, 0),
     Vec3i::new(1, 1, 0),
+    Vec3i::new(0, 1, 0),
     Vec3i::new(0, 0, 1),
     Vec3i::new(1, 0, 1),
-    Vec3i::new(0, 1, 1),
     Vec3i::new(1, 1, 1),
+    Vec3i::new(0, 1, 1),
 ];
 
 #[cfg(test)]

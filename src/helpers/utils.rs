@@ -1,4 +1,4 @@
-use std::mem::{swap, MaybeUninit};
+use std::mem::swap;
 
 pub fn sort3<T: Ord>(a: &mut T, b: &mut T, c: &mut T) {
     if a > c {

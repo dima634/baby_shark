@@ -15,9 +15,11 @@ exclude = [
 
 [profile.release-debug-info]
 inherits = "release"
-# debug-assertions = true
-overflow-checks = true
 debug = true
+
+[profile.dev-opt]
+inherits = "dev"
+opt-level=3
 
 [dependencies]
 nalgebra = "0.32.3"

@@ -1,5 +1,5 @@
 use nalgebra::{Point3, Vector3};
-use crate::{mesh::traits::{Mesh}, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}};
+use crate::{mesh::traits::Mesh, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
 ///

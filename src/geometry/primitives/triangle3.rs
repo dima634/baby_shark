@@ -14,7 +14,7 @@ use crate::{
         Number, 
         IntersectsPlane3
     }, basis2d::Basis2}, 
-    algo::utils::{has_same_sign, triple_product}, helpers::aliases::Vec3f
+    algo::utils::{has_same_sign, triple_product}
 };
 
 use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
