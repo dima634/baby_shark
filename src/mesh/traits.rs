@@ -2,7 +2,7 @@ use std::{hash::Hash, fmt::Display, ops::{Index, IndexMut}};
 
 use nalgebra::{Point3, Vector3};
 
-use crate::geometry::{traits::RealNumber, primitives::triangle3::Triangle3};
+use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, helpers::aliases::Vec3};
 
 pub trait Edge {
     type VertexDescriptor;
@@ -33,7 +33,7 @@ pub trait Mesh {
     type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor> where Self: 'iter;
 
     /// Creates mesh from vertices and face indices
-    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self;
+    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self;
 
     /// Iterator over mesh faces
     fn faces(&self) -> Self::FacesIter<'_>;
@@ -45,14 +45,14 @@ pub trait Mesh {
     /// Return vertices of given face
     fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor);
     /// Returns edge length
-    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>);
+    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>);
     /// Return vertices of given edge
     fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
 
     /// Returns vertex position
-    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType>;
+    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType>;
     /// Returns vertex normal (average of one-ring face normals)
-    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>>;
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>>;
 
     /// Returns positions of face vertices in ccw order
     #[allow(clippy::type_complexity)]
@@ -147,13 +147,13 @@ pub trait TopologicalMesh: Mesh + Sized{
 /// 
 pub trait EditableMesh: Mesh {
     /// Collapse `edge` at given point. This method do not perform checks if operation is safe.
-    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
+    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Vec3<Self::ScalarType>);
     // Flip `edge`. This method do not perform checks if operation is safe.
     fn flip_edge(&mut self, edge: &Self::EdgeDescriptor);
     // Split `edge` at given point.
-    fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>);
+    fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Vec3<Self::ScalarType>);
     /// Shift vertex to new position.
-    fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Point3<Self::ScalarType>);
+    fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Vec3<Self::ScalarType>);
 
     /// Returns `true` when edge exist in mesh, otherwise - `false`.
     /// Can be used to check if edge was deleted by [collapse_edge] method.
@@ -204,7 +204,7 @@ pub trait VertexProperties: Mesh {
 }
 
 pub trait SplitFaceAtPoint: Mesh {
-    fn split_face(&mut self, face: & Self::FaceDescriptor, point: Point3<Self::ScalarType>);
+    fn split_face(&mut self, face: & Self::FaceDescriptor, point: Vec3<Self::ScalarType>);
 }
 
 /// Contains constants which defines what is good mesh

@@ -1,7 +1,6 @@
 use std::cell::UnsafeCell;
-use nalgebra::Point3;
 use tabled::Tabled;
-use crate::{helpers::display::display_unsafecell, geometry::traits::RealNumber};
+use crate::{helpers::{display::display_unsafecell, aliases::Vec3}, geometry::traits::RealNumber};
 use super::{traits::Flags, flags};
 
 ///
@@ -10,14 +9,14 @@ use super::{traits::Flags, flags};
 #[derive(Debug, Tabled)]
 pub struct Vertex<TScalarType: RealNumber> {
     corner_index: usize,
-    position: Point3<TScalarType>,
+    position: Vec3<TScalarType>,
 
     #[tabled(display_with = "display_unsafecell")]
     flags: UnsafeCell<flags::Flags>
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
-    pub fn new(corner_index: usize, position: Point3<TScalarType>, flags: flags::Flags) -> Self { 
+    pub fn new(corner_index: usize, position: Vec3<TScalarType>, flags: flags::Flags) -> Self { 
         return Self { 
             corner_index, 
             position, 
@@ -30,7 +29,7 @@ impl<TScalarType: RealNumber> Default for Vertex<TScalarType> {
     fn default() -> Self {
         return Self {
             corner_index: usize::max_value(), 
-            position: Default::default(), 
+            position: Vec3::zeros(), 
             flags: Default::default() 
         };
     }
@@ -45,12 +44,12 @@ impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
-    pub fn get_position(&self) -> &Point3<TScalarType> {
+    pub fn get_position(&self) -> &Vec3<TScalarType> {
         return &self.position;
     }
 
     #[inline]
-    pub fn set_position(&mut self, point: Point3<TScalarType>) -> &mut Self {
+    pub fn set_position(&mut self, point: Vec3<TScalarType>) -> &mut Self {
         self.position = point;
         return self;
     }

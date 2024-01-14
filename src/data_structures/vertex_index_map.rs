@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use nalgebra::Point;
+use nalgebra::SVector;
 use crate::{algo::float_hash::{combine_hash, hash_float}, geometry::traits::RealNumber};
 
 ///
 /// Hashable type for nalgebra Point3
 /// 
-pub struct HashablePoint<const D: usize, TScalar: RealNumber>(Point<TScalar, D>);
+pub struct HashablePoint<const D: usize, TScalar: RealNumber>(SVector<TScalar, D>);
 
-impl<const D: usize, TScalar: RealNumber> Into<Point<TScalar, D>> for HashablePoint<D, TScalar> {
+impl<const D: usize, TScalar: RealNumber> Into<SVector<TScalar, D>> for HashablePoint<D, TScalar> {
     #[inline]
-    fn into(self) -> Point<TScalar, D> {
+    fn into(self) -> SVector<TScalar, D> {
         return self.0;
     }
 }
 
-impl<const D: usize, TScalar: RealNumber> From<Point<TScalar, D>> for HashablePoint<D, TScalar> {
+impl<const D: usize, TScalar: RealNumber> From<SVector<TScalar, D>> for HashablePoint<D, TScalar> {
     #[inline]
-    fn from(value: Point<TScalar, D>) -> Self {
+    fn from(value: SVector<TScalar, D>) -> Self {
         return Self(value);
     }
 }
@@ -65,14 +65,14 @@ impl<const D: usize, TScalar: RealNumber> PointIndexMap<D, TScalar> {
 
     /// Returns index of point
     #[inline]
-    pub fn get_index(&self, point: Point<TScalar, D>) -> Option<&usize> {
+    pub fn get_index(&self, point: SVector<TScalar, D>) -> Option<&usize> {
         let hashable = HashablePoint(point);
         return self.map.get(&hashable);
     }
 
     /// Inserts new point with specified index to map 
     #[inline]
-    pub fn insert(&mut self, point: Point<TScalar, D>, index: usize) {
+    pub fn insert(&mut self, point: SVector<TScalar, D>, index: usize) {
         let hashable = HashablePoint(point);
         self.map.insert(hashable, index);
     }

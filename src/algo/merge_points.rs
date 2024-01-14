@@ -1,9 +1,9 @@
-use nalgebra::{Scalar, Point};
+use nalgebra::{Scalar, SVector};
 use crate::{data_structures::vertex_index_map::PointIndexMap, geometry::traits::RealNumber};
 
 pub struct IndexedVertices<const D: usize, TScalar: Scalar> {
     /// Unique points
-    pub points: Vec<Point<TScalar, D>>,
+    pub points: Vec<SVector<TScalar, D>>,
     /// Vertex indices
     pub indices: Vec<usize>
 }
@@ -11,7 +11,7 @@ pub struct IndexedVertices<const D: usize, TScalar: Scalar> {
 ///
 /// Merges exactly coincident points
 /// 
-pub fn merge_points<const D: usize, TScalar: RealNumber>(vertices: &Vec<Point<TScalar, D>>) -> IndexedVertices<D, TScalar>
+pub fn merge_points<const D: usize, TScalar: RealNumber>(vertices: &Vec<SVector<TScalar, D>>) -> IndexedVertices<D, TScalar>
 {
     let mut vertex_index_map = PointIndexMap::<D, TScalar>::with_capacity(vertices.len());
 

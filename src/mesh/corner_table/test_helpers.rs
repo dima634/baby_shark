@@ -1,13 +1,12 @@
-use nalgebra::Point3;
-use crate::mesh::traits::Mesh;
+use crate::{mesh::traits::Mesh, helpers::aliases::Vec3f};
 use super::{prelude::CornerTableF, connectivity::{corner::Corner, vertex::VertexF}};
 
 pub fn create_unit_square_mesh() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 1.0, 0.0)
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(0.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0),
+        Vec3f::new(1.0, 1.0, 0.0)
     ];
 
     let indices = vec![0, 1, 2, 2, 3, 0];
@@ -17,11 +16,11 @@ pub fn create_unit_square_mesh() -> CornerTableF {
 
 pub fn create_unit_cross_square_mesh() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 1.0, 0.0),
-        Point3::<f32>::new(0.5, 0.5, 0.0)
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(0.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0),
+        Vec3f::new(1.0, 1.0, 0.0),
+        Vec3f::new(0.5, 0.5, 0.0)
     ];
 
     let indices = vec![
@@ -36,9 +35,9 @@ pub fn create_unit_cross_square_mesh() -> CornerTableF {
 
 pub fn create_single_face_mesh() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0)
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(0.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0)
     ];
 
     let indices = vec![0, 1, 2];
@@ -49,16 +48,16 @@ pub fn create_single_face_mesh() -> CornerTableF {
 // Mesh with vertices around edges vertices
 pub fn create_collapse_edge_sample_mesh1() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.5, 0.0),
-        Point3::<f32>::new(0.0, 0.0, 0.0),
-        Point3::<f32>::new(0.5, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.5, 0.0),
-        Point3::<f32>::new(1.0, 1.0, 0.0),
-        Point3::<f32>::new(0.5, 1.0, 0.0),
-        Point3::<f32>::new(0.25, 0.5, 0.0),
-        Point3::<f32>::new(0.75, 0.5, 0.0)
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(0.0, 0.5, 0.0),
+        Vec3f::new(0.0, 0.0, 0.0),
+        Vec3f::new(0.5, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.5, 0.0),
+        Vec3f::new(1.0, 1.0, 0.0),
+        Vec3f::new(0.5, 1.0, 0.0),
+        Vec3f::new(0.25, 0.5, 0.0),
+        Vec3f::new(0.75, 0.5, 0.0)
     ];
 
     let indices = vec![
@@ -80,13 +79,13 @@ pub fn create_collapse_edge_sample_mesh1() -> CornerTableF {
 // Mesh with vertices around one vertex of edge
 pub fn create_collapse_edge_sample_mesh2() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.5, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.5, 0.0),
-        Point3::<f32>::new(1.0, 1.0, 0.0),
-        Point3::<f32>::new(0.5, 1.0, 0.0),
-        Point3::<f32>::new(0.25, 0.5, 0.0),
-        Point3::<f32>::new(0.75, 0.5, 0.0)
+        Vec3f::new(0.5, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.5, 0.0),
+        Vec3f::new(1.0, 1.0, 0.0),
+        Vec3f::new(0.5, 1.0, 0.0),
+        Vec3f::new(0.25, 0.5, 0.0),
+        Vec3f::new(0.75, 0.5, 0.0)
     ];
 
     let indices = vec![
@@ -104,11 +103,11 @@ pub fn create_collapse_edge_sample_mesh2() -> CornerTableF {
 // Half star
 pub fn create_collapse_edge_sample_mesh3() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0),
-        Point3::<f32>::new(3.0, 0.0, 0.0),
-        Point3::<f32>::new(4.0, 1.0, 0.0),
-        Point3::<f32>::new(2.0, 1.0, 0.0)
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0),
+        Vec3f::new(3.0, 0.0, 0.0),
+        Vec3f::new(4.0, 1.0, 0.0),
+        Vec3f::new(2.0, 1.0, 0.0)
     ];
 
     let indices = vec![
@@ -122,14 +121,14 @@ pub fn create_collapse_edge_sample_mesh3() -> CornerTableF {
 
 pub fn create_flip_edge_sample_mesh() -> CornerTableF {
     let vertices = vec![
-        Point3::<f32>::new(0.5, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.5, 0.0),
-        Point3::<f32>::new(0.5, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.5, 0.0),
-        Point3::<f32>::new(1.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 1.0, 0.0),
-        Point3::<f32>::new(0.0, 0.0, 0.0),
-        Point3::<f32>::new(1.0, 0.0, 0.0)
+        Vec3f::new(0.5, 1.0, 0.0),
+        Vec3f::new(0.0, 0.5, 0.0),
+        Vec3f::new(0.5, 0.0, 0.0),
+        Vec3f::new(1.0, 0.5, 0.0),
+        Vec3f::new(1.0, 1.0, 0.0),
+        Vec3f::new(0.0, 1.0, 0.0),
+        Vec3f::new(0.0, 0.0, 0.0),
+        Vec3f::new(1.0, 0.0, 0.0)
     ];
 
     let indices = vec![

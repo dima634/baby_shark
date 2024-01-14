@@ -1,6 +1,6 @@
 use std::{collections::{BinaryHeap, HashMap}, cmp::Ordering};
 
-use nalgebra::{Vector4, Matrix4, Point3};
+use nalgebra::{Vector4, Matrix4};
 use num_traits::{cast, Float};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         MeshMarker, 
         Marker
     }, 
-    algo::edge_collapse
+    algo::edge_collapse, helpers::aliases::Vec3
 };
 
 /// Collapse candidate
@@ -58,7 +58,7 @@ pub trait CollapseStrategy<TMesh: Mesh>: Default {
     fn get_cost(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> TMesh::ScalarType;
 
     /// Returns point at which `edge` will be collapsed. Ideally it should minimize cost.
-    fn get_placement(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> Point3<TMesh::ScalarType>;
+    fn get_placement(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> Vec3<TMesh::ScalarType>;
 
     /// Called on edge collapse. Can be used to update internal state.
     fn collapse_edge(&mut self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor);
@@ -120,9 +120,9 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
     }
 
     #[inline]
-    fn get_placement(&self, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) -> Point3<<TMesh as Mesh>::ScalarType> {
+    fn get_placement(&self, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) -> Vec3<<TMesh as Mesh>::ScalarType> {
         let (v1_pos, v2_pos) = mesh.edge_positions(edge);
-        return (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
+        return (v1_pos + v2_pos) * cast::<f64, TMesh::ScalarType>(0.5).unwrap();
     }
 
     fn collapse_edge(&mut self, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) {
@@ -304,7 +304,7 @@ where
                 for collapse in self.not_safe_collapses.iter() {
                     let new_cost = self.collapse_strategy.get_cost(mesh, &collapse.edge);
                     let (v1_pos, v2_pos) = mesh.edge_positions(&collapse.edge);
-                    let new_position = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
+                    let new_position = (v1_pos + v2_pos) * cast::<_, TMesh::ScalarType>(0.5).unwrap();
 
                     // Safe to collapse and have low error
                     if new_cost < self.max_error && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {

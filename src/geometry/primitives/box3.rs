@@ -1,43 +1,42 @@
-use nalgebra::Point3;
 use nalgebra_glm::{min2, max2};
 use num_traits::{cast, Float};
 
-use crate::{geometry::traits::{ClosestPoint3, HasScalarType, RealNumber, Number}};
+use crate::{geometry::traits::{ClosestPoint3, HasScalarType, RealNumber, Number}, helpers::aliases::Vec3};
 
 use super::{line_segment3::LineSegment3, plane3::Plane3, triangle3::Triangle3, sphere3::Sphere3};
 
 /// 3D bounding box
 #[derive(Clone, Copy)]
 pub struct Box3<TScalar: Number> {
-    min: Point3<TScalar>,
-    max: Point3<TScalar>
+    min: Vec3<TScalar>,
+    max: Vec3<TScalar>
 }
 
 impl<TScalar: Number> Box3<TScalar> {
-    pub fn new(min: Point3<TScalar>, max: Point3<TScalar>) -> Self {
+    pub fn new(min: Vec3<TScalar>, max: Vec3<TScalar>) -> Self {
         return Self { min, max } ;
     }
 
     pub fn empty() -> Self {
         return Self {
-            min: Point3::origin(), 
-            max: Point3::origin() 
+            min: Vec3::zeros(), 
+            max: Vec3::zeros(),
         } ;
     }
 
     #[inline]
-    pub fn get_min(&self) -> &Point3<TScalar> {
+    pub fn get_min(&self) -> &Vec3<TScalar> {
         return &self.min;
     }
 
     #[inline]
-    pub fn get_max(&self) -> &Point3<TScalar> {
+    pub fn get_max(&self) -> &Vec3<TScalar> {
         return &self.max;
     }
 
     #[inline]
-    pub fn get_center(&self) -> Point3<TScalar> {
-        return (self.min + self.max.coords) * cast(0.5).unwrap();
+    pub fn get_center(&self) -> Vec3<TScalar> {
+        return (self.min + self.max) * cast::<f32, TScalar>(0.5).unwrap();
     }
 
     #[inline]
@@ -57,16 +56,16 @@ impl<TScalar: Number> Box3<TScalar> {
 
     #[inline]
     pub fn add_box3(&mut self, other: &Box3<TScalar>) -> &mut Self {
-        self.max = max2(&self.get_max().coords, &other.get_max().coords).into();
-        self.min = min2(&self.get_min().coords, &other.get_min().coords).into();
+        self.max = max2(&self.get_max(), &other.get_max()).into();
+        self.min = min2(&self.get_min(), &other.get_min()).into();
 
         return self;
     }
 
     /// Returns the ith box vertex in order: (x,y,z),(X,y,z),(x,Y,z),(X,Y,z),(x,y,Z),(X,y,Z),(x,Y,Z),(X,Y,Z)
     #[inline]
-    pub fn vertex(&self, i: u8) -> Point3<TScalar> {
-        return Point3::new(
+    pub fn vertex(&self, i: u8) -> Vec3<TScalar> {
+        return Vec3::new(
             self.min.x + TScalar::from(i % 2).unwrap() * self.size_x(), 
             self.min.y + TScalar::from((i / 2) % 2).unwrap() * self.size_y(), 
             self.min.z + TScalar::from(if i > 3 {1} else {0}).unwrap() * self.size_z()
@@ -78,7 +77,7 @@ impl<TScalar: Number> Box3<TScalar> {
         return self.size_x() * self.size_y() * self.size_z();
     }
 
-    pub fn squared_distance(&self, point: &Point3<TScalar>) -> TScalar {
+    pub fn squared_distance(&self, point: &Vec3<TScalar>) -> TScalar {
         let mut sq_distance = TScalar::zero();
         
         for i in 0..3 {
@@ -97,7 +96,7 @@ impl<TScalar: Number> Box3<TScalar> {
     }
 
     #[inline]
-    pub fn contains_point(&self, point: &Point3<TScalar>) -> bool {
+    pub fn contains_point(&self, point: &Vec3<TScalar>) -> bool {
         return 
             point.x >= self.min.x && point.x <= self.max.x &&
             point.y >= self.min.y && point.y <= self.max.y &&
@@ -159,7 +158,7 @@ impl<TScalar: RealNumber> HasScalarType for Box3<TScalar> {
 
 impl<TScalar: RealNumber> ClosestPoint3 for Box3<TScalar> {
     #[inline]
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
-        return Point3::from(min2(&max2(&self.min.coords, &point.coords), &self.max.coords));
+    fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
+        return Vec3::from(min2(&max2(&self.min, &point), &self.max));
     }
 }

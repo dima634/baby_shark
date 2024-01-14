@@ -16,7 +16,7 @@ use crate::{
             triangle3::Triangle3
         }
     }, 
-    mesh::traits::Mesh, algo::utils
+    mesh::traits::Mesh, algo::utils, helpers::aliases::Vec3
 };
 
 type Cell = Vector3<isize>;
@@ -89,8 +89,8 @@ impl<TObject: HasBBox3> Grid<TObject> {
     }
 
     #[inline]
-    fn point_to_cell(&self, point: &Point3<TObject::ScalarType>) -> Cell {
-        let mut cell = utils::cast(&point.coords.component_div(&self.cell_size));
+    fn point_to_cell(&self, point: &Vec3<TObject::ScalarType>) -> Cell {
+        let mut cell = utils::cast(&point.component_div(&self.cell_size));
 
         if point.x < Zero::zero() {
             cell.x -= 1;
@@ -137,14 +137,14 @@ where
     TObject: HasBBox3 + ClosestPoint3,
     TObject::ScalarType: RealNumber,
 {
-    pub fn closest_point(&self, point: &Point3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Point3<TObject::ScalarType>> {
+    pub fn closest_point(&self, point: &Vec3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Vec3<TObject::ScalarType>> {
         let search_sphere = Sphere3::new(*point, max_distance);
         let sphere_bbox = search_sphere.bbox();
 
         // intersected cells
         let cells = self.box_to_cell_range(&sphere_bbox);
         let mut distance_squared = Float::infinity();
-        let mut closest_point = Point3::origin();
+        let mut closest_point = Vec3::zeros();
 
         // Search for closest point
         for i in cells.get_min().x..=cells.get_max().x {
