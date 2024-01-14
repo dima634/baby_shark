@@ -277,9 +277,7 @@ impl<'a, TMesh: TopologicalMesh + VertexProperties + MeshMarker> ReebGraph<TMesh
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::Point3;
-
-    use crate::mesh::{corner_table::prelude::CornerTableF, traits::Mesh};
+    use crate::{mesh::{corner_table::prelude::CornerTableF, traits::Mesh}, helpers::aliases::Vec3f};
 
     use super::ReebGraph;
 
@@ -287,10 +285,10 @@ mod tests {
     fn test_reeb_graph1() {
         let mesh: CornerTableF = CornerTableF::from_vertices_and_indices(
             &vec![
-                Point3::<f32>::new(0.0,  0.0, 0.0),
-                Point3::<f32>::new(2.0,  3.0, 0.0),
-                Point3::<f32>::new(-1.0,  4.0, 0.0),
-                Point3::<f32>::new(-2.0,  2.0, 0.0),
+                Vec3f::new(0.0,  0.0, 0.0),
+                Vec3f::new(2.0,  3.0, 0.0),
+                Vec3f::new(-1.0,  4.0, 0.0),
+                Vec3f::new(-2.0,  2.0, 0.0),
             ], 
             &vec![
                 0, 1, 2,
@@ -305,10 +303,10 @@ mod tests {
     fn test_reeb_graph2() {
         let mesh: CornerTableF = CornerTableF::from_vertices_and_indices(
             &vec![
-                Point3::<f32>::new(0.0,  0.0, 0.0),
-                Point3::<f32>::new(2.0,  3.0, 0.0),
-                Point3::<f32>::new(-1.0,  4.0, 0.0),
-                Point3::<f32>::new(-2.0,  2.0, 0.0),
+                Vec3f::new(0.0,  0.0, 0.0),
+                Vec3f::new(2.0,  3.0, 0.0),
+                Vec3f::new(-1.0,  4.0, 0.0),
+                Vec3f::new(-2.0,  2.0, 0.0),
             ], 
             &vec![
                 0, 2, 3,

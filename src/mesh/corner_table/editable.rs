@@ -1,7 +1,6 @@
-use nalgebra::Point3;
 use crate::{
     mesh::traits::{EditableMesh, SplitFaceAtPoint}, 
-    geometry::traits::RealNumber};
+    geometry::traits::RealNumber, helpers::aliases::Vec3};
 use super::{
     table::CornerTable, 
     traversal::{CornerWalker, collect_corners_around_vertex}, 
@@ -43,7 +42,7 @@ fn make_corners_opposite<TScalar: RealNumber>(
 
 impl<TScalar: RealNumber> CornerTable<TScalar> {
     /// Splits inner edge opposite to corner at given position
-    fn split_inner_edge(&mut self, corner_index: usize, at: &Point3<TScalar>) {
+    fn split_inner_edge(&mut self, corner_index: usize, at: &Vec3<TScalar>) {
         // New corner indices
         let c6_idx = self.corners.len();
         let c7_idx = c6_idx + 1;
@@ -100,7 +99,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 
     /// Splits boundary edge opposite to corner at given position
-    fn split_boundary_edge(&mut self, corner_index: usize, at: &Point3<TScalar>) {
+    fn split_boundary_edge(&mut self, corner_index: usize, at: &Vec3<TScalar>) {
         // New corner indices
         let c3_idx = self.corners.len();
         let c4_idx = c3_idx + 1;
@@ -144,7 +143,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 }
 
 impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
-    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>) {
+    fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Vec3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
 
         // Collect corners of faces that is going to be removed, 
@@ -260,7 +259,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Point3<Self::ScalarType>) {
+    fn split_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Vec3<Self::ScalarType>) {
         let corner_index = edge.get_corner_index();
         let corner = &self.corners[corner_index];
 
@@ -271,7 +270,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Point3<Self::ScalarType>) {
+    fn shift_vertex(&mut self, vertex: &Self::VertexDescriptor, to: &Vec3<Self::ScalarType>) {
         self.get_vertex_mut(*vertex).unwrap().set_position(*to);
     }
 
@@ -282,7 +281,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 }
 
 impl<TScalar: RealNumber> SplitFaceAtPoint for CornerTable<TScalar> {
-    fn split_face(&mut self, face: &Self::FaceDescriptor, point: Point3<Self::ScalarType>) {
+    fn split_face(&mut self, face: &Self::FaceDescriptor, point: Vec3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, *face);
 
         // Splitted face
@@ -330,7 +329,7 @@ impl<TScalar: RealNumber> SplitFaceAtPoint for CornerTable<TScalar> {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::{
+    use crate::{mesh::{
         corner_table::{
             test_helpers::{
                 create_unit_square_mesh, 
@@ -344,18 +343,18 @@ mod tests {
             }, 
         connectivity::{vertex::VertexF, corner::Corner}, descriptors::EdgeRef}, 
         traits::{EditableMesh, SplitFaceAtPoint}
-    };
+    }, helpers::aliases::Vec3f};
 
     #[test]
     fn split_inner_edge1() {
         let mut mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(2, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 2
-            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 3
-            VertexF::new(7, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default())  // 4
+            VertexF::new(5, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(1, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(2, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 2
+            VertexF::new(4, Vec3f::new(1.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(7, Vec3f::new(1.0, 0.0, 0.0), Default::default())  // 4
         ];
 
         let expected_corners = vec![
@@ -377,7 +376,7 @@ mod tests {
             Corner::new(None,    2, Default::default()), // 11
         ];
 
-        mesh.split_edge(&EdgeRef::new(1, &mesh), &Point3::<f32>::new(0.5, 0.5, 0.0));
+        mesh.split_edge(&EdgeRef::new(1, &mesh), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -387,12 +386,12 @@ mod tests {
         let mut mesh = create_unit_cross_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(10, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(3, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(6, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(7, Point3::<f32>::new(0.75, 0.75, 0.0), Default::default()), // 3
-            VertexF::new(11, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 4
-            VertexF::new(13, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default())  // 5
+            VertexF::new(10, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(3, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(6, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(7, Vec3f::new(0.75, 0.75, 0.0), Default::default()), // 3
+            VertexF::new(11, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 4
+            VertexF::new(13, Vec3f::new(1.0, 1.0, 0.0), Default::default())  // 5
         ];
 
         let expected_corners = vec![
@@ -422,7 +421,7 @@ mod tests {
             Corner::new(None,     3, Default::default()), // 17
         ];
 
-        mesh.split_edge(&EdgeRef::new(6, &mesh), &Point3::<f32>::new(0.75, 0.75, 0.0));
+        mesh.split_edge(&EdgeRef::new(6, &mesh), &Vec3f::new(0.75, 0.75, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -432,10 +431,10 @@ mod tests {
         let mut mesh = create_single_face_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(0, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(2, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 2
-            VertexF::new(4, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 3
+            VertexF::new(0, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(1, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(2, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 2
+            VertexF::new(4, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 3
         ];
 
         let expected_corners = vec![
@@ -449,7 +448,7 @@ mod tests {
             Corner::new(None,    2, Default::default()), // 5
         ];
 
-        mesh.split_edge(&EdgeRef::new(1, &mesh), &Point3::<f32>::new(0.5, 0.5, 0.0));
+        mesh.split_edge(&EdgeRef::new(1, &mesh), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -459,16 +458,16 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh1();
 
         let expected_vertices = vec![
-            VertexF::new(28, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(3, Point3::<f32>::new(0.0, 0.5, 0.0), Default::default()), // 1
-            VertexF::new(6, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(12, Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 3
-            VertexF::new(15, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 4
-            VertexF::new(18, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 5
-            VertexF::new(21, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 6
-            VertexF::new(27, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 7
-            VertexF::new(29, Point3::<f32>::new(0.25, 0.5, 0.0), Default::default()), // 8
-            VertexF::new(23, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 9
+            VertexF::new(28, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(3, Vec3f::new(0.0, 0.5, 0.0), Default::default()), // 1
+            VertexF::new(6, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(12, Vec3f::new(0.5, 0.0, 0.0), Default::default()), // 3
+            VertexF::new(15, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 4
+            VertexF::new(18, Vec3f::new(1.0, 0.5, 0.0), Default::default()), // 5
+            VertexF::new(21, Vec3f::new(1.0, 1.0, 0.0), Default::default()), // 6
+            VertexF::new(27, Vec3f::new(0.5, 1.0, 0.0), Default::default()), // 7
+            VertexF::new(29, Vec3f::new(0.25, 0.5, 0.0), Default::default()), // 8
+            VertexF::new(23, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 9
         ];
 
         let expected_corners = vec![
@@ -514,7 +513,7 @@ mod tests {
             Corner::new(None,      9, Default::default()), // 29
         ];
 
-        mesh.collapse_edge(&EdgeRef::new(9, &mesh), &Point3::new(0.5, 0.5, 0.0));
+        mesh.collapse_edge(&EdgeRef::new(9, &mesh), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -524,13 +523,13 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh2();
 
         let expected_vertices = vec![
-            VertexF::new(0,  Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 0
-            VertexF::new(3, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(6, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 2
-            VertexF::new(9, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 3
-            VertexF::new(10, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 4
-            VertexF::new(11, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 5
-            VertexF::new(17, Point3::<f32>::new(0.75, 0.5, 0.0), Default::default()), // 6
+            VertexF::new(0,  Vec3f::new(0.5, 0.0, 0.0), Default::default()), // 0
+            VertexF::new(3, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(6, Vec3f::new(1.0, 0.5, 0.0), Default::default()), // 2
+            VertexF::new(9, Vec3f::new(1.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(10, Vec3f::new(0.5, 1.0, 0.0), Default::default()), // 4
+            VertexF::new(11, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 5
+            VertexF::new(17, Vec3f::new(0.75, 0.5, 0.0), Default::default()), // 6
         ];
 
         let expected_corners = vec![
@@ -560,7 +559,7 @@ mod tests {
             Corner::new(None,     5, Default::default()), // 17
         ];
 
-        mesh.collapse_edge(&EdgeRef::new(12, &mesh), &Point3::new(0.5, 0.5, 0.0));
+        mesh.collapse_edge(&EdgeRef::new(12, &mesh), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -570,11 +569,11 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh3();
 
         let expected_vertices = vec![
-            VertexF::new(0,  Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(6,  Point3::<f32>::new(2.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(6,  Point3::<f32>::new(3.0, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(7,  Point3::<f32>::new(4.0, 1.0, 0.0), Default::default()), // 3
-            VertexF::new(2,  Point3::<f32>::new(2.0, 1.0, 0.0), Default::default()), // 4
+            VertexF::new(0,  Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(6,  Vec3f::new(2.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(6,  Vec3f::new(3.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(7,  Vec3f::new(4.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(2,  Vec3f::new(2.0, 1.0, 0.0), Default::default()), // 4
         ];
 
         let expected_corners = vec![
@@ -592,7 +591,7 @@ mod tests {
             Corner::new(None,    4, Default::default()), // 8
         ];
 
-        mesh.collapse_edge(&EdgeRef::new(5, &mesh), &Point3::new(2.0, 0.0, 0.0));
+        mesh.collapse_edge(&EdgeRef::new(5, &mesh), &Vec3f::new(2.0, 0.0, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -602,14 +601,14 @@ mod tests {
         let mut mesh = create_flip_edge_sample_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(4, Point3::<f32>::new(0.5, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(0, Point3::<f32>::new(0.0, 0.5, 0.0), Default::default()), // 1
-            VertexF::new(1, Point3::<f32>::new(0.5, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(2, Point3::<f32>::new(1.0, 0.5, 0.0), Default::default()), // 3
-            VertexF::new(13, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 4
-            VertexF::new(16, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 5
-            VertexF::new(7, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 6
-            VertexF::new(10, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 7
+            VertexF::new(4, Vec3f::new(0.5, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(0, Vec3f::new(0.0, 0.5, 0.0), Default::default()), // 1
+            VertexF::new(1, Vec3f::new(0.5, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(2, Vec3f::new(1.0, 0.5, 0.0), Default::default()), // 3
+            VertexF::new(13, Vec3f::new(1.0, 1.0, 0.0), Default::default()), // 4
+            VertexF::new(16, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 5
+            VertexF::new(7, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 6
+            VertexF::new(10, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 7
         ];
 
         let expected_corners = vec![
@@ -649,11 +648,11 @@ mod tests {
         let mut mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()), // 0
-            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()), // 1
-            VertexF::new(7, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()), // 2
-            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default()), // 3
-            VertexF::new(2, Point3::<f32>::new(0.5, 0.5, 0.0), Default::default()), // 4
+            VertexF::new(5, Vec3f::new(0.0, 1.0, 0.0), Default::default()), // 0
+            VertexF::new(1, Vec3f::new(0.0, 0.0, 0.0), Default::default()), // 1
+            VertexF::new(7, Vec3f::new(1.0, 0.0, 0.0), Default::default()), // 2
+            VertexF::new(4, Vec3f::new(1.0, 1.0, 0.0), Default::default()), // 3
+            VertexF::new(2, Vec3f::new(0.5, 0.5, 0.0), Default::default()), // 4
         ];
 
         let expected_corners = vec![
@@ -675,7 +674,7 @@ mod tests {
             Corner::new(Some(4), 4, Default::default()), // 11
         ];
 
-        mesh.split_face(&0, Point3::new(0.5, 0.5, 0.0));
+        mesh.split_face(&0, Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }

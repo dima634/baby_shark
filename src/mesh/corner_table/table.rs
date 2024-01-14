@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
-use nalgebra::{Point3, Vector3};
 use tabled::Table;
-use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber};
+use crate::{mesh::traits::{Mesh, TopologicalMesh, MeshMarker}, geometry::traits::RealNumber, helpers::aliases::Vec3};
 use self::helpers::Edge;
 use super::{
     traversal::{
@@ -153,7 +152,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self {
+    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self {
         assert!(faces.len() % 3 == 0, "Invalid number of face indices: {}", faces.len());
 
         let mut edge_opposite_corner_map = HashMap::<helpers::Edge, usize>::new();
@@ -217,7 +216,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
         return (
             *walker.next().get_vertex().get_position(),
@@ -235,12 +234,12 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     }
 
     #[inline]
-    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType> {
+    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
         return self.vertices[*vertex].get_position();
     }
 
-    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>> {
-        let mut sum = Vector3::zeros();
+    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>> {
+        let mut sum = Vec3::zeros();
         
         faces_around_vertex(self, *vertex, |face_index| {
             sum += self.face_normal(face_index);
@@ -369,24 +368,24 @@ pub(super) mod helpers {
 mod tests {
     use nalgebra::Point3;
 
-    use crate::mesh::{
+    use crate::{mesh::{
         corner_table::{
             test_helpers::{create_unit_square_mesh, assert_mesh_eq}, 
             connectivity::{vertex::VertexF, corner::Corner}, 
             prelude::CornerTableF
         }, 
         traits::Mesh
-    };
+    }, helpers::aliases::{Vec3f, Vec3}};
 
     #[test]
     fn from_vertices_and_indices() {
         let mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(5, Point3::<f32>::new(0.0, 1.0, 0.0), Default::default()),
-            VertexF::new(1, Point3::<f32>::new(0.0, 0.0, 0.0), Default::default()),
-            VertexF::new(3, Point3::<f32>::new(1.0, 0.0, 0.0), Default::default()),
-            VertexF::new(4, Point3::<f32>::new(1.0, 1.0, 0.0), Default::default())
+            VertexF::new(5, Vec3f::new(0.0, 1.0, 0.0), Default::default()),
+            VertexF::new(1, Vec3f::new(0.0, 0.0, 0.0), Default::default()),
+            VertexF::new(3, Vec3f::new(1.0, 0.0, 0.0), Default::default()),
+            VertexF::new(4, Vec3f::new(1.0, 1.0, 0.0), Default::default())
         ];
 
         let expected_corners = vec![
@@ -405,12 +404,12 @@ mod tests {
     #[test]
     fn should_remove_face_that_introduces_non_manifold_edge() {
         let mesh = CornerTableF::from_vertices_and_indices(&[
-            Point3::new(0.0, 1.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(1.0, 0.0, 0.0),
-            Point3::new(-1.0, 0.0, 0.0),
-            Point3::new(0.0, 0.0, -1.0),
-            Point3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, -1.0),
+            Vec3::new(0.0, 0.0, -1.0),
         ], &[
             0, 1, 2,
             0, 1, 4,

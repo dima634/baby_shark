@@ -1,25 +1,24 @@
 use std::mem::swap;
 
-use nalgebra::{Point3, Vector3};
 use num_traits::Float;
 
-use crate::geometry::traits::{RealNumber, HasScalarType, ClosestPoint3};
+use crate::{geometry::traits::{RealNumber, HasScalarType, ClosestPoint3}, helpers::aliases::Vec3};
 
 use super::{plane3::Plane3, box3::Box3};
 
 /// Infinite line. l(t) = p + v*t
 #[derive(PartialEq, Debug)]
 pub struct Line3<TScalar: RealNumber> {
-    point: Point3<TScalar>,
-    direction: Vector3<TScalar>
+    point: Vec3<TScalar>,
+    direction: Vec3<TScalar>
 }
 
 impl<TScalar: RealNumber> Line3<TScalar> {
-    pub fn new(point: Point3<TScalar>, direction: Vector3<TScalar>) -> Self {
+    pub fn new(point: Vec3<TScalar>, direction: Vec3<TScalar>) -> Self {
         return Self { point, direction };
     }
 
-    pub fn from_points(p1: &Point3<TScalar>, p2: &Point3<TScalar>) -> Self {
+    pub fn from_points(p1: &Vec3<TScalar>, p2: &Vec3<TScalar>) -> Self {
         return Self {
             direction: (p2 - p1).normalize(),
             point: *p1
@@ -27,22 +26,22 @@ impl<TScalar: RealNumber> Line3<TScalar> {
     }
 
     #[inline]
-    pub fn get_point(&self) -> &Point3<TScalar> {
+    pub fn get_point(&self) -> &Vec3<TScalar> {
         return &self.point;
     }
 
     #[inline]
-    pub fn get_direction(&self) -> &Vector3<TScalar> {
+    pub fn get_direction(&self) -> &Vec3<TScalar> {
         return &self.direction;
     }
 
     #[inline]
-    pub fn parameter_at(&self, point: &Point3<TScalar>) -> TScalar {
+    pub fn parameter_at(&self, point: &Vec3<TScalar>) -> TScalar {
         return (point - self.point).dot(&self.direction);
     }
 
     #[inline]
-    pub fn point_at(&self, t: TScalar) -> Point3<TScalar> {
+    pub fn point_at(&self, t: TScalar) -> Vec3<TScalar> {
         return self.point + self.direction.scale(t);
     }
 
@@ -54,7 +53,7 @@ impl<TScalar: RealNumber> Line3<TScalar> {
             return None;
         }
 
-        return Some((plane.get_distance() - plane.get_normal().dot(&self.point.coords)) / dot);
+        return Some((plane.get_distance() - plane.get_normal().dot(&self.point)) / dot);
     }
 
     #[inline]
@@ -116,7 +115,7 @@ impl<TScalar: RealNumber> HasScalarType for Line3<TScalar> {
 
 impl<TScalar: RealNumber> ClosestPoint3 for Line3<TScalar> {
     #[inline]
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+    fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let t = self.parameter_at(point);
         return self.point + self.direction.scale(t);
     }
@@ -124,30 +123,28 @@ impl<TScalar: RealNumber> ClosestPoint3 for Line3<TScalar> {
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::{Point3, Vector3};
-
-    use crate::geometry::{primitives::line3::Line3, traits::ClosestPoint3};
+    use crate::{geometry::{primitives::line3::Line3, traits::ClosestPoint3}, helpers::aliases::Vec3f};
 
     #[test]
     fn line_closest_point() {
-        let line = Line3::<f32>::new(Point3::origin(), Vector3::x_axis().xyz());
+        let line = Line3::<f32>::new(Vec3f::zeros(), Vec3f::x_axis().xyz());
 
-        let point1 = Point3::new(1.0, 1.0, 0.0);
-        assert_eq!(Point3::new(1.0, 0.0, 0.0), line.closest_point(&point1));
+        let point1 = Vec3f::new(1.0, 1.0, 0.0);
+        assert_eq!(Vec3f::new(1.0, 0.0, 0.0), line.closest_point(&point1));
 
-        let point2 = Point3::new(0.0, 1.0, 0.0);
-        assert_eq!(Point3::new(0.0, 0.0, 0.0), line.closest_point(&point2));
+        let point2 = Vec3f::new(0.0, 1.0, 0.0);
+        assert_eq!(Vec3f::new(0.0, 0.0, 0.0), line.closest_point(&point2));
 
-        let point2 = Point3::new(0.25, 5.0, 0.0);
-        assert_eq!(Point3::new(0.25, 0.0, 0.0), line.closest_point(&point2));
+        let point2 = Vec3f::new(0.25, 5.0, 0.0);
+        assert_eq!(Vec3f::new(0.25, 0.0, 0.0), line.closest_point(&point2));
     }
 
     #[test]
     fn line_parameter_at() {
-        let line = Line3::<f32>::new(Point3::origin(), Vector3::new(1.0, 1.0, 0.0).normalize());
+        let line = Line3::<f32>::new(Vec3f::zeros(), Vec3f::new(1.0, 1.0, 0.0).normalize());
 
-        assert_eq!(1.4142135, line.parameter_at(&Point3::new(1.0, 1.0, 0.0)));
-        assert_eq!(2.828427, line.parameter_at(&Point3::new(2.0, 2.0, 0.0)));
-        assert_eq!(-1.4142135, line.parameter_at(&Point3::new(-1.0, -1.0, 0.0)));
+        assert_eq!(1.4142135, line.parameter_at(&Vec3f::new(1.0, 1.0, 0.0)));
+        assert_eq!(2.828427, line.parameter_at(&Vec3f::new(2.0, 2.0, 0.0)));
+        assert_eq!(-1.4142135, line.parameter_at(&Vec3f::new(-1.0, -1.0, 0.0)));
     }
 }

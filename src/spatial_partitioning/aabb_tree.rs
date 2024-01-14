@@ -14,7 +14,7 @@ use crate::{
             plane3::Plane3
         }
     }, 
-    mesh::traits::Mesh
+    mesh::traits::Mesh, helpers::aliases::Vec3
 };
 
 #[derive(PartialEq)]
@@ -224,13 +224,13 @@ where
     TObject: HasBBox3 + ClosestPoint3,
     TObject::ScalarType: RealNumber 
 {
-    pub fn closest_point(&self, point: &Point3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Point3<TObject::ScalarType>> {
+    pub fn closest_point(&self, point: &Vec3<TObject::ScalarType>, max_distance: TObject::ScalarType) -> Option<Vec3<TObject::ScalarType>> {
         let max_distance_square = max_distance * max_distance;
 
         let mut stack = Vec::with_capacity(self.max_depth);
         stack.push(self.nodes.last().unwrap());
 
-        let mut closest_point = Point3::origin();
+        let mut closest_point = Vec3::zeros();
         let mut distance_squared = Float::infinity();
 
         while !stack.is_empty() {

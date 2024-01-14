@@ -6,12 +6,12 @@ use std::{
 use nalgebra::{Point3, Vector3};
 use simba::scalar::SupersetOf;
 
-use crate::{algo::{merge_points::merge_points, utils::cast}, mesh::traits::Mesh};
+use crate::{algo::{merge_points::merge_points, utils::cast}, mesh::traits::Mesh, helpers::aliases::Vec3f};
 
 const STL_HEADER_SIZE: usize = 80;
 
 pub struct StlReader {
-    vertices: Vec<Point3<f32>>,
+    vertices: Vec<Vec3f>,
 
     // Buffers for reading
     buf32: [u8; size_of::<u32>()],
@@ -82,9 +82,9 @@ impl StlReader {
         self.read_vec3(reader)?;
 
         // Vertices
-        let v1: Point3<f32> = self.read_vec3(reader)?;
-        let v2: Point3<f32> = self.read_vec3(reader)?;
-        let v3: Point3<f32> = self.read_vec3(reader)?;
+        let v1 = self.read_vec3(reader)?;
+        let v2 = self.read_vec3(reader)?;
+        let v3 = self.read_vec3(reader)?;
 
         self.vertices.push(v1);
         self.vertices.push(v2);
@@ -96,7 +96,7 @@ impl StlReader {
         return Ok(());
     }
 
-    fn read_vec3<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<Point3<f32>> {
+    fn read_vec3<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<Vec3f> {
         reader.read_exact(&mut self.buf32)?;
         let x = f32::from_le_bytes(self.buf32);
 
@@ -106,7 +106,7 @@ impl StlReader {
         reader.read_exact(&mut self.buf32)?;
         let z = f32::from_le_bytes(self.buf32);
 
-        return Ok(Point3::new(x, y, z));
+        return Ok(Vec3f::new(x, y, z));
     }
 }
 
@@ -155,9 +155,9 @@ impl StlWriter {
             let triangle = mesh.face_positions(&face);
             let normal = triangle.get_normal();
             
-            let p1 = cast(&triangle.p1().coords).into();
-            let p2 = cast(&triangle.p2().coords).into();
-            let p3 = cast(&triangle.p3().coords).into();
+            let p1 = cast(triangle.p1()).into();
+            let p2 = cast(triangle.p2()).into();
+            let p3 = cast(triangle.p3()).into();
             let n = cast(&normal);
 
             self.write_face(writer, &p1, &p2, &p3, &n)?;

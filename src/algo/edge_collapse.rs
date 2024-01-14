@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 
-use nalgebra::Point3;
 use num_traits::cast;
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
         EditableMesh, 
         Position
     }, 
-    geometry::primitives::triangle3::Triangle3
+    geometry::primitives::triangle3::Triangle3, helpers::aliases::Vec3
 };
 
 /// Returns `true` when edge collapse is topologically safe, `false` otherwise
@@ -42,7 +41,7 @@ pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(mesh: &TMesh
 pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh, 
     edge: &TMesh::EdgeDescriptor, 
-    new_position: &Point3<TMesh::ScalarType>,
+    new_position: &Vec3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType
 ) -> bool {
     // Check new normals (geometrical safety)
@@ -56,7 +55,7 @@ pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
 pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh, 
     edge: &TMesh::EdgeDescriptor, 
-    collapse_at: &Point3<TMesh::ScalarType>,
+    collapse_at: &Vec3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType
 ) -> bool {
     return is_topologically_safe(mesh, edge) && is_geometrically_safe(mesh, edge, collapse_at, min_quality);
@@ -65,7 +64,7 @@ pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
 fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh, 
     collapsed_vertex: &TMesh::VertexDescriptor, 
-    new_position: &Point3<TMesh::ScalarType>,
+    new_position: &Vec3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType
 ) -> bool {
     let mut bad_collapse = false;

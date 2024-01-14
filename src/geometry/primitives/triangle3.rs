@@ -1,6 +1,6 @@
 use std::mem::swap;
 
-use nalgebra::{Point3, Vector3};
+use nalgebra::Vector3;
 use nalgebra_glm::{min2, max2};
 use num_traits::{Float, cast};
 
@@ -14,7 +14,7 @@ use crate::{
         Number, 
         IntersectsPlane3
     }, basis2d::Basis2}, 
-    algo::utils::{has_same_sign, triple_product}
+    algo::utils::{has_same_sign, triple_product}, helpers::aliases::Vec3
 };
 
 use super::{box3::Box3, ray3::Ray3, line_segment3::LineSegment3, line3::Line3, plane3::{Plane3, Plane3Plane3Intersection}};
@@ -51,34 +51,34 @@ impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
 /// 3D triangle
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle3<TScalar: Number> {
-    a: Point3<TScalar>,
-    b: Point3<TScalar>,
-    c: Point3<TScalar>
+    a: Vec3<TScalar>,
+    b: Vec3<TScalar>,
+    c: Vec3<TScalar>
 }
 
 impl<TScalar: RealNumber> Triangle3<TScalar> {
-    pub fn new(a: Point3<TScalar>, b: Point3<TScalar>, c: Point3<TScalar>) -> Self { 
+    pub fn new(a: Vec3<TScalar>, b: Vec3<TScalar>, c: Vec3<TScalar>) -> Self { 
         return Self { a, b, c } 
     }
 
     #[inline]
-    pub fn p1(&self) -> &Point3<TScalar> {
+    pub fn p1(&self) -> &Vec3<TScalar> {
         return &self.a;
     }
 
     #[inline]
-    pub fn p2(&self) -> &Point3<TScalar> {
+    pub fn p2(&self) -> &Vec3<TScalar> {
         return &self.b;
     }
 
     #[inline]
-    pub fn p3(&self) -> &Point3<TScalar> {
+    pub fn p3(&self) -> &Vec3<TScalar> {
         return &self.c;
     }
 
     #[inline]
-    pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Point3<TScalar> {
-        return Point3::new(
+    pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Vec3<TScalar> {
+        return Vec3::new(
             barycoords.u() * self.a.x + barycoords.v() * self.b.x + barycoords.w() * self.c.x,
             barycoords.u() * self.a.y + barycoords.v() * self.b.y + barycoords.w() * self.c.y,
             barycoords.u() * self.a.z + barycoords.v() * self.b.z + barycoords.w() * self.c.z,
@@ -87,17 +87,17 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     #[inline]
     pub fn plane(&self) -> Plane3<TScalar> {
-        return Plane3::from_points(&self.a, &self.b, &self.c);
+        return Plane3::from_points(&self.a.into(), &self.b.into(), &self.c.into());
     }
 
     #[inline]
     pub fn basis(&self) -> Basis2<TScalar> {
-        return Basis2::from_normal_and_point(self.get_normal(), self.a);
+        return Basis2::from_normal_and_point(self.get_normal(), self.a.into());
     }
 
     #[inline]
-    pub fn center(&self) -> Point3<TScalar> {
-        return (self.a + self.b.coords + self.c.coords) / cast(3).unwrap();
+    pub fn center(&self) -> Vec3<TScalar> {
+        return (self.a + self.b + self.c) / cast::<_, TScalar>(3).unwrap();
     }
 
     pub fn max_side(&self) -> TScalar {
@@ -110,7 +110,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     /// Computes barycentric coordinates of `point`
-    pub fn barycentric(&self, point: &Point3<TScalar>) -> BarycentricCoordinates<TScalar> {
+    pub fn barycentric(&self, point: &Vec3<TScalar>) -> BarycentricCoordinates<TScalar> {
         let v0 = self.b - self.a;
         let v1 = self.c - self.a;
         let v2 = point - self.a;
@@ -129,12 +129,12 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn is_point_within(&self, point: &Point3<TScalar>) -> bool {
+    pub fn is_point_within(&self, point: &Vec3<TScalar>) -> bool {
         return self.barycentric(point).is_within_triangle();
     }
 
     #[inline]
-    pub fn get_normal(&self) -> Vector3<TScalar> {
+    pub fn get_normal(&self) -> Vec3<TScalar> {
         return Triangle3::normal(&self.a, &self.b, &self.c);
     }
 
@@ -245,24 +245,24 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn normal(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Vector3<TScalar> {
+    pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Vec3<TScalar> {
         let cross = (b - a).cross(&(c - a));
         debug_assert!(cross.norm_squared() > TScalar::zero(), "Degenerate face");
         return cross.normalize();
     }
 
     #[inline]
-    pub fn is_degenerate(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> bool {
+    pub fn is_degenerate(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> bool {
         let cross = (b - a).cross(&(c - a));
         return cross.norm_squared() < TScalar::from_f64(1e-14).unwrap();
     }
 
     #[inline]
-    pub fn area(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+    pub fn area(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
         return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
     }
 
-    pub fn quality(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> TScalar {
+    pub fn quality(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
         let ab = b - a;
         let ac = c - a;
         let double_area = ab.cross(&ac).norm();
@@ -291,15 +291,15 @@ impl<TScalar: RealNumber> HasBBox3 for Triangle3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<TScalar> {
         return Box3::new(
-            min2(&self.c.coords, &min2(&self.a.coords, &self.b.coords)).into(),
-            max2(&self.c.coords, &max2(&self.a.coords, &self.b.coords)).into(),
+            min2(&self.c, &min2(&self.a, &self.b)).into(),
+            max2(&self.c, &max2(&self.a, &self.b)).into(),
         );
     }
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
     /// Returns closest point on triangle to given point
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+    fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let zero: TScalar = TScalar::zero();
 
         // Check if P in vertex region outside A
@@ -367,7 +367,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
 #[derive(PartialEq, Debug)]
 pub enum Triangle3Triangle3Intersection<TScalar: RealNumber> {
     LineSegment(LineSegment3<TScalar>),
-    Point(Point3<TScalar>),
+    Point(Vec3<TScalar>),
     Coplanar
 }
 
@@ -572,7 +572,7 @@ mod tests {
     use nalgebra::{Point3, Vector3};
     use num_traits::Float;
 
-    use crate::geometry::{
+    use crate::{geometry::{
         primitives::{
             line3::Line3, 
             triangle3::Triangle3, 
@@ -583,39 +583,39 @@ mod tests {
             ClosestPoint3, 
             IntersectsTriangle3
         }
-    };
+    }, helpers::aliases::Vec3f};
 
     use super::Triangle3Triangle3Intersection;
 
     #[test]
     fn line_closest_point() {
-        let line = Line3::<f32>::new(Point3::origin(), Vector3::x_axis().xyz());
+        let line = Line3::<f32>::new(Vec3f::zeros(), Vec3f::x_axis().xyz());
 
-        let point1 = Point3::new(1.0, 1.0, 0.0);
-        assert_eq!(Point3::new(1.0, 0.0, 0.0), line.closest_point(&point1));
+        let point1 = Vec3f::new(1.0, 1.0, 0.0);
+        assert_eq!(Vec3f::new(1.0, 0.0, 0.0), line.closest_point(&point1));
 
-        let point2 = Point3::new(0.0, 1.0, 0.0);
-        assert_eq!(Point3::new(0.0, 0.0, 0.0), line.closest_point(&point2));
+        let point2 = Vec3f::new(0.0, 1.0, 0.0);
+        assert_eq!(Vec3f::new(0.0, 0.0, 0.0), line.closest_point(&point2));
 
-        let point2 = Point3::new(0.25, 5.0, 0.0);
-        assert_eq!(Point3::new(0.25, 0.0, 0.0), line.closest_point(&point2));
+        let point2 = Vec3f::new(0.25, 5.0, 0.0);
+        assert_eq!(Vec3f::new(0.25, 0.0, 0.0), line.closest_point(&point2));
     }
 
     #[test]
     fn line_segments_triangle_intersection() {
         let triangle = Triangle3::<f32>::new(
-            Point3::new(0.0, 5.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(5.0, 0.0, 0.0)
+            Vec3f::new(0.0, 5.0, 0.0),
+            Vec3f::new(0.0, 0.0, 0.0),
+            Vec3f::new(5.0, 0.0, 0.0)
         );
 
         // Segment intersects triangle
         let segment1 = LineSegment3::<f32>::new(
-            &Point3::new(2.5, 2.5, -1.0),
-            &Point3::new(2.5, 2.5, 1.0)
+            &Vec3f::new(2.5, 2.5, -1.0),
+            &Vec3f::new(2.5, 2.5, 1.0)
         );
 
-        let expected1 = Point3::<f32>::new(2.5, 2.5, 0.0);
+        let expected1 = Vec3f::new(2.5, 2.5, 0.0);
         let mut intersection = triangle.intersects_line_segment3_at(&segment1);
 
         assert!(intersection.is_some());
@@ -623,8 +623,8 @@ mod tests {
 
         // Segment outside triangle
         let segment2 = LineSegment3::<f32>::new(
-            &Point3::new(2.5, 2.5, -2.0),
-            &Point3::new(2.5, 2.5, -1.0)
+            &Vec3f::new(2.5, 2.5, -2.0),
+            &Vec3f::new(2.5, 2.5, -1.0)
         );
 
         intersection = triangle.intersects_line_segment3_at(&segment2);
@@ -635,18 +635,18 @@ mod tests {
     #[test]
     fn line_triangle_intersection() {
         let triangle = Triangle3::<f32>::new(
-            Point3::new(0.0, 5.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(5.0, 0.0, 0.0)
+            Vec3f::new(0.0, 5.0, 0.0),
+            Vec3f::new(0.0, 0.0, 0.0),
+            Vec3f::new(5.0, 0.0, 0.0)
         );
 
         // Segment intersects triangle 
         let line1 = Line3::<f32>::from_points(
-            &Point3::new(2.5, 2.5, -1.0),
-            &Point3::new(2.5, 2.5, 1.0)
+            &Vec3f::new(2.5, 2.5, -1.0),
+            &Vec3f::new(2.5, 2.5, 1.0)
         );
 
-        let expected1 = Point3::<f32>::new(2.5, 2.5, 0.0);
+        let expected1 = Vec3f::new(2.5, 2.5, 0.0);
         let mut intersection = triangle.intersects_line3_at(&line1);
 
         assert!(intersection.is_some());
@@ -654,11 +654,11 @@ mod tests {
 
         // Segment outside triangle (but line intersects)
         let line2 = Line3::<f32>::from_points(
-            &Point3::new(2.5, 2.5, -2.0),
-            &Point3::new(2.5, 2.5, -1.0)
+            &Vec3f::new(2.5, 2.5, -2.0),
+            &Vec3f::new(2.5, 2.5, -1.0)
         );
 
-        let expected2 = Point3::<f32>::new(2.5, 2.5, 0.0);
+        let expected2 = Vec3f::new(2.5, 2.5, 0.0);
         intersection = triangle.intersects_line3_at(&line2);
 
         assert!(intersection.is_some());
@@ -668,15 +668,15 @@ mod tests {
     #[test]
     fn ray_triangle_intersection() {
         let triangle = Triangle3::<f32>::new(
-            Point3::new(0.0, 5.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(5.0, 0.0, 0.0)
+            Vec3f::new(0.0, 5.0, 0.0),
+            Vec3f::new(0.0, 0.0, 0.0),
+            Vec3f::new(5.0, 0.0, 0.0)
         );
 
         // Ray face culled
         let ray1 = Ray3::<f32>::new(
-            Point3::new(2.5, 2.5, -1.0),
-            Vector3::new(0.0, 0.0, 1.0)
+            Vec3f::new(2.5, 2.5, -1.0),
+            Vec3f::new(0.0, 0.0, 1.0)
         );
 
         let mut intersection = triangle.intersects_ray3_at(&ray1);
@@ -685,11 +685,11 @@ mod tests {
 
         // Ray intersect triangle
         let ray2 = Ray3::<f32>::new(
-            Point3::new(0.0, 5.0, 1.0),
-            Vector3::new(0.0, 0.0, -1.0)
+            Vec3f::new(0.0, 5.0, 1.0),
+            Vec3f::new(0.0, 0.0, -1.0)
         );
 
-        let expected2 = Point3::<f32>::new(0.0, 5.0, 0.0);
+        let expected2 = Vec3f::new(0.0, 5.0, 0.0);
         intersection = triangle.intersects_ray3_at(&ray2);
 
         assert!(intersection.is_some());
@@ -698,8 +698,8 @@ mod tests {
         
         // Ray outside triangle
         let ray2 = Ray3::<f32>::new(
-            Point3::new(2.5, 2.5, 1.0),
-            Vector3::new(0.0, 0.0, 1.0)
+            Vec3f::new(2.5, 2.5, 1.0),
+            Vec3f::new(0.0, 0.0, 1.0)
         );
 
         intersection = triangle.intersects_ray3_at(&ray2);
@@ -710,9 +710,9 @@ mod tests {
     #[test]
     fn triangle_quality() {
         let equilateral_quality = Triangle3::quality(
-            &Point3::new(-1.0, 1.5, 0.0), 
-            &Point3::new(1.0, -2.0, 0.0), 
-            &Point3::new(3.0, 1.5, 0.0)
+            &Vec3f::new(-1.0, 1.5, 0.0), 
+            &Vec3f::new(1.0, -2.0, 0.0), 
+            &Vec3f::new(3.0, 1.5, 0.0)
         );
 
         assert!((1.0 - equilateral_quality).abs() < 0.01);
@@ -725,9 +725,9 @@ mod tests {
         use Triangle3Triangle3Intersection::Coplanar;
 
         let t1 = Triangle3::new(
-            Point3::new(0.0, 1.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(1.0, 0.0, 0.0)
+            Vec3f::new(0.0, 1.0, 0.0),
+            Vec3f::new(0.0, 0.0, 0.0),
+            Vec3f::new(1.0, 0.0, 0.0)
         );
         // Test intersection against itself
         let t1t1_expected = Coplanar;
@@ -737,13 +737,13 @@ mod tests {
 
         // Intersection at edge
         let t2 = Triangle3::new(
-            Point3::new(0.0, 1.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(0.0, 0.0, -1.0)
+            Vec3f::new(0.0, 1.0, 0.0),
+            Vec3f::new(0.0, 0.0, 0.0),
+            Vec3f::new(0.0, 0.0, -1.0)
         );
         let t1t2_expected = LineSegment3::new(
-            &Point3::new(0.0, 0.0, 0.0),
-            &Point3::new(0.0, 1.0, 0.0)
+            &Vec3f::new(0.0, 0.0, 0.0),
+            &Vec3f::new(0.0, 1.0, 0.0)
         );
         let t1t2_actual = t1.intersects_triangle3_at(&t2);
         assert!(t1t2_actual.is_some());
@@ -751,31 +751,31 @@ mod tests {
 
         // Intersection at point on edge
         let t3 = Triangle3::new(
-            Point3::new(0.0, 0.5, 0.0),
-            Point3::new(0.0, 0.0, 1.0),
-            Point3::new(0.0, 1.0, 1.0)
+            Vec3f::new(0.0, 0.5, 0.0),
+            Vec3f::new(0.0, 0.0, 1.0),
+            Vec3f::new(0.0, 1.0, 1.0)
         );
-        let t1t3_expected = Point3::new(0.0, 0.5, 0.0);
+        let t1t3_expected = Vec3f::new(0.0, 0.5, 0.0);
         let t1t3_actual = t1.intersects_triangle3_at(&t3);
         assert!(t1t3_actual.is_some());
         assert_eq!(Point(t1t3_expected), t1t3_actual.unwrap());
 
         // Intersection at point on triangle
         let t4 = Triangle3::new(
-            Point3::new(0.2, 0.2, 0.0),
-            Point3::new(0.2, 0.0, 1.0),
-            Point3::new(0.2, 1.0, 1.0)
+            Vec3f::new(0.2, 0.2, 0.0),
+            Vec3f::new(0.2, 0.0, 1.0),
+            Vec3f::new(0.2, 1.0, 1.0)
         );
-        let t1t4_expected = Point3::new(0.2, 0.2, 0.0);
+        let t1t4_expected = Vec3f::new(0.2, 0.2, 0.0);
         let t1t4_actual = t1.intersects_triangle3_at(&t4);
         assert!(t1t4_actual.is_some());
         assert_eq!(Point(t1t4_expected), t1t4_actual.unwrap());
 
         // No intersection but coplanar
         let t5 = Triangle3::new(
-            Point3::new(5.0, 1.0, 0.0),
-            Point3::new(5.0, 0.0, 0.0),
-            Point3::new(6.0, 0.0, 0.0)
+            Vec3f::new(5.0, 1.0, 0.0),
+            Vec3f::new(5.0, 0.0, 0.0),
+            Vec3f::new(6.0, 0.0, 0.0)
         );
         let t1t5_actual = t1.intersects_triangle3_at(&t5);
         assert!(t1t5_actual.is_some());
@@ -783,22 +783,22 @@ mod tests {
 
         // No intersection
         let t6 = Triangle3::new(
-            Point3::new(-1.0, 1.0, 0.0),
-            Point3::new(-1.0, 0.0, 0.0),
-            Point3::new(-1.0, 0.0, -1.0)
+            Vec3f::new(-1.0, 1.0, 0.0),
+            Vec3f::new(-1.0, 0.0, 0.0),
+            Vec3f::new(-1.0, 0.0, -1.0)
         );
         assert!(t1.intersects_triangle3_at(&t6).is_none());
 
         // Line segment intersection
         let t7 = Triangle3::new(
-            Point3::new(0.5, 5.0, -1.0),
-            Point3::new(0.5, -5.0, -1.0),
-            Point3::new(0.5, 0.0, 5.0)
+            Vec3f::new(0.5, 5.0, -1.0),
+            Vec3f::new(0.5, -5.0, -1.0),
+            Vec3f::new(0.5, 0.0, 5.0)
         );
         let t1t7_expected = LineSegment(
             LineSegment3::new(
-                &Point3::new(0.5, 0.5, 0.0),
-                &Point3::new(0.5, 0.0, 0.0)
+                &Vec3f::new(0.5, 0.5, 0.0),
+                &Vec3f::new(0.5, 0.0, 0.0)
             )
         );
         let t1t7_actual = t1.intersects_triangle3_at(&t7);
