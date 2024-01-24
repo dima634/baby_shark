@@ -139,6 +139,11 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
+    pub fn get_area(&self) -> TScalar {
+        return Triangle3::area(&self.a, &self.b, &self.c);
+    }
+
+    #[inline]
     pub fn try_get_normal(&self) -> Option<Vector3<TScalar>> {
         let cross = (self.b - self.a).cross(&(self.c - self.a));
         
@@ -254,7 +259,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn is_degenerate(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> bool {
         let cross = (b - a).cross(&(c - a));
-        return cross.norm_squared() < TScalar::from_f64(1e-14).unwrap();
+        return cross.norm_squared() == TScalar::zero();
     }
 
     #[inline]
@@ -569,9 +574,6 @@ fn calculate_line_parameter<TScalar: RealNumber>(p0: TScalar, p1: TScalar, d0: T
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::{Point3, Vector3};
-    use num_traits::Float;
-
     use crate::{geometry::{
         primitives::{
             line3::Line3, 

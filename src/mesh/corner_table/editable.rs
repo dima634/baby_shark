@@ -327,8 +327,6 @@ impl<TScalar: RealNumber> SplitFaceAtPoint for CornerTable<TScalar> {
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::Point3;
-
     use crate::{mesh::{
         corner_table::{
             test_helpers::{

@@ -24,6 +24,7 @@ opt-level=3
 [dependencies]
 nalgebra = "0.32.3"
 nalgebra-glm = "0.18.0"
+rayon = "1.8.1"
 simba = "0.8.1"
 num-traits = "0.2.15"
 bitflags = "2.4.0"

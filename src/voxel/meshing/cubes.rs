@@ -1,8 +1,8 @@
-use nalgebra::{Point3, Vector3};
+use nalgebra::Vector3;
 
 use crate::{
     geometry::primitives::box3::Box3,
-    voxel::{Grid, Leaf, TreeNode},
+    voxel::{Grid, Leaf, TreeNode}, helpers::aliases::Vec3,
 };
 
 pub struct CubesMesher<'a, T: Grid> {
@@ -13,17 +13,17 @@ pub struct CubesMesher<'a, T: Grid> {
 
 impl<'a, T: Grid> CubesMesher<'a, T> {
     pub fn new(grid: &'a T) -> Self {
-        let bbox = Box3::new(Point3::new(0, 0, 0), Point3::new(1, 1, 1));
+        let bbox = Box3::new(Vec3::new(0, 0, 0), Vec3::new(1, 1, 1));
 
         let box_vertices = [
-            bbox.vertex(0).coords,
-            bbox.vertex(1).coords,
-            bbox.vertex(2).coords,
-            bbox.vertex(3).coords,
-            bbox.vertex(4).coords,
-            bbox.vertex(5).coords,
-            bbox.vertex(6).coords,
-            bbox.vertex(7).coords,
+            bbox.vertex(0),
+            bbox.vertex(1),
+            bbox.vertex(2),
+            bbox.vertex(3),
+            bbox.vertex(4),
+            bbox.vertex(5),
+            bbox.vertex(6),
+            bbox.vertex(7),
         ];
 
         Self {

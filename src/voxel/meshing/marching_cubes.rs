@@ -4,7 +4,7 @@ use nalgebra::Vector3;
 
 use crate::{
     helpers::aliases::{Vec3f, Vec3i},
-    voxel::utils::CUBE_OFFSETS,
+    voxel::utils::CUBE_OFFSETS, geometry::primitives::triangle3::Triangle3,
 };
 
 use super::lookup_table::*;
@@ -283,6 +283,10 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
             let v1 = self.intersection(&e1);
             let v2 = self.intersection(&e2);
             let v3 = self.intersection(&e3);
+
+            if Triangle3::is_degenerate(&v1, &v2, &v3) {
+                continue;
+            }
 
             self.vertices.push(v1);
             self.vertices.push(v2);

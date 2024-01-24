@@ -19,12 +19,14 @@ fn main() {
     let mesh: Mesh = reader.read_stl_from_file(Path::new("caesar.stl")).expect("Read mesh");
     let triangles = mesh.faces().map(|f| mesh.face_positions(&f));
 
-    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.002);
+    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.001);
     let sdf: Sdf = mesh_to_sdf.approximate(triangles);
 
     let mut mc = MarchingCubesMesher::new(&sdf);
     let vertices = mc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
     let mc_mesh = Mesh::from_vertices(vertices);
+
+    // println!("{:?}", mc_mesh);
 
     // let mut dc = DualContouringMesher::new(sdf.grid.as_ref());
     // let vertices = dc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
@@ -33,10 +35,10 @@ fn main() {
     let writer = StlWriter::new();
     writer.write_stl_to_file(&mc_mesh, Path::new("mc.stl")).expect("Write mesh");
 
-    let mut cubes = CubesMesher::new(sdf.grid.as_ref());
-    let vertices = cubes.mesh().into_iter().map(|p| (p.cast() * mesh_to_sdf.voxel_size).cast().into()).collect();
-    let cubes_mesh = Mesh::from_vertices(vertices);
+    // let mut cubes = CubesMesher::new(sdf.grid.as_ref());
+    // let vertices = cubes.mesh().into_iter().map(|p| (p.cast() * mesh_to_sdf.voxel_size).cast().into()).collect();
+    // let cubes_mesh = Mesh::from_vertices(vertices);
 
-    writer.write_stl_to_file(&cubes_mesh, Path::new("cubes.stl")).expect("Write mesh");
+    // writer.write_stl_to_file(&cubes_mesh, Path::new("cubes.stl")).expect("Write mesh");
 }
 

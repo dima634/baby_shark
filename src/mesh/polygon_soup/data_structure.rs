@@ -4,6 +4,7 @@ use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 ///
 /// Polygon soup
 /// 
+#[derive(Debug)]
 pub struct PolygonSoup<TScalar: RealNumber> {
    pub(super) vertices: Vec<Vec3<TScalar>>
 }

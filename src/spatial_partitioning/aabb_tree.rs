@@ -25,9 +25,9 @@ enum NodeType {
 
 struct BinaryNode<TScalar: RealNumber> {
     node_type: NodeType,
-    left: usize,
-    right: usize,
-    bbox: Box3<TScalar>
+    left: usize,        // For child nodes (left, right) is range of objects contained in node,
+    right: usize,       // for leaf nodes these are indices of child nodes
+    bbox: Box3<TScalar>,
 }
 
 impl<TScalar: RealNumber> BinaryNode<TScalar> {
@@ -56,7 +56,7 @@ where
     TObject: HasBBox3,
     TObject::ScalarType: RealNumber
 {
-    nodes: Vec<BinaryNode<TObject::ScalarType>>,
+    nodes: Vec<BinaryNode<TObject::ScalarType>>, // root is last element
     objects: Vec<(TObject, Box3<TObject::ScalarType>)>,
     min_objects_per_leaf: usize,
     max_depth: usize
@@ -169,7 +169,7 @@ where
                         bbox,
                         node_type: NodeType::Branch,
                         left,
-                        right
+                        right,
                     };
                     
                     self.nodes.push(node);
@@ -196,7 +196,7 @@ where
             bbox,
             node_type: NodeType::Leaf,
             left: first,
-            right: last
+            right: last,
         };
 
         self.nodes.push(node);
@@ -363,5 +363,171 @@ where
         return Self::try_split_by_axis(split_axises[0].1, objects, first, last)
             .or_else(|_| Self::try_split_by_axis(split_axises[1].1, objects, first, last))
             .or_else(|_| Self::try_split_by_axis(split_axises[2].1, objects, first, last));
+    }
+}
+
+mod winding_numbers {
+    use num_traits::Float;
+
+    use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, helpers::aliases::{Vec3, Vec3f, Mat3f}, mesh::traits::Mesh};
+
+    use super::{AABBTree, MedianCut, BinaryNode, NodeType};
+
+    pub fn solid_angle<T: RealNumber>(tri: &Triangle3<T>, q: Vec3<T>) -> T {
+        let mut qa = tri.p1() - q;
+        let mut qb = tri.p2() - q;
+        let mut qc = tri.p3() - q;
+
+        let a_length = qa.norm();
+        let b_length = qb.norm();
+        let c_length = qc.norm();
+
+        let zero = T::zero();
+
+        // If any triangle vertices are coincident with query,
+        // query is on the surface, which we treat as no solid angle.
+        if a_length == zero || b_length == zero || c_length == zero {
+            return zero;
+        }
+
+        // Normalize the vectors
+        qa /= a_length;
+        qb /= b_length;
+        qc /= c_length;
+
+        let numerator = qa.dot(&(qb - qa).cross(&(qc - qa)));
+
+        // If numerator is 0, regardless of denominator, query is on the
+        // surface, which we treat as no solid angle.
+        if numerator == zero {
+            return zero;
+        }
+
+        let denominator = T::one() + qa.dot(&qb) + qa.dot(&qc) + qb.dot(&qc);
+
+        return Float::atan2(numerator, denominator) * T::from_f32(2.0).unwrap();
+    }
+
+    pub struct SolidAngle<'a, T: Mesh<ScalarType = f32>> {
+        mesh: &'a T,
+        tree: AABBTree<Triangle3<f32>>,
+        nodes_data: Vec<NodeData>,
+    }
+
+    impl<'a, T: Mesh<ScalarType = f32>> SolidAngle<'a, T> {
+        pub fn from_mesh(mesh: &'a T) -> Self {
+            let tree = AABBTree::from_mesh(mesh)
+                .top_down::<MedianCut>();
+
+            let nodes_data = Vec::with_capacity(tree.nodes.len());
+
+            let mut stack = vec![
+                match tree.nodes.last() {
+                    Some(node) => node,
+                    None => return Self {
+                        mesh,
+                        tree,
+                        nodes_data,
+                    }
+                }
+            ];
+
+            while let Some(n) = stack.pop() {
+                
+            }
+
+            Self {
+                mesh,
+                tree,
+                nodes_data,
+            }
+        }
+
+        pub fn solid_angle(&self, point: Vec3f, accuracy_scale: f32) -> f32 {
+            0.0
+        }
+
+        fn fast_wn(root: usize, point: Vec3f, accuracy_scale: f32) -> f32 {
+            0.0
+        }
+    }
+
+    struct InitData {
+        area_weighted_normal: Vec3f,
+        order1_sum: Mat3f,
+        // cluster_center: Vec3f,
+    }
+
+    #[derive(Debug, Default, Clone, Copy)]
+    struct NodeData {
+        order1_coefficients: Vec3f,
+        order2_coefficients: Mat3f,
+        // order3_coefficients: Vec3f,
+        radius: f32,
+    }
+
+    fn compute_tree_coeffs(tree: &mut AABBTree<Triangle3<f32>>) -> Vec<NodeData> {
+        if tree.nodes.is_empty() {
+            return vec![];
+        }
+
+        let mut data = Vec::with_capacity(tree.nodes.len());
+        data.resize(tree.nodes.len(), NodeData::default());
+        compute_node_data(tree, tree.nodes.len() - 1, &mut data);
+
+        data
+    }
+
+    fn compute_node_data(tree: &AABBTree<Triangle3<f32>>, idx: usize, data: &mut Vec<NodeData>) -> InitData {
+        let node = &tree.nodes[idx];
+        let node_data = match node.node_type {
+            NodeType::Leaf => leaf_data(tree, node),
+            NodeType::Branch => branch_data(tree, node, data),
+        };
+
+        data[idx] = NodeData {
+            order1_coefficients: node_data.area_weighted_normal,
+            order2_coefficients: node_data.order1_sum, // TODO: compute order2_coefficients
+            radius: 0.0,
+        };
+
+        node_data
+    }
+
+    fn leaf_data(tree: &AABBTree<Triangle3<f32>>, node: &BinaryNode<f32>) -> InitData {
+        let mut area_weighted_normal = Vec3f::zeros();
+        let mut order1_sum = Mat3f::zeros();
+
+        for t in node.left..node.right {
+            let (tri, _) = &tree.objects[t];
+            let n = match tri.try_get_normal() {
+                Some(n) => n,
+                None => continue, // Skip degenerate triangles
+            };
+            let area = tri.get_area();
+
+            area_weighted_normal += area * n;
+        
+            let c = tri.center();
+            order1_sum += area * c * n.transpose();
+        }
+
+        InitData {
+            area_weighted_normal,
+            order1_sum: Mat3f::zeros(),
+        }
+    }
+
+    fn branch_data(tree: &AABBTree<Triangle3<f32>>, node: &BinaryNode<f32>, data: &mut Vec<NodeData>) -> InitData {
+        let left_data = compute_node_data(tree, node.left, data);
+        let right_data = compute_node_data(tree, node.right, data);
+
+        let order1_sum = left_data.order1_sum + right_data.order1_sum;
+        let area_weighted_normal = left_data.area_weighted_normal + right_data.area_weighted_normal;
+
+        InitData {
+            area_weighted_normal,
+            order1_sum,
+        }
     }
 }
