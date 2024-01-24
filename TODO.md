@@ -46,6 +46,7 @@
 - [x] Artifacts during meshing
 - [ ] Leaf node: bit mask for inside/outside
 - [ ] Mesh to SDF: implement union for tree nodes to speed up stuff???
+- [ ] Marching cubes: verify cases handling, especially subconfig usage
 
 
 TPMS:

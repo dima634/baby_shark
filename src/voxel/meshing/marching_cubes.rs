@@ -214,6 +214,8 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
                     subconfig += 32;
                 }
 
+                let offset = SUB_CONFIG_13[subconfig] as usize; // -1 is not matched below so we can safely cast to usize
+
                 match SUB_CONFIG_13[subconfig] {
                     0 => {
                         // 13.1
@@ -221,42 +223,42 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
                     }
                     1..=6 => {
                         // 13.2
-                        self.add_faces(&TILING_EDGES_13_2[self.config][subconfig - 1]);
+                        self.add_faces(&TILING_EDGES_13_2[self.config][offset - 1]);
                     }
                     7..=18 => {
                         // 13.3
                         self.compute_c_vertex();
-                        self.add_faces(&TILING_EDGES_13_3[self.config][subconfig - 7]);
+                        self.add_faces(&TILING_EDGES_13_3[self.config][offset - 7]);
                     }
                     19..=22 => {
                         // 13.3
                         self.compute_c_vertex();
-                        self.add_faces(&TILING_EDGES_13_4[self.config][subconfig - 19]);
+                        self.add_faces(&TILING_EDGES_13_4[self.config][offset - 19]);
                     }
                     23..=26 => {
                         // 13.5
                         if self.config == 0 {
                             if self.interior_test_case13() {
-                                self.add_faces(&TILING_EDGES_13_5_1[0][subconfig - 23]);
+                                self.add_faces(&TILING_EDGES_13_5_1[0][offset - 23]);
                             } else {
-                                self.add_faces(&TILING_EDGES_13_5_2[1][subconfig - 23]);
+                                self.add_faces(&TILING_EDGES_13_5_2[1][offset - 23]);
                             }
                         } else {
                             if self.interior_test_case13() {
-                                self.add_faces(&TILING_EDGES_13_5_1[1][subconfig - 23]);
+                                self.add_faces(&TILING_EDGES_13_5_1[1][offset - 23]);
                             } else {
-                                self.add_faces(&TILING_EDGES_13_5_2[0][subconfig - 23]);
+                                self.add_faces(&TILING_EDGES_13_5_2[0][offset - 23]);
                             }
                         }
                     }
                     27..=38 => {
                         // 13.3
                         self.compute_c_vertex();
-                        self.add_faces(&TILING_EDGES_13_3_[self.config][subconfig - 27]);
+                        self.add_faces(&TILING_EDGES_13_3_[self.config][offset - 27]);
                     }
                     39..=44 => {
                         // 13.2
-                        self.add_faces(&TILING_EDGES_13_2_[self.config][subconfig - 39]);
+                        self.add_faces(&TILING_EDGES_13_2_[self.config][offset - 39]);
                     }
                     45 => {
                         // 13.1

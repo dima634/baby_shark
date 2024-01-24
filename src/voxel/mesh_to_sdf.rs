@@ -34,7 +34,7 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         for tri in mesh {
             self.subdivide_triangle(&tri);
         }
-        self.save_sub();
+        // self.save_sub();
 
         println!("Points: {}", self.points.len());
         self.compute_udfs();
@@ -47,11 +47,11 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         Sdf { grid: sdf }
     }
 
-    fn save_sub(&self) {
-        let writer = StlWriter::new();
-        let mesh = PolygonSoup::from_vertices(self.points.iter().map(|(t, _)| [*t.p1(), *t.p2(), *t.p3()]).flatten().collect());
-        writer.write_stl_to_file(&mesh, Path::new("subdiv.stl")).expect("Write mesh");
-    }
+    // fn save_sub(&self) {
+    //     let writer = StlWriter::new();
+    //     let mesh = PolygonSoup::from_vertices(self.points.iter().map(|(t, _)| [*t.p1(), *t.p2(), *t.p3()]).flatten().collect());
+    //     writer.write_stl_to_file(&mesh, Path::new("subdiv.stl")).expect("Write mesh");
+    // }
 
     fn subdivide_triangle(&mut self, tri: &Triangle3<f32>) {
         let n = match tri.try_get_normal() {
