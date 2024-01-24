@@ -147,9 +147,9 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                         let idx = Vec3i::new(x, y, z);
                         let grid_point = idx.cast() * self.voxel_size;
                         let closest = tri.closest_point(&grid_point.into());
-                        let diff = (closest - grid_point).coords;
+                        let diff = (closest - grid_point);
                         let sign = -diff.dot(normal);
-                        let dist = (closest - grid_point).coords.norm().copysign(sign);
+                        let dist = (closest - grid_point).norm().copysign(sign);
 
                         debug_assert!(dist.is_finite(), "Distance from grid point to mesh is not finite");
 
