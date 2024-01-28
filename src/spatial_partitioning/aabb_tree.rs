@@ -1,6 +1,12 @@
-use nalgebra::{Vector3, Point3};
-use num_traits::{Float, One};
+use std::path::Path;
 
+use nalgebra::Vector3;
+use num_traits::{Float, One};
+use num_traits::FromPrimitive;
+
+use crate::io::stl::StlWriter;
+use crate::mesh::builder::cube;
+use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 use crate::{
     geometry::{
         traits::{
@@ -17,12 +23,13 @@ use crate::{
     mesh::traits::Mesh, helpers::aliases::Vec3
 };
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum NodeType {
     Leaf,
     Branch
 }
 
+#[derive(Debug, Clone, Copy)]
 struct BinaryNode<TScalar: RealNumber> {
     node_type: NodeType,
     left: usize,        // For child nodes (left, right) is range of objects contained in node,
@@ -51,6 +58,7 @@ impl<TScalar: RealNumber> BinaryNode<TScalar> {
 ///     .top_down::<MedianCut>();
 /// ```
 /// 
+#[derive(Debug)]
 pub struct AABBTree<TObject>
 where
     TObject: HasBBox3,
@@ -106,6 +114,14 @@ where
         return self;
     }
 
+    pub fn depth(&self) -> usize {
+        if self.nodes.is_empty() {
+            return 0;
+        }
+
+        self.node_depth(self.nodes.len() - 1)
+    }
+
     /// 
     /// Constructs AABB tree using top-down building strategy.
     /// This strategy is fast but not always produce best tree.
@@ -115,7 +131,11 @@ where
     /// 
     pub fn top_down<TPartition: PartitionStrategy<TObject>>(mut self) -> Self {
         self.nodes.clear();
-        self.top_down_build_node(0, self.objects.len() - 1, 1, &mut TPartition::default());
+
+        if !self.objects.is_empty() {
+            self.top_down_build_node(0, self.objects.len(), 1, &mut TPartition::default());
+        }
+
         return self;
     }
 
@@ -159,7 +179,7 @@ where
             match split_at_result {
                 Ok(split_at) => {
                     // Create branch node if split succeeded
-                    let left = self.top_down_build_node(first, split_at - 1, depth + 1, partition_strategy);
+                    let left = self.top_down_build_node(first, split_at, depth + 1, partition_strategy);
                     let right = self.top_down_build_node(split_at, last, depth + 1, partition_strategy);
         
                     let mut bbox = self.nodes[left].bbox;
@@ -202,6 +222,15 @@ where
         self.nodes.push(node);
 
         return self.nodes.len() - 1;
+    }
+
+    fn node_depth(&self, idx: usize) -> usize {
+        let node = &self.nodes[idx];
+
+        match node.node_type {
+            NodeType::Leaf => 1,
+            NodeType::Branch => 1 + self.node_depth(node.left).max(self.node_depth(node.right))
+        }
     }
 }
 
@@ -290,7 +319,7 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
 pub struct MedianCut {}
 
 impl MedianCut {
-    fn try_split_by_axis<TObject>(axis: usize, objects: &mut [(TObject, Box3<TObject::ScalarType>)], first: usize, last: usize) -> Result<usize, &'static str> 
+    fn try_split_by_axis<TObject>(axis: usize, parent_bbox: &Box3<TObject::ScalarType>, objects: &mut [(TObject, Box3<TObject::ScalarType>)], first: usize, last: usize) -> Result<usize, &'static str> 
     where
         TObject: HasBBox3,
         TObject::ScalarType: RealNumber
@@ -300,7 +329,8 @@ impl MedianCut {
 
         let mut split_axis = Vector3::<TObject::ScalarType>::zeros();
         split_axis[axis] = One::one();
-        let (_, split_bbox) = &objects[(first + last) / 2];
+        let split_at = (first + last) / 2;
+        let (_, split_bbox) = &objects[split_at];
         let split_point = split_bbox.get_center();
         let plane = Plane3::new(split_axis, split_point[axis]);
 
@@ -315,7 +345,7 @@ impl MedianCut {
         let first_sign: TObject::ScalarType = plane.distance_to_point(&objects[first].1.get_center());
         let mut are_on_same_side = true;
 
-        for (_, bbox) in objects.iter().take(last).skip(first + 1) {
+        for (_, bbox) in &objects[first..last] {
             let sign = plane.distance_to_point(&bbox.get_center()).signum();
 
             // On different sides?
@@ -327,6 +357,21 @@ impl MedianCut {
 
         if are_on_same_side {
             return Err("All objects are on same side of plane");
+        }
+        
+        let first_child_box = objects[first..split_at].iter()
+            .fold(objects[first].1, |acc, (_, bbox)| acc + bbox);
+        let first_child_volume = first_child_box.volume();
+
+        let second_child_box = objects[split_at..last].iter()
+            .fold(objects[split_at].1, |acc, (_, bbox)| acc + bbox);
+        let second_child_volume = second_child_box.volume();
+
+        let parent_volume = parent_bbox.volume();
+        let threshold = TObject::ScalarType::from_f64(0.8).unwrap();
+
+        if first_child_volume / parent_volume > threshold && second_child_volume / parent_volume > threshold {
+            return Err("Split is not effective");
         }
 
         // Return medial point
@@ -340,15 +385,13 @@ where
     TObject::ScalarType: RealNumber
 {
     fn split(&mut self, objects: &mut Vec<(TObject, Box3<TObject::ScalarType>)>, first: usize, last: usize) -> Result<usize, &'static str> {
-        // Split by biggest dimension first
-        let mut bbox = objects[first].1;
+        if first >= last {
+            return Err("Empty set of objects");
+        }
 
-        objects.iter()
-            .take(last + 1)
-            .skip(first + 1)
-            .for_each(|(_, obj_bbox)| { 
-                bbox.add_box3(obj_bbox); 
-            });
+        // Split by biggest dimension first
+        let bbox = objects[first..last].iter()
+            .fold(objects[first].1, |acc, (_, bbox)| acc + bbox);
 
         let mut split_axises = vec![
             (bbox.size_x(), 0),
@@ -360,20 +403,22 @@ where
         split_axises.sort_by(|(size1, _), (size2, _)| size2.partial_cmp(size1).unwrap());
 
         // Try to split by X/Y/Z until one succeeded
-        return Self::try_split_by_axis(split_axises[0].1, objects, first, last)
-            .or_else(|_| Self::try_split_by_axis(split_axises[1].1, objects, first, last))
-            .or_else(|_| Self::try_split_by_axis(split_axises[2].1, objects, first, last));
+        Self::try_split_by_axis(split_axises[0].1, &bbox, objects, first, last)
+            .or_else(|_| Self::try_split_by_axis(split_axises[1].1, &bbox, objects, first, last))
+            .or_else(|_| Self::try_split_by_axis(split_axises[2].1, &bbox, objects, first, last))
     }
 }
 
-mod winding_numbers {
+pub mod winding_numbers {
+    use std::f32::consts::PI;
+
     use num_traits::Float;
 
     use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, helpers::aliases::{Vec3, Vec3f, Mat3f}, mesh::traits::Mesh};
 
     use super::{AABBTree, MedianCut, BinaryNode, NodeType};
 
-    pub fn solid_angle<T: RealNumber>(tri: &Triangle3<T>, q: Vec3<T>) -> T {
+    pub fn solid_angle<T: RealNumber>(tri: &Triangle3<T>, q: &Vec3<T>) -> T {
         let mut qa = tri.p1() - q;
         let mut qb = tri.p2() - q;
         let mut qc = tri.p3() - q;
@@ -408,54 +453,91 @@ mod winding_numbers {
         return Float::atan2(numerator, denominator) * T::from_f32(2.0).unwrap();
     }
 
-    pub struct SolidAngle<'a, T: Mesh<ScalarType = f32>> {
-        mesh: &'a T,
+    pub fn winding_number<'tri>(triangles: impl Iterator<Item = &'tri Triangle3<f32>>, point: &Vec3f) -> f32 {
+        let mut wn = 0.0;
+
+        for tri in triangles {
+            wn += solid_angle(&tri, point);
+        }
+
+        wn / (4.0 * PI)
+    }
+
+    pub struct SolidAngle {
         tree: AABBTree<Triangle3<f32>>,
         nodes_data: Vec<NodeData>,
     }
 
-    impl<'a, T: Mesh<ScalarType = f32>> SolidAngle<'a, T> {
-        pub fn from_mesh(mesh: &'a T) -> Self {
-            let tree = AABBTree::from_mesh(mesh)
+    impl SolidAngle {
+        pub fn from_mesh<'a, T: Mesh<ScalarType = f32>>(mesh: &'a T) -> Self {
+            let mut tree = AABBTree::from_mesh(mesh)
                 .top_down::<MedianCut>();
 
-            let nodes_data = Vec::with_capacity(tree.nodes.len());
-
-            let mut stack = vec![
-                match tree.nodes.last() {
-                    Some(node) => node,
-                    None => return Self {
-                        mesh,
-                        tree,
-                        nodes_data,
-                    }
-                }
-            ];
-
-            while let Some(n) = stack.pop() {
-                
-            }
+            let nodes_data = compute_tree_coeffs(&mut tree);
 
             Self {
-                mesh,
                 tree,
                 nodes_data,
             }
         }
 
-        pub fn solid_angle(&self, point: Vec3f, accuracy_scale: f32) -> f32 {
-            0.0
+        pub fn from_triangles(triangles: Vec<Triangle3<f32>>) -> Self {
+            let mut tree = AABBTree::new(triangles)
+                .top_down::<MedianCut>();
+
+            let nodes_data = compute_tree_coeffs(&mut tree);
+
+            Self {
+                tree,
+                nodes_data,
+            }
         }
 
-        fn fast_wn(root: usize, point: Vec3f, accuracy_scale: f32) -> f32 {
-            0.0
+        pub fn winding_number(&self, point: &Vec3f, accuracy_scale: f32) -> f32 {
+            if self.tree.nodes.is_empty() {
+                return 0.0;
+            }
+            
+            self.fast_wn(self.tree.nodes.len() - 1, point, accuracy_scale)
+        }
+
+        fn fast_wn(&self, root: usize, point: &Vec3f, accuracy_scale: f32) -> f32 {
+            let node_data = &self.nodes_data[root];
+            let dist = (point - node_data.dipole_center).norm();
+
+            if dist > node_data.radius * accuracy_scale {
+                let (ord1, ord2) = hessians(&node_data.dipole_center, point);
+                return node_data.order1_coefficients.dot(&ord1) + node_data.order2_coefficients.dot(&ord2);
+            }
+
+            let BinaryNode {
+                left,
+                right,
+                node_type,
+                ..
+            } = self.tree.nodes[root];
+            
+            match node_type {
+                NodeType::Leaf => {
+                    let tris = self.tree.objects[left..right].iter().map(|(o, _)| o);
+                    winding_number(tris, point)
+                },
+                NodeType::Branch => {
+                    let left_wn = self.fast_wn(left, point, accuracy_scale);
+                    let right_wn = self.fast_wn(right, point, accuracy_scale);
+
+                    left_wn + right_wn
+                },
+            }
         }
     }
 
     struct InitData {
         area_weighted_normal: Vec3f,
+        area_weighted_center: Vec3f,
         order1_sum: Mat3f,
-        // cluster_center: Vec3f,
+        total_area: f32,
+        dipole_center: Vec3f,
     }
 
     #[derive(Debug, Default, Clone, Copy)]
@@ -464,6 +546,7 @@ mod winding_numbers {
         order2_coefficients: Mat3f,
         // order3_coefficients: Vec3f,
         radius: f32,
+        dipole_center: Vec3f,
     }
 
     fn compute_tree_coeffs(tree: &mut AABBTree<Triangle3<f32>>) -> Vec<NodeData> {
@@ -485,10 +568,15 @@ mod winding_numbers {
             NodeType::Branch => branch_data(tree, node, data),
         };
 
+        let dist_to_min_sq = (node.bbox.get_min() - node_data.dipole_center).norm_squared();
+        let dist_to_max_sq = (node.bbox.get_max() - node_data.dipole_center).norm_squared();
+        let radius = dist_to_min_sq.max(dist_to_max_sq).sqrt();
+
         data[idx] = NodeData {
+            radius,
             order1_coefficients: node_data.area_weighted_normal,
-            order2_coefficients: node_data.order1_sum, // TODO: compute order2_coefficients
-            radius: 0.0,
+            order2_coefficients: node_data.order1_sum - node_data.dipole_center * node_data.area_weighted_normal.transpose(),
+            dipole_center: node_data.dipole_center,
         };
 
         node_data
@@ -496,7 +584,9 @@ mod winding_numbers {
 
     fn leaf_data(tree: &AABBTree<Triangle3<f32>>, node: &BinaryNode<f32>) -> InitData {
         let mut area_weighted_normal = Vec3f::zeros();
+        let mut area_weighted_center = Vec3f::zeros();
         let mut order1_sum = Mat3f::zeros();
+        let mut total_area = 0.0f32;
 
         for t in node.left..node.right {
             let (tri, _) = &tree.objects[t];
@@ -506,15 +596,20 @@ mod winding_numbers {
             };
             let area = tri.get_area();
 
+            total_area += area;
             area_weighted_normal += area * n;
         
             let c = tri.center();
             order1_sum += area * c * n.transpose();
+            area_weighted_center += area * c;
         }
 
         InitData {
             area_weighted_normal,
-            order1_sum: Mat3f::zeros(),
+            area_weighted_center,
+            total_area,
+            order1_sum,
+            dipole_center: area_weighted_center / total_area,
         }
     }
 
@@ -524,10 +619,29 @@ mod winding_numbers {
 
         let order1_sum = left_data.order1_sum + right_data.order1_sum;
         let area_weighted_normal = left_data.area_weighted_normal + right_data.area_weighted_normal;
+        let area_weighted_center = left_data.area_weighted_center + right_data.area_weighted_center;
+        let total_area = left_data.total_area + right_data.total_area;
+        let dipole_center = (left_data.area_weighted_center + right_data.area_weighted_center) / total_area;
 
         InitData {
             area_weighted_normal,
+            area_weighted_center,
+            dipole_center,
+            total_area,
             order1_sum,
         }
+    }
+
+    fn hessians(dipole: &Vec3f, query_point: &Vec3f) -> (Vec3f, Mat3f) {
+        let r = dipole - query_point;
+        let r_len = r.norm();
+        let r3 = r_len * r_len * r_len;
+        let ord1_den = 4.0 * PI * r3;
+        let ord1 = r / ord1_den;
+
+        let r5 = r3 * r_len * r_len;
+        let ord2 = Mat3f::identity() / ord1_den - 3.0 * r * r.transpose() / (4.0 * PI * r5);
+
+        (ord1, ord2)
     }
 }

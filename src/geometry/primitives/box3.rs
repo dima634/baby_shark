@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use nalgebra_glm::{min2, max2};
 use num_traits::{cast, Float};
 
@@ -6,7 +8,7 @@ use crate::{geometry::traits::{ClosestPoint3, HasScalarType, RealNumber, Number}
 use super::{line_segment3::LineSegment3, plane3::Plane3, triangle3::Triangle3, sphere3::Sphere3};
 
 /// 3D bounding box
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Box3<TScalar: Number> {
     min: Vec3<TScalar>,
     max: Vec3<TScalar>
@@ -118,6 +120,17 @@ impl<TScalar: Number> Box3<TScalar> {
         }
 
         return true; 
+    }
+}
+
+impl<TScalar: RealNumber> Add<&Box3<TScalar>> for Box3<TScalar> {
+    type Output = Box3<TScalar>;
+
+    #[inline]
+    fn add(mut self, rhs: &Box3<TScalar>) -> Self::Output {
+        self.min = min2(&self.min, &rhs.min);
+        self.max = max2(&self.max, &rhs.max);
+        self
     }
 }
 

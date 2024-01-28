@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i}, voxel::{Leaf, TreeNode}, mesh::polygon_soup::data_structure::PolygonSoup, io::stl::StlWriter};
+use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i, Vec3u}, io::stl::StlWriter, mesh::{polygon_soup::data_structure::PolygonSoup, traits::Mesh}, spatial_partitioning::aabb_tree::winding_numbers::SolidAngle, voxel::{Leaf, TreeNode}};
 
-use super::{Grid, Scalar, Sdf};
+use super::{Accessor, Grid, Scalar, Sdf};
 
 pub struct MeshToSdf<TGrid: Grid<Value = Scalar>> {
     points: Vec<(Triangle3<f32>, Vec3f)>,
@@ -10,17 +10,19 @@ pub struct MeshToSdf<TGrid: Grid<Value = Scalar>> {
     sdf: Box<TGrid>,
     pub voxel_size: f32,
     inverse_voxel_size: f32,
+    sa: SolidAngle,
 }
 
 impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     pub fn new() -> Self {
         let voxel_size = 1.0;
         Self {
-            band_width: 2,
+            band_width: 1,
             sdf: TGrid::empty(Vec3i::zeros()),
             points: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             voxel_size,
+            sa: SolidAngle::from_triangles(vec![]),
         }
     }
 
@@ -30,15 +32,18 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         self
     }
 
-    pub fn approximate(&mut self, mesh: impl Iterator<Item = Triangle3<f32>>) -> Sdf<TGrid> {
-        for tri in mesh {
+    pub fn approximate<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf<TGrid> {
+        for tri in mesh.faces().map(|f| mesh.face_positions(&f)){
             self.subdivide_triangle(&tri);
         }
+
         // self.save_sub();
+        
+        self.sa = SolidAngle::from_mesh(mesh);
 
         println!("Points: {}", self.points.len());
         self.compute_udfs();
-        self.construct_sdf();
+        self.compute_sings();
 
 
         let mut sdf = TGrid::empty(Vec3i::zeros());
@@ -47,11 +52,11 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         Sdf { grid: sdf }
     }
 
-    // fn save_sub(&self) {
-    //     let writer = StlWriter::new();
-    //     let mesh = PolygonSoup::from_vertices(self.points.iter().map(|(t, _)| [*t.p1(), *t.p2(), *t.p3()]).flatten().collect());
-    //     writer.write_stl_to_file(&mesh, Path::new("subdiv.stl")).expect("Write mesh");
-    // }
+    fn save_sub(&self) {
+        let writer = StlWriter::new();
+        let mesh = PolygonSoup::from_vertices(self.points.iter().map(|(t, _)| [*t.p1(), *t.p2(), *t.p3()]).flatten().collect());
+        writer.write_stl_to_file(&mesh, Path::new("subdiv.stl")).expect("Write mesh");
+    }
 
     fn subdivide_triangle(&mut self, tri: &Triangle3<f32>) {
         let n = match tri.try_get_normal() {
@@ -106,20 +111,10 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
 
     fn compute_udfs(&mut self) {
         for i in 0..self.points.len() {
-            // Compute grid point index based on voxel size
-            // 0       1       2
-            // 0 --1-- 2 --3-- 4
-            // voxel_size = 2
-            // 1.1 / 2 => 0.55 => 1
-            // 2.1 / 2 => 1.05 => 1
-            // 3.0 / 2 => 1.5 => 2
-            // 0.1 / 2 => 0.05 => 0
+            // println!("{} / {}", i, self.points.len());
 
-            //
-            // -1 = -1
-            // -1.5 = 
-            //
-            let (tri, normal) = &self.points[i];
+            // Compute distance for voxels intersecting triangle and its `band_width` neighborhood
+            let (tri, _) = &self.points[i];
 
             let bbox = tri.bbox();
             let nbh_min = Vec3i::new(
@@ -139,12 +134,9 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                         let idx = Vec3i::new(x, y, z);
                         let grid_point = idx.cast() * self.voxel_size;
                         let closest = tri.closest_point(&grid_point.into());
-                        // let dist = (closest - grid_point).coords.norm().abs();
                         let cur_dist = self.sdf.at(&idx).map(|v| v.value).unwrap_or(f32::INFINITY);
 
-                        let diff = closest - grid_point;
-                        let sign = -diff.dot(normal);
-                        let dist = (closest - grid_point).norm().copysign(sign);
+                        let dist = (closest - grid_point).norm();//.copysign(sign);
 
                         if dist.abs() < cur_dist.abs() {
                             self.sdf.insert(&idx, dist.into());
@@ -157,43 +149,56 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         }
     }
 
-    fn construct_sdf(&mut self) {
-
-        // let mut distances = Vec::new();
-        // let mut xes = Vec::new();
-        // let mut yes = Vec::new();
-        // let mut zes = Vec::new();
+    fn compute_sings(&mut self) {
+        // let triangles = self.points.iter().map(|(t, _)| *t).collect::<Vec<_>>();
+        // let sa = SolidAngle::from_triangles(triangles);
         
+        let mut signs = TGrid::empty(Vec3i::zeros());
 
-        // // Now we will treat internal grid as SDF to avoid constructing new grid
-        // self.sdf.traverse_leafs(&mut |leaf| {
-        //     // TODO: iterate only over tiles boundary
-        //     let (o, s) = match leaf {
-        //         Leaf::Tile(tile) => (tile.origin, tile.size),
-        //         Leaf::Dense(node) => (node.origin(), node.size_t()),
-        //     };
+        let (v1, v2) = self.sdf.leafs_count();
+        let leafs_count = v1 + v2;
+        let mut i = 0;
 
-        //     for x in o.x..o.x + s as isize {
-        //         for y in o.y..o.y + s as isize {
-        //             for z in o.z..o.z + s as isize {
-        //                 let idx = Vec3i::new(x, y, z);
+        self.sdf.traverse_leafs(&mut |leaf| {
+            i += 1;
 
-        //                 if let Some(dist) = self.sdf.at(&idx).map(|v| v.value) {
-        //                     distances.push(dist);
-        //                     xes.push(x);
-        //                     yes.push(y);
-        //                     zes.push(z);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
+            if i % 1000 == 0 {
+                println!("{} / {}", i, leafs_count);
+            }
 
-        
-        // let text = format!("distances = {:?}\nx = {:?}\ny = {:?}\nz = {:?}\n", distances, xes, yes, zes);
-        // // Write text to file
-        // let mut file = File::create("distances.py").expect("Unable to create file");
-        // file.write_all(text.as_bytes()).expect("Unable to write data");
+            match leaf {
+                Leaf::Tile(_) => todo!(),
+                Leaf::Dense(n) => {
+                    let origin = n.origin();
+                    let size = n.size_t();
+                    let max = origin + Vec3u::new(size, size, size).cast();
+                    for x in origin.x..max.x {
+                        for y in origin.y..max.y {
+                            for z in origin.z..max.z {
+                                let idx = Vec3i::new(x, y, z);
+                                let grid_point = idx.cast() * self.voxel_size;
+
+                                let mut value = match n.at(&idx) {
+                                    Some(v) => v.value,
+                                    None => continue,
+                                };
+                                let wn = self.sa.winding_number(&grid_point, 2.0);
+
+                                if wn < 0.05 {
+                                    value = value.copysign(1.0);
+                                } else {
+                                    value = value.copysign(-1.0);
+                                }
+
+                                signs.insert(&idx, value.into());
+                            }
+                        }
+                    }
+                }
+            };
+        });
+
+        self.sdf = signs;
     }
 }
 

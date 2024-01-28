@@ -16,11 +16,10 @@ fn main() {
     type Mesh = PolygonSoup<f32>;
 
     let mut reader = StlReader::new();
-    let mesh: Mesh = reader.read_stl_from_file(Path::new("caesar.stl")).expect("Read mesh");
-    let triangles = mesh.faces().map(|f| mesh.face_positions(&f));
+    let mesh: Mesh = reader.read_stl_from_file(Path::new("head.stl")).expect("Read mesh");
 
-    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.001);
-    let sdf: Sdf = mesh_to_sdf.approximate(triangles);
+    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(0.02);
+    let sdf: Sdf = mesh_to_sdf.approximate(&mesh);
 
     let mut mc = MarchingCubesMesher::new(&sdf);
     let vertices = mc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
