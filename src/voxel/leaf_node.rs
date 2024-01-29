@@ -5,7 +5,7 @@ use nalgebra::Vector3;
 use crate::data_structures::bitset::BitSet;
 
 use super::{
-    Accessor, GridValue, Leaf, Traverse, TreeNode,
+    Accessor, GridValue, Leaf, TreeNode,
 };
 
 pub struct LeafNode<
@@ -18,19 +18,6 @@ pub struct LeafNode<
     values: [TValue; SIZE],
     value_mask: BitSet<SIZE, BIT_SIZE>,
     origin: Vector3<isize>,
-}
-
-impl<
-        TValue: GridValue,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > Traverse<Self> for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-{
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, Self>> + 'a> {
-        unimplemented!("Leaf node has no childs")
-    }
 }
 
 impl<

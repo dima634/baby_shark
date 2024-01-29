@@ -49,6 +49,10 @@
 - [ ] Marching cubes: verify cases handling, especially subconfig usage
 - [ ] Fast winding numbers: order3 approx
 
+### RUST unstable
+ - [ ] VDB: const expressions with generics
+ - [ ] VDB: tree traverse using coroutines/generators
+
 
 TPMS:
 ```rust

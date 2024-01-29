@@ -9,7 +9,6 @@ pub mod sdf;
 pub mod mesh_to_sdf;
 mod cached_accessor;
 mod grid_value;
-mod traverse;
 
 #[cfg(test)]
 mod tests;
@@ -21,8 +20,6 @@ pub use root_node::*;
 pub use sdf::*;
 
 use nalgebra::Vector3;
-
-use self::traverse::LeafsIter;
 
 pub trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
@@ -131,26 +128,8 @@ pub enum Leaf<'a, T: Accessor> {
     Dense(&'a T),
 }
 
-pub trait Traverse<TLeaf: Accessor> {
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TLeaf>> + 'a>;
+pub trait Grid: TreeNode {}
 
-    #[inline]
-    fn leafs(&self) -> LeafsIter<'_, TLeaf>
-    where
-        Self: Sized,
-    {
-        LeafsIter::new(self)
-    }
-}
-
-pub enum Child<'a, TLeafNode: Accessor> {
-    Branch(&'a dyn Traverse<TLeafNode>),
-    Leaf(&'a TLeafNode),
-    Tile(Tile<TLeafNode::Value>),
-}
-
-pub trait Grid: TreeNode + Traverse<Self::LeafNode> {}
-
-impl<T: TreeNode + Traverse<Self::LeafNode>> Grid for T {}
+impl<T: TreeNode> Grid for T {}
 
 // https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

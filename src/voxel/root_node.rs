@@ -5,21 +5,10 @@ use std::{
 
 use nalgebra::Vector3;
 
-use super::{utils::box_indices, Accessor, Leaf, Traverse, TreeNode, GridValue, Scalar};
+use super::{Accessor, Leaf, TreeNode, GridValue};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
-}
-
-impl<TChild> Traverse<TChild::LeafNode> for RootNode<TChild>
-where
-    TChild: TreeNode + Traverse<TChild::LeafNode>,
-{
-    #[inline]
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = super::Child<'a, TChild::LeafNode>> + 'a> {
-        let it = self.root.values().map(|child| super::Child::Branch(child.as_ref()));
-        Box::new(it)
-    }
 }
 
 impl<TChild> TreeNode for RootNode<TChild>

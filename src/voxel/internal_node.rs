@@ -5,7 +5,7 @@ use nalgebra::Vector3;
 use crate::data_structures::bitset::BitSet;
 
 use super::{
-    Accessor, Child, Leaf, Tile, Traverse, TreeNode, IsWithinTolerance, GridValue,
+    Accessor, Leaf, Tile, TreeNode, IsWithinTolerance, GridValue,
 };
 
 pub struct InternalNode<
@@ -21,47 +21,6 @@ pub struct InternalNode<
     values: [TValue; SIZE],
     value_mask: BitSet<SIZE, BIT_SIZE>,
     origin: Vector3<isize>,
-}
-
-impl<
-        TChild,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > Traverse<TChild::LeafNode>
-    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where
-    TChild: TreeNode + Traverse<TChild::LeafNode>,
-{
-    fn childs<'a>(&'a self) -> Box<dyn Iterator<Item = Child<'a, TChild::LeafNode>> + 'a> {
-        let it = (0..SIZE).into_iter().filter_map(|offset| {
-            if self.child_mask.at(offset) {
-                let child = self.child(offset);
-
-                return if TChild::IS_LEAF {
-                    // Should I use specialization here once rust supports it?
-                    let as_leaf = unsafe { std::mem::transmute(child) };
-                    Some(Child::Leaf(as_leaf))
-                } else {
-                    Some(Child::Branch(child))
-                };
-            }
-
-            if self.value_mask.at(offset) {
-                let tile = Child::Tile(Tile {
-                    origin: self.offset_to_global_index(offset),
-                    size: TChild::resolution(),
-                    value: self.values[offset],
-                });
-                return Some(tile);
-            }
-
-            None
-        });
-
-        Box::new(it)
-    }
 }
 
 impl<
