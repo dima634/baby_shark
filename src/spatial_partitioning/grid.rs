@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use nalgebra::{Vector3, Point3};
+use nalgebra::Vector3;
 use num_traits::{cast, Float, Zero};
 
 use crate::{

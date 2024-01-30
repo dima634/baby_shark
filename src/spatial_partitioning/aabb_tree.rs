@@ -1,12 +1,7 @@
-use std::path::Path;
-
 use nalgebra::Vector3;
 use num_traits::{Float, One};
 use num_traits::FromPrimitive;
 
-use crate::io::stl::StlWriter;
-use crate::mesh::builder::cube;
-use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 use crate::{
     geometry::{
         traits::{

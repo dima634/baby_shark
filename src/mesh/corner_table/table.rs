@@ -366,8 +366,6 @@ pub(super) mod helpers {
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::Point3;
-
     use crate::{mesh::{
         corner_table::{
             test_helpers::{create_unit_square_mesh, assert_mesh_eq}, 

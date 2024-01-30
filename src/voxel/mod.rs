@@ -7,7 +7,6 @@ pub mod utils;
 pub mod sdf;
 
 pub mod mesh_to_sdf;
-mod cached_accessor;
 mod grid_value;
 
 #[cfg(test)]

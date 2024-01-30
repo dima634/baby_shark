@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 
 use crate::dynamic_vdb;
 
-use super::{Grid, Scalar, meshing::{MarchingCubes, Vertex}, Leaf, TreeNode, Tile};
+use super::{meshing::MarchingCubes, Grid, Leaf, Scalar, TreeNode, SMALL_SCALAR};
 
 type DefaultGrid = dynamic_vdb!(Scalar, 5, 4, 3);
 
@@ -39,8 +39,6 @@ impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
                     if value.abs() > narrow_band_width {
                         continue;
                     }
-                    
-                    //println!("{:?}", idx);
 
                     let val = Scalar { value };
                     grid.insert(&idx, val);
@@ -48,29 +46,7 @@ impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
             }
         }
 
-        // for idx in box_indices(0, grid_size as isize) {
-        //     let grid_point = origin
-        //         + Vector3::new(
-        //             idx.x as f32 * spacing,
-        //             idx.y as f32 * spacing,
-        //             idx.z as f32 * spacing,
-        //         );
-        //     let mut value = func(&grid_point);
-
-        //     if value > narrow_band_width {
-        //         continue;
-        //     }
-
-        //     if value < 0.0 && value < -narrow_band_width {
-        //         value = f32::MIN;
-        //     }
-            
-        //     println!("{:?}", idx);
-
-        //     grid.insert(&idx, Scalar { value });
-        // }
-
-        // grid.prune(SMALL_SCALAR);
+        grid.prune(SMALL_SCALAR);
 
         Self { 
             grid
