@@ -150,9 +150,6 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     }
 
     fn compute_sings(&mut self) {
-        // let triangles = self.points.iter().map(|(t, _)| *t).collect::<Vec<_>>();
-        // let sa = SolidAngle::from_triangles(triangles);
-        
         let mut signs = TGrid::empty(Vec3i::zeros());
 
         let (v1, v2) = self.sdf.leafs_count();
@@ -178,19 +175,19 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
                                 let idx = Vec3i::new(x, y, z);
                                 let grid_point = idx.cast() * self.voxel_size;
 
-                                let mut value = match n.at(&idx) {
+                                let mut dist = match n.at(&idx) {
                                     Some(v) => v.value,
                                     None => continue,
                                 };
                                 let wn = self.sa.winding_number(&grid_point, 2.0);
 
                                 if wn < 0.05 {
-                                    value = value.copysign(1.0);
+                                    dist = dist.copysign(1.0);
                                 } else {
-                                    value = value.copysign(-1.0);
+                                    dist = dist.copysign(-1.0);
                                 }
 
-                                signs.insert(&idx, value.into());
+                                signs.insert(&idx, dist.into());
                             }
                         }
                     }
