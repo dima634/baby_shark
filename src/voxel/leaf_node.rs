@@ -5,7 +5,7 @@ use nalgebra::Vector3;
 use crate::data_structures::bitset::BitSet;
 
 use super::{
-    Accessor, GridValue, Leaf, TreeNode,
+    Accessor, GridValue, Leaf, ParVisitor, TreeNode
 };
 
 pub struct LeafNode<
@@ -141,7 +141,7 @@ impl<
     const IS_LEAF: bool = true;
 
     type Child = Self;
-    type LeafNode = Self;
+    type Leaf = Self;
     type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
@@ -159,7 +159,7 @@ impl<
     }
 
     #[inline]
-    fn traverse_leafs<F: FnMut(super::Leaf<Self::LeafNode>)>(&self, f: &mut F) {
+    fn traverse_leafs<F: FnMut(super::Leaf<Self::Leaf>)>(&self, f: &mut F) {
         f(Leaf::Dense(self));
     }
 
@@ -223,6 +223,15 @@ impl<
         }
 
         new_node
+    }
+
+    fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
+        visitor.dense(self);
+    }
+
+    #[inline]
+    fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
+        visitor.dense(self);
     }
 }
 

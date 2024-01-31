@@ -2,15 +2,15 @@ use nalgebra::Vector3;
 
 use crate::dynamic_vdb;
 
-use super::{meshing::MarchingCubes, Grid, Leaf, Scalar, TreeNode, SMALL_SCALAR};
+use super::{meshing::MarchingCubes, Accessor, Leaf, Scalar, TreeNode, SMALL_SCALAR};
 
-type DefaultGrid = dynamic_vdb!(Scalar, 5, 4, 3);
+pub(super) type SdfGrid = dynamic_vdb!(Scalar, par 5, 4, 3);
 
-pub struct Sdf<T = DefaultGrid> where T: Grid<Value = Scalar> {
-    pub grid: Box<T>,
+pub struct Sdf {
+    grid: Box<SdfGrid>,
 }
 
-impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
+impl Sdf {
     ///
     /// Creates new SDF grid by evaluating given function on each grid point.
     /// Inside is negative.
@@ -22,7 +22,7 @@ impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
         narrow_band_width: usize,
         func: TFn,
     ) -> Self {
-        let mut grid = TGrid::empty(Vector3::zeros());
+        let mut grid = SdfGrid::empty(Vector3::zeros());
 
         let origin = Vector3::new(min, min, min);
         let spacing = (max - min) / grid_size as f32;
@@ -54,14 +54,14 @@ impl<TGrid: Grid<Value = Scalar>> Sdf<TGrid> {
     }
 }
 
-impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
+impl MarchingCubes for Sdf {
     type Value = Scalar;
 
     fn cubes<TFn: FnMut(Vector3<isize>)> (&self, mut func: TFn) {
         self.grid.traverse_leafs(&mut |leaf| {
             let (origin, size) = match leaf {
                 Leaf::Tile(t) => (t.origin, t.size),
-                Leaf::Dense(n) => (n.origin(), n.size_t())
+                Leaf::Dense(n) => (*n.origin(), n.size_t())
             };
 
             let max = origin + Vector3::new(size, size, size).cast();
@@ -82,4 +82,12 @@ impl<T: Grid<Value = Scalar>> MarchingCubes for Sdf<T> {
     }
 }
 
+impl From<Box<SdfGrid>> for Sdf {
+    #[inline]
+    fn from(grid: Box<SdfGrid>) -> Self {
+        Self {
+            grid,
+        }
+    }
+}
 

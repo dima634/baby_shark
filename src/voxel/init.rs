@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! static_vdb {
-    (@internal $value_type:ty, $branching:expr,) => {
+    (@internal $value_type:ty, $branching:expr) => {
         $crate::voxel::LeafNode<
             $value_type,
             $branching,
@@ -10,22 +10,35 @@ macro_rules! static_vdb {
         >
     };
 
-    ($(@internal)? $value_type:ty, $branching:expr, $($rest:expr),+ $(,)?) => {
+    ($(@internal)? $value_type:ty, $branching:expr, $($rest:tt)+) => {
         $crate::voxel::InternalNode::<
             $value_type,
-            $crate::static_vdb!(@internal $value_type, $($rest,)*),
+            $crate::static_vdb!(@internal $value_type, $($rest)*),
             $branching,
-            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>($branching) },
-            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>($branching) },
-            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>($branching) }
+            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            false,
+        >
+    };
+
+    ($(@internal)? $value_type:ty, par $branching:expr, $($rest:tt)+) => {
+        $crate::voxel::InternalNode::<
+            $value_type,
+            $crate::static_vdb!(@internal $value_type, $($rest)*),
+            $branching,
+            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            true,
         >
     };
 }
 
 #[macro_export]
 macro_rules! dynamic_vdb {
-    ($value_type:ty, $($rest:expr),+) => {
-        $crate::voxel::RootNode::<$crate::static_vdb!(@internal $value_type, $($rest,)*)>
+    ($value_type:ty, $($rest:tt)+) => {
+        $crate::voxel::RootNode::<$crate::static_vdb!(@internal $value_type, $($rest)*)>
     };
 }
 
@@ -70,5 +83,12 @@ mod tests {
         assert_eq!(Lvl3::BRANCHING_TOTAL, 3);
         assert_eq!(Lvl3::BRANCHING, 3);
         assert_eq!(Lvl3::SIZE, 512 / usize::BITS as usize); // 1<<3*3 = 512 voxels (8 u64)
+    }
+
+    #[test]
+    fn test_parallel_internal_node_macro() {
+        type _Grid1 = dynamic_vdb!((), par 5, 4, 3);
+        type _Grid2 = dynamic_vdb!((), par 5, par 4, 3);
+        type _Grid3 = dynamic_vdb!((), 5, par 4, 3);
     }
 }

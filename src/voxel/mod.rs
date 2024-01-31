@@ -24,7 +24,7 @@ pub trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
 }
 
-pub trait GridValue: Copy + PartialEq + IsWithinTolerance {}
+pub trait GridValue: Copy + Clone + Send + Sync + PartialEq + IsWithinTolerance {}
 
 pub trait Accessor {
     type Value: GridValue; // Remove Copy?
@@ -34,7 +34,17 @@ pub trait Accessor {
     fn remove(&mut self, index: &Vector3<isize>);
 }
 
-pub trait TreeNode: Accessor {
+pub trait Visitor<T: TreeNode> {
+    fn tile(&mut self, tile: Tile<T::Value>);
+    fn dense(&mut self, dense: &T);
+}
+
+pub trait ParVisitor<T: TreeNode>: Send + Sync {
+    fn tile(&self, tile: Tile<T::Value>);
+    fn dense(&self, dense: &T);
+}
+
+pub trait TreeNode: Accessor + Send + Sync + Sized {
     /// Number of tiles in one dimension on current level
     const BRANCHING: usize;
     /// Total number of tiles in one dimension
@@ -44,12 +54,12 @@ pub trait TreeNode: Accessor {
 
     const IS_LEAF: bool;
 
-    type LeafNode: TreeNode<Value = Self::Value>;
-    type Child: TreeNode<Value = Self::Value, LeafNode = Self::LeafNode>;
+    type Leaf: TreeNode<Value = Self::Value>;
+    type Child: TreeNode<Value = Self::Value, Leaf = Self::Leaf>;
     type As<TValue: GridValue>: TreeNode<
         Value = TValue, 
         Child = <Self::Child as TreeNode>::As<TValue>, 
-        LeafNode = <Self::LeafNode as TreeNode>::As<TValue>
+        Leaf = <Self::Leaf as TreeNode>::As<TValue>
     >;
 
     /// Creates empty node
@@ -57,7 +67,9 @@ pub trait TreeNode: Accessor {
     fn origin(&self) -> Vector3<isize>;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
-    fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F);
+    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F);
+    fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
+    fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 
     ///
     /// Checks if node is constant within tolerance. 

@@ -1,28 +1,28 @@
-use std::path::Path;
+use std::{path::Path, sync::Mutex};
 
-use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i, Vec3u}, io::stl::StlWriter, mesh::{polygon_soup::data_structure::PolygonSoup, traits::Mesh}, spatial_partitioning::aabb_tree::winding_numbers::SolidAngle, voxel::{Leaf, TreeNode}};
+use crate::{geometry::{primitives::triangle3::Triangle3, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i, Vec3u}, io::stl::StlWriter, mesh::{polygon_soup::data_structure::PolygonSoup, traits::Mesh}, spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers, voxel::{Leaf, ParVisitor, Tile, TreeNode, Visitor}};
 
-use super::{Accessor, Grid, Scalar, Sdf};
+use super::{Accessor, Grid, Scalar, Sdf, SdfGrid};
 
-pub struct MeshToSdf<TGrid: Grid<Value = Scalar>> {
+pub struct MeshToSdf {
     points: Vec<(Triangle3<f32>, Vec3f)>,
     band_width: isize,
-    sdf: Box<TGrid>,
+    sdf: Box<SdfGrid>,
     pub voxel_size: f32,
     inverse_voxel_size: f32,
-    sa: SolidAngle,
+    winding_numbers: WindingNumbers,
 }
 
-impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
+impl MeshToSdf {
     pub fn new() -> Self {
         let voxel_size = 1.0;
         Self {
             band_width: 1,
-            sdf: TGrid::empty(Vec3i::zeros()),
+            sdf: SdfGrid::empty(Vec3i::zeros()),
             points: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             voxel_size,
-            sa: SolidAngle::from_triangles(vec![]),
+            winding_numbers: WindingNumbers::from_triangles(vec![]),
         }
     }
 
@@ -32,24 +32,23 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
         self
     }
 
-    pub fn approximate<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf<TGrid> {
+    pub fn approximate<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf {
         for tri in mesh.faces().map(|f| mesh.face_positions(&f)){
             self.subdivide_triangle(&tri);
         }
 
         // self.save_sub();
         
-        self.sa = SolidAngle::from_mesh(mesh);
+        self.winding_numbers = WindingNumbers::from_mesh(mesh);
 
-        println!("Points: {}", self.points.len());
         self.compute_udfs();
         self.compute_sings();
 
 
-        let mut sdf = TGrid::empty(Vec3i::zeros());
+        let mut sdf = SdfGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.sdf);
 
-        Sdf { grid: sdf }
+        sdf.into()
     }
 
     fn save_sub(&self) {
@@ -150,55 +149,110 @@ impl<TGrid> MeshToSdf<TGrid> where TGrid: Grid<Value = Scalar> {
     }
 
     fn compute_sings(&mut self) {
-        let mut signs = TGrid::empty(Vec3i::zeros());
+        println!("Computing signs...");
 
-        let (v1, v2) = self.sdf.leafs_count();
-        let leafs_count = v1 + v2;
-        let mut i = 0;
+        let now = std::time::Instant::now();
 
-        self.sdf.traverse_leafs(&mut |leaf| {
-            i += 1;
+        let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
 
-            if i % 1000 == 0 {
-                println!("{} / {}", i, leafs_count);
-            }
+        let visitor = ComputeSigns {
+            signs: signs,
+            winding_numbers: &self.winding_numbers,
+            voxel_size: self.voxel_size,
+        };
 
-            match leaf {
-                Leaf::Tile(_) => todo!(),
-                Leaf::Dense(n) => {
-                    let origin = n.origin();
-                    let size = n.size_t();
-                    let max = origin + Vec3u::new(size, size, size).cast();
-                    for x in origin.x..max.x {
-                        for y in origin.y..max.y {
-                            for z in origin.z..max.z {
-                                let idx = Vec3i::new(x, y, z);
-                                let grid_point = idx.cast() * self.voxel_size;
+        self.sdf.visit_leafs_par(&visitor);
 
-                                let mut dist = match n.at(&idx) {
-                                    Some(v) => v.value,
-                                    None => continue,
-                                };
-                                let wn = self.sa.winding_number(&grid_point, 2.0);
+        // let mut signs = TGrid::empty(Vec3i::zeros());        
 
-                                if wn < 0.05 {
-                                    dist = dist.copysign(1.0);
-                                } else {
-                                    dist = dist.copysign(-1.0);
-                                }
+        // let (v1, v2) = self.sdf.leafs_count();
+        // let leafs_count = v1 + v2;
+        // let mut i = 0;
 
-                                signs.insert(&idx, dist.into());
-                            }
-                        }
-                    }
-                }
-            };
-        });
+        // self.sdf.traverse_leafs(&mut |leaf| {
+        //     i += 1;
 
-        self.sdf = signs;
+        //     if i % 1000 == 0 {
+        //         println!("{} / {}", i, leafs_count);
+        //     }
+
+        //     match leaf {
+        //         Leaf::Tile(_) => todo!(),
+        //         Leaf::Dense(n) => {
+        //             let origin = n.origin();
+        //             let size = n.size_t();
+        //             let max = origin + Vec3u::new(size, size, size).cast();
+        //             for x in origin.x..max.x {
+        //                 for y in origin.y..max.y {
+        //                     for z in origin.z..max.z {
+        //                         let idx = Vec3i::new(x, y, z);
+        //                         let grid_point = idx.cast() * self.voxel_size;
+
+        //                         let mut dist = match n.at(&idx) {
+        //                             Some(v) => v.value,
+        //                             None => continue,
+        //                         };
+        //                         let wn = self.sa.winding_number(&grid_point, 2.0);
+
+        //                         if wn < 0.05 {
+        //                             dist = dist.copysign(1.0);
+        //                         } else {
+        //                             dist = dist.copysign(-1.0);
+        //                         }
+
+        //                         signs.insert(&idx, dist.into());
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     };
+        // });
+
+        println!("Signs computed in {} ms", now.elapsed().as_millis());
+
+        // println!("{}", Arc::strong_count(&signs));
+
+        self.sdf = visitor.signs.into_inner().unwrap();
+        // self.sdf = signs;
     }
 }
 
+struct ComputeSigns<'a, TGrid: Grid<Value = Scalar>> {
+    signs: Mutex<Box<TGrid>>,
+    winding_numbers: &'a WindingNumbers,
+    voxel_size: f32,
+}
 
+impl<'a, TGrid: Grid<Value = Scalar>> ParVisitor<TGrid::Leaf> for ComputeSigns<'a, TGrid> {
+    fn tile(&self, _tile: Tile<TGrid::Value>) {
+        debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
+    }
 
+    fn dense(&self, n: &TGrid::Leaf) {
+        let origin = n.origin();
+        let size = n.size_t();
+        let max = origin + Vec3u::new(size, size, size).cast();
+        for x in origin.x..max.x {
+            for y in origin.y..max.y {
+                for z in origin.z..max.z {
+                    let idx = Vec3i::new(x, y, z);
+                    let grid_point = idx.cast() * self.voxel_size;
 
+                    let mut dist = match n.at(&idx) {
+                        Some(v) => v.value,
+                        None => continue,
+                    };
+                    let wn = self.winding_numbers.approximate(&grid_point, 2.0);
+
+                    if wn < 0.05 {
+                        dist = dist.copysign(1.0);
+                    } else {
+                        dist = dist.copysign(-1.0);
+                    }
+
+                    self.signs.lock().unwrap().insert(&idx, dist.into());
+                }
+            }
+        }
+    }
+}

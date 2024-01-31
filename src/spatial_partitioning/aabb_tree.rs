@@ -458,12 +458,12 @@ pub mod winding_numbers {
         wn / (4.0 * PI)
     }
 
-    pub struct SolidAngle {
+    pub struct WindingNumbers {
         tree: AABBTree<Triangle3<f32>>,
         nodes_data: Vec<NodeData>,
     }
 
-    impl SolidAngle {
+    impl WindingNumbers {
         pub fn from_mesh<'a, T: Mesh<ScalarType = f32>>(mesh: &'a T) -> Self {
             let mut tree = AABBTree::from_mesh(mesh)
                 .top_down::<MedianCut>();
@@ -488,7 +488,7 @@ pub mod winding_numbers {
             }
         }
 
-        pub fn winding_number(&self, point: &Vec3f, accuracy_scale: f32) -> f32 {
+        pub fn approximate(&self, point: &Vec3f, accuracy_scale: f32) -> f32 {
             if self.tree.nodes.is_empty() {
                 return 0.0;
             }

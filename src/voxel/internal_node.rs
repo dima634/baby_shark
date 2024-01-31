@@ -5,7 +5,7 @@ use nalgebra::Vector3;
 use crate::data_structures::bitset::BitSet;
 
 use super::{
-    Accessor, Leaf, Tile, TreeNode, IsWithinTolerance, GridValue,
+    Accessor, GridValue, IsWithinTolerance, Leaf, ParVisitor, Tile, TreeNode
 };
 
 pub struct InternalNode<
@@ -15,6 +15,7 @@ pub struct InternalNode<
     const BRANCHING_TOTAL: usize,
     const SIZE: usize,
     const BIT_SIZE: usize,
+    const PARALLEL: bool,
 > {
     childs: [Option<Box<TChild>>; SIZE],
     child_mask: BitSet<SIZE, BIT_SIZE>,
@@ -29,7 +30,8 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+        const PARALLEL: bool,
+    > InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
@@ -123,7 +125,8 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > Accessor for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+        const PARALLEL: bool,
+    > Accessor for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
@@ -207,7 +210,8 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > TreeNode for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+        const PARALLEL: bool,
+    > TreeNode for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
@@ -218,8 +222,8 @@ where
     const IS_LEAF: bool = false;
 
     type Child = TChild;
-    type LeafNode = TChild::LeafNode;
-    type As<TNewValue: GridValue> = InternalNode<TNewValue, TChild::As<TNewValue>, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
+    type Leaf = TChild::Leaf;
+    type As<TNewValue: GridValue> = InternalNode<TNewValue, TChild::As<TNewValue>, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>;
 
     fn empty(origin: Vector3<isize>) -> Box<Self> {
         Box::new(Self {
@@ -237,7 +241,7 @@ where
             && self.value_mask.is_empty();
     }
 
-    fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
+    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F) {
         for i in 0..SIZE {
             if self.child_mask.at(i) {
                 let child = self.child(i);
@@ -337,6 +341,65 @@ where
         }
 
         new_node
+    }
+
+    fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
+        use rayon::prelude::*;
+
+        if PARALLEL {
+            (0..SIZE)
+                .filter_map(|i| match self.child_mask.at(i) {
+                    true => Some(self.child(i)),
+                    false => None,
+                })
+                .par_bridge()
+                .into_par_iter()
+                .for_each(|c| c.visit_leafs_par(visitor));
+
+            (0..SIZE)
+                .filter(|i| self.value_mask.at(*i))
+                .for_each(|i| {
+                    let tile = Tile {
+                        origin: self.offset_to_global_index(i),
+                        size: TChild::resolution(),
+                        value: self.values[i],
+                    };
+
+                    visitor.tile(tile);
+                });
+        } else {
+            for i in 0..SIZE {
+                if self.child_mask.at(i) {
+                    let child = self.child(i);
+                    child.visit_leafs_par(visitor);
+                } else if self.value_mask.at(i) {
+                    let tile = Tile {
+                        origin: self.offset_to_global_index(i),
+                        size: TChild::resolution(),
+                        value: self.values[i],
+                    };
+    
+                    visitor.tile(tile);
+                }
+            }
+        }
+    }
+
+    fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
+        for i in 0..SIZE {
+            if self.child_mask.at(i) {
+                let child = self.child(i);
+                child.visit_leafs(visitor);
+            } else if self.value_mask.at(i) {
+                let tile = Tile {
+                    origin: self.offset_to_global_index(i),
+                    size: TChild::resolution(),
+                    value: self.values[i],
+                };
+
+                visitor.tile(tile);
+            }
+        }
     }
 }
 

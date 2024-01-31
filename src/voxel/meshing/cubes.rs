@@ -63,7 +63,7 @@ impl<'a, T: Grid> CubesMesher<'a, T> {
                 }
             }
             Leaf::Dense(node) => {
-                let size = T::LeafNode::resolution();
+                let size = T::Leaf::resolution();
                 let origin = node.origin();
 
                 // Test all voxels in the node

@@ -1,6 +1,5 @@
 use std::{
-    collections::BTreeMap,
-    hash::{Hash, Hasher},
+    collections::BTreeMap, hash::{Hash, Hasher}
 };
 
 use nalgebra::Vector3;
@@ -22,7 +21,7 @@ where
     const IS_LEAF: bool = false;
 
     type Child = TChild;
-    type LeafNode = TChild::LeafNode;
+    type Leaf = TChild::Leaf;
     type As<TValue: GridValue> = RootNode<TChild::As<TValue>>;
 
     #[inline]
@@ -36,7 +35,7 @@ where
     }
 
     #[inline]
-    fn traverse_leafs<F: FnMut(Leaf<Self::LeafNode>)>(&self, f: &mut F) {
+    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F) {
         self.root
             .iter()
             .for_each(|(_, node)| node.traverse_leafs(f));
@@ -76,6 +75,18 @@ where
         RootNode {
             root
         }
+    }
+
+    fn visit_leafs_par<T: super::ParVisitor<Self::Leaf>>(&self, visitor: &T) {
+        rayon::scope(|s| {
+            for node in self.root.values() {
+                s.spawn(|_| node.visit_leafs_par(visitor));
+            }
+        })
+    }
+
+    fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
+        self.root.values().for_each(|node| node.visit_leafs(visitor));
     }
 }
 
