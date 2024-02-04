@@ -16,7 +16,7 @@ use crate::{
 use super::{Accessor, Grid, Scalar, Sdf, SdfGrid};
 
 pub struct MeshToSdf {
-    points: Vec<Triangle3<f32>>,
+    subdivided_mesh: Vec<Triangle3<f32>>,
     band_width: isize,
     distance_field: Box<SdfGrid>,
     voxel_size: f32,
@@ -30,7 +30,7 @@ impl MeshToSdf {
         Self {
             band_width: 1,
             distance_field: SdfGrid::empty(Vec3i::zeros()),
-            points: Vec::new(),
+            subdivided_mesh: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             voxel_size,
             winding_numbers: WindingNumbers::from_triangles(vec![]),
@@ -70,7 +70,7 @@ impl MeshToSdf {
         //    p2--------p3
 
         if num_subs < 2.0 {
-            self.points.push(tri.clone());
+            self.subdivided_mesh.push(tri.clone());
             return;
         }
 
@@ -89,22 +89,22 @@ impl MeshToSdf {
             let mut a_prev = a;
 
             for _ in 0..i {
-                self.points.push(Triangle3::new(a_prev, b_s, a_s));
-                self.points.push(Triangle3::new(a_s, b_s, c_s));
+                self.subdivided_mesh.push(Triangle3::new(a_prev, b_s, a_s));
+                self.subdivided_mesh.push(Triangle3::new(a_s, b_s, c_s));
                 a_prev = a_s;
                 a_s += s2;
                 b_s += s2;
                 c_s += s2;
             }
 
-            self.points.push(Triangle3::new(a, b, c));
+            self.subdivided_mesh.push(Triangle3::new(a, b, c));
             a += s1;
         }
     }
 
     fn compute_unsigned_distance_field(&mut self) {
         let neighbors: Vec<_> = self
-            .points
+            .subdivided_mesh
             .par_iter()
             .map(|tri| {
                 // Compute distance for voxels intersecting triangle and its `band_width` neighborhood
