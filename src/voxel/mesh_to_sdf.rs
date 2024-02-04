@@ -164,6 +164,7 @@ impl MeshToSdf {
                             .at(&idx)
                             .map(|v| v.value)
                             .unwrap_or(f32::INFINITY);
+
                         if dist[i] < cur_dist {
                             self.distance_field.insert(&idx, dist[i].into());
                         }
