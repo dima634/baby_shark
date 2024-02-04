@@ -39,16 +39,6 @@ impl<
     }
 
     #[inline]
-    fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
-        let x = self.origin.x + (offset >> BRANCHING_TOTAL + BRANCHING_TOTAL) as isize;
-        let n = offset & ((1 << BRANCHING_TOTAL + BRANCHING_TOTAL) - 1);
-        let y = self.origin.y + (n >> BRANCHING_TOTAL) as isize;
-        let z = self.origin.z + (n & (1 << BRANCHING_TOTAL) - 1) as isize;
-
-        Vector3::new(x, y, z)
-    }
-
-    #[inline]
     pub fn empty() -> Self {
         return Self {
             origin: Vector3::new(0, 0, 0),

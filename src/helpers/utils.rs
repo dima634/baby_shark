@@ -1,19 +1,5 @@
 use std::mem::swap;
 
-pub fn sort3<T: Ord>(a: &mut T, b: &mut T, c: &mut T) {
-    if a > c {
-        swap(a, c);
-    }
-
-    if a > b {
-        swap(a, b);
-    }
-
-    if b > c {
-        swap(b, c);
-    }
-}
-
 /// Sort three values by given value
 pub fn sort3_by<TValue, TBy: PartialOrd, TGetBy: Fn(&TValue) -> TBy>(a: &mut TValue, b: &mut TValue, c: &mut TValue, by: TGetBy) {
     let mut a_by = by(a);

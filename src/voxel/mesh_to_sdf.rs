@@ -16,34 +16,29 @@ use crate::{
 use super::{Accessor, Grid, Scalar, Sdf, SdfGrid};
 
 pub struct MeshToSdf {
-    subdivided_mesh: Vec<Triangle3<f32>>,
     band_width: isize,
-    distance_field: Box<SdfGrid>,
     voxel_size: f32,
     inverse_voxel_size: f32,
+    distance_field: Box<SdfGrid>,
+    subdivided_mesh: Vec<Triangle3<f32>>,
     winding_numbers: WindingNumbers,
 }
 
 impl MeshToSdf {
-    pub fn new() -> Self {
-        let voxel_size = 1.0;
-        Self {
-            band_width: 1,
-            distance_field: SdfGrid::empty(Vec3i::zeros()),
-            subdivided_mesh: Vec::new(),
-            inverse_voxel_size: 1.0 / voxel_size,
-            voxel_size,
-            winding_numbers: WindingNumbers::from_triangles(vec![]),
-        }
+    pub fn with_voxel_size(mut self, size: f32) -> Self {
+        self.set_voxel_size(size);
+        self
     }
 
-    pub fn with_voxel_size(mut self, size: f32) -> Self {
+    pub fn set_voxel_size(&mut self, size: f32) -> *mut Self {
         self.voxel_size = size;
         self.inverse_voxel_size = 1.0 / size;
         self
     }
 
-    pub fn approximate<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf {
+    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf {
+        self.clear();
+
         for tri in mesh.faces().map(|f| mesh.face_positions(&f)) {
             self.subdivide_triangle(&tri);
         }
@@ -184,6 +179,25 @@ impl MeshToSdf {
 
         self.distance_field.visit_leafs_par(&mut visitor);
         self.distance_field = visitor.distance_field.into_inner().unwrap();
+    }
+
+    fn clear(&mut self) {
+        self.subdivided_mesh.clear();
+    }
+}
+
+impl Default for MeshToSdf {
+    #[inline]
+    fn default() -> Self {
+        let voxel_size = 1.0;
+        Self {
+            voxel_size,
+            band_width: 1,
+            distance_field: SdfGrid::empty(Vec3i::zeros()),
+            subdivided_mesh: Vec::new(),
+            inverse_voxel_size: 1.0 / voxel_size,
+            winding_numbers: WindingNumbers::from_triangles(vec![]),
+        }
     }
 }
 

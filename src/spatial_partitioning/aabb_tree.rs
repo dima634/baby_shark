@@ -300,20 +300,6 @@ where
             NodeType::Branch => 1 + self.node_depth(node.left).max(self.node_depth(node.right)),
         }
     }
-
-    fn node_bounds(&self, idx: usize) -> (usize, usize) {
-        let node = &self.nodes[idx];
-
-        match node.node_type {
-            NodeType::Leaf => (node.left, node.right),
-            NodeType::Branch => {
-                let left = self.node_bounds(node.left);
-                let right = self.node_bounds(node.right);
-
-                (left.0.min(right.0), left.1.max(right.1))
-            }
-        }
-    }
 }
 
 impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>> {

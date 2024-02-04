@@ -10,8 +10,7 @@ use crate::{
 
 use super::lookup_table::*;
 
-pub struct MarchingCubesMesher<'a> {
-    sdf: &'a SdfGrid,
+pub struct MarchingCubesMesher {
     vertices: Vec<Vector3<f32>>,
     voxel_size: f32,
     v12: Vec3f,
@@ -20,30 +19,34 @@ pub struct MarchingCubesMesher<'a> {
     config: usize,
 }
 
-impl<'a> MarchingCubesMesher<'a> {
-    pub fn new(sdf: &'a Sdf, voxel_size: f32) -> Self {
-        Self {
-            sdf: sdf.grid(),
-            vertices: Vec::new(),
-            v12: Vec3f::zeros(),
-            cube: Default::default(),
-            case: 0,
-            config: 0,
-            voxel_size,
-        }
+impl MarchingCubesMesher {
+    #[inline]
+    pub fn with_voxel_size(mut self, size: f32) -> Self {
+        self.voxel_size = size;
+        self
     }
 
-    pub fn mesh(&mut self) -> Vec<Vector3<f32>> {
-        self.sdf.visit_leafs(self);
+    #[inline]
+    pub fn set_voxel_size(&mut self, size: f32) -> &mut Self {
+        self.voxel_size = size;
+        self
+    }
+
+    pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vector3<f32>> {
+        let mut cubes_visitor = CubesVisitor {
+            grid: sdf.grid(),
+            mc: self,
+        };
+
+        sdf.grid().visit_leafs(&mut cubes_visitor);
         self.vertices.clone()
     }
 
-    fn handle_cube(&mut self, v: Vector3<isize>) {
-        self.cube = match Cube::from_voxel(v, self.sdf) {
-            Some(cube) => cube,
+    fn handle_cube(&mut self, cube: Option<Cube>) {
+        self.cube = match cube {
+            Some(c) => c,
             None => return,
         };
-
         let [cube_case, cube_config] = CASES[self.cube.id() as usize];
         self.case = cube_case;
         self.config = cube_config as usize;
@@ -905,7 +908,32 @@ impl<'a> MarchingCubesMesher<'a> {
     }
 }
 
-impl<T: TreeNode<Value = Scalar>> Visitor<T> for MarchingCubesMesher<'_> {
+impl Default for MarchingCubesMesher {
+    fn default() -> Self {
+        Self {
+            vertices: Vec::new(),
+            v12: Vec3f::zeros(),
+            cube: Default::default(),
+            case: 0,
+            config: 0,
+            voxel_size: 1.0,
+        }
+    }
+}
+
+struct CubesVisitor<'a> {
+    grid: &'a SdfGrid,
+    mc: &'a mut MarchingCubesMesher,
+}
+
+impl<'a> CubesVisitor<'a> {
+    #[inline]
+    fn cube(&self, voxel: Vec3i) -> Option<Cube> {
+        Cube::from_voxel(voxel, self.grid)
+    }
+}
+
+impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
     fn tile(&mut self, tile: Tile<T::Value>) {
         let o = tile.origin;
         let s = tile.size;
@@ -922,12 +950,12 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for MarchingCubesMesher<'_> {
                 let front = o + Vector3::new(i, tile.size - 1, j).cast();
                 let back = o + Vector3::new(i, 0, j).cast();
 
-                self.handle_cube(left);
-                self.handle_cube(right);
-                self.handle_cube(top);
-                self.handle_cube(bottom);
-                self.handle_cube(front);
-                self.handle_cube(back);
+                self.mc.handle_cube(self.cube(left));
+                self.mc.handle_cube(self.cube(right));
+                self.mc.handle_cube(self.cube(top));
+                self.mc.handle_cube(self.cube(bottom));
+                self.mc.handle_cube(self.cube(front));
+                self.mc.handle_cube(self.cube(back));
             }
         }
     }
@@ -941,7 +969,8 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for MarchingCubesMesher<'_> {
             for y in min.y..max.y {
                 for z in min.z..max.z {
                     let voxel_idx = Vector3::new(x, y, z);
-                    self.handle_cube(voxel_idx);
+                    let cube = self.cube(voxel_idx);
+                    self.mc.handle_cube(cube);
                 }
             }
         }
