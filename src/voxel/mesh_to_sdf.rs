@@ -103,8 +103,6 @@ impl MeshToSdf {
     }
 
     fn compute_unsigned_distance_field(&mut self) {
-        let now = std::time::Instant::now();
-
         let neighbors: Vec<_> = self
             .points
             .par_iter()
@@ -174,15 +172,10 @@ impl MeshToSdf {
                 }
             }
         }
-
-        println!("UDFs computed in {} ms", now.elapsed().as_millis());
     }
 
     fn compute_sings(&mut self) {
-        let now = std::time::Instant::now();
-
         let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
-
         let mut visitor = ComputeSignsVisitor {
             distance_field: signs,
             winding_numbers: &self.winding_numbers,
@@ -190,9 +183,6 @@ impl MeshToSdf {
         };
 
         self.distance_field.visit_leafs_par(&mut visitor);
-
-        println!("Signs computed in {} ms", now.elapsed().as_millis());
-
         self.distance_field = visitor.distance_field.into_inner().unwrap();
     }
 }
