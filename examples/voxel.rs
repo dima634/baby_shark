@@ -24,15 +24,16 @@ fn main() {
 
     let now = Instant::now();
     
-    let mut mesh_to_sdf = MeshToSdf::new().with_voxel_size(2.0);
+    let voxel_size = 2.0;
+    let mut mesh_to_sdf = MeshToSdf::new().with_voxel_size(voxel_size);
     let sdf: Sdf = mesh_to_sdf.approximate(&mesh);
 
     println!("Mesh to SDF: {}ms", now.elapsed().as_millis());
 
     let now = Instant::now();
 
-    let mut mc = MarchingCubesMesher::new(&sdf);
-    let vertices = mc.mesh().into_iter().map(|p| (p * mesh_to_sdf.voxel_size).cast().into()).collect();
+    let mut mc = MarchingCubesMesher::new(&sdf, voxel_size);
+    let vertices = mc.mesh().into_iter().map(|p| (p).cast().into()).collect();
     let mc_mesh = Mesh::from_vertices(vertices);
 
     println!("Marching cubes: {}ms", now.elapsed().as_millis());

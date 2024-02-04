@@ -19,7 +19,7 @@ pub struct MeshToSdf {
     points: Vec<Triangle3<f32>>,
     band_width: isize,
     distance_field: Box<SdfGrid>,
-    pub voxel_size: f32,
+    voxel_size: f32,
     inverse_voxel_size: f32,
     winding_numbers: WindingNumbers,
 }

@@ -25,6 +25,7 @@ pub trait MarchingCubes {
 pub struct MarchingCubesMesher<'a, T: MarchingCubes> {
     grid: &'a T,
     vertices: Vec<Vector3<f32>>,
+    voxel_size: f32,
     v12: Vec3f,
     cube: Cube,
     case: i8,
@@ -32,7 +33,7 @@ pub struct MarchingCubesMesher<'a, T: MarchingCubes> {
 }
 
 impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
-    pub fn new(grid: &'a T) -> Self {
+    pub fn new(grid: &'a T, voxel_size: f32) -> Self {
         Self {
             grid,
             vertices: Vec::new(),
@@ -40,6 +41,7 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
             cube: Default::default(),
             case: 0,
             config: 0,
+            voxel_size,
         }
     }
 
@@ -290,9 +292,9 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
                 continue;
             }
 
-            self.vertices.push(v1);
-            self.vertices.push(v2);
-            self.vertices.push(v3);
+            self.vertices.push(v1 * self.voxel_size);
+            self.vertices.push(v2 * self.voxel_size);
+            self.vertices.push(v3 * self.voxel_size);
         }
     }
 
