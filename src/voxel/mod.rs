@@ -68,7 +68,6 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     fn origin(&self) -> Vec3i;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
-    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 
@@ -112,20 +111,6 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     #[inline]
     fn size_t(&self) -> usize {
         1 << Self::BRANCHING_TOTAL
-    }
-
-    ///
-    /// Returns number of tiles and dense leafs -> `(tiles_count, leafs_count)`
-    /// 
-    fn leafs_count(&self) -> (usize, usize) {
-        let mut tiles_count = 0;
-        let mut leafs_count = 0;
-        self.traverse_leafs(&mut |leaf| match leaf {
-            Leaf::Tile(_) => tiles_count += 1,
-            Leaf::Dense(_) => leafs_count += 1,
-        });
-
-        (tiles_count, leafs_count)
     }
 }
 

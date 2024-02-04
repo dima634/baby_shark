@@ -6,7 +6,7 @@ use std::{
 use nalgebra::Vector3;
 use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
-use super::{Accessor, GridValue, Leaf, TreeNode};
+use super::{Accessor, GridValue, TreeNode};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
@@ -34,13 +34,6 @@ where
     #[inline]
     fn is_empty(&self) -> bool {
         self.root.is_empty() || self.root.iter().all(|(_, node)| node.is_empty())
-    }
-
-    #[inline]
-    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F) {
-        self.root
-            .iter()
-            .for_each(|(_, node)| node.traverse_leafs(f));
     }
 
     fn origin(&self) -> Vector3<isize> {

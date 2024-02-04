@@ -4,9 +4,7 @@ use nalgebra::Vector3;
 
 use crate::data_structures::bitset::BitSet;
 
-use super::{
-    Accessor, GridValue, Leaf, ParVisitor, TreeNode
-};
+use super::{Accessor, GridValue, ParVisitor, TreeNode};
 
 pub struct LeafNode<
     TValue,
@@ -51,35 +49,6 @@ impl<
     pub fn origin(&self) -> &Vector3<isize> {
         return &self.origin;
     }
-
-    // pub fn dilate(&mut self, neighbor_masks: [&BitSet<SIZE, BIT_SIZE>; 6]) {
-    //     let old_value_mask = self.value_mask;
-    //     let dim = Self::resolution();
-
-    //     for x in 0..dim {
-    //         let mut n = x << Self::BRANCHING_TOTAL;
-    //         let n_e = n + Self::resolution();
-
-    //         for y in 0..dim {
-    //             let b = old_value_mask[n..n_e].load::<usize>();
-                
-    //             // skip empty z-columns
-    //             if b.not_all() {
-    //                 continue;
-    //             }
-
-    //             self.value_mask[n]   |= b >> 1 | b << 1;  // +-z by itself
-    //             neighbor_masks[4][n] |= b << 7;           // -z by NN[5]
-    //             neighbor_masks[5][n] |= b >> 7;           // +z by NN[6]
-    //             if y > 0 { self.value_mask[n - 1] } else { neighbor_masks[2][n + 7] } |= b ; // -y
-    //             if y < 7 { self.value_mask[n + 1] } else { neighbor_masks[3][n - 7] } |= b ; // +y
-    //             if x > 0 { self.value_mask[n - 8] } else { neighbor_masks[0][n +56] } |= b ; // -x
-    //             if x < 7 { self.value_mask[n + 8] } else { neighbor_masks[1][n -56] } |= b ; // +x
-
-    //             n += 1;
-    //         }
-    //     }
-    // }
 }
 
 impl<
@@ -160,11 +129,6 @@ impl<
     }
 
     #[inline]
-    fn traverse_leafs<F: FnMut(super::Leaf<Self::Leaf>)>(&self, f: &mut F) {
-        f(Leaf::Dense(self));
-    }
-
-    #[inline]
     fn origin(&self) -> Vector3<isize> {
         self.origin
     }
@@ -205,9 +169,9 @@ impl<
     }
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
-    where 
+    where
         TNewValue: GridValue,
-        TCast: Fn(Self::Value) -> TNewValue 
+        TCast: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = LeafNode {
             origin: self.origin,

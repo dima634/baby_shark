@@ -4,9 +4,7 @@ use nalgebra::Vector3;
 
 use crate::data_structures::bitset::BitSet;
 
-use super::{
-    Accessor, GridValue, IsWithinTolerance, Leaf, ParVisitor, Tile, TreeNode
-};
+use super::{Accessor, GridValue, IsWithinTolerance, ParVisitor, Tile, TreeNode};
 
 pub struct InternalNode<
     TValue,
@@ -67,8 +65,8 @@ where
         // self.value_mask.set(offset, false);
         self.child_mask.off(offset);
         self.childs[offset] = None;
-    }    
-    
+    }
+
     #[inline]
     fn replace_child_with_tile(&mut self, offset: usize, value: TChild::Value) {
         debug_assert!(self.child_mask.at(offset));
@@ -126,7 +124,8 @@ impl<
         const SIZE: usize,
         const BIT_SIZE: usize,
         const PARALLEL: bool,
-    > Accessor for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
+    > Accessor
+    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
@@ -147,7 +146,6 @@ where
         Some(&self.values[offset])
     }
 
-    
     #[inline]
     fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
         let offset = Self::offset(index);
@@ -227,7 +225,8 @@ impl<
         const SIZE: usize,
         const BIT_SIZE: usize,
         const PARALLEL: bool,
-    > TreeNode for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
+    > TreeNode
+    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
@@ -239,7 +238,15 @@ where
 
     type Child = TChild;
     type Leaf = TChild::Leaf;
-    type As<TNewValue: GridValue> = InternalNode<TNewValue, TChild::As<TNewValue>, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>;
+    type As<TNewValue: GridValue> = InternalNode<
+        TNewValue,
+        TChild::As<TNewValue>,
+        BRANCHING,
+        BRANCHING_TOTAL,
+        SIZE,
+        BIT_SIZE,
+        PARALLEL,
+    >;
 
     fn empty(origin: Vector3<isize>) -> Box<Self> {
         Box::new(Self {
@@ -253,25 +260,7 @@ where
 
     #[inline]
     fn is_empty(&self) -> bool {
-        return self.child_mask.is_empty()
-            && self.value_mask.is_empty();
-    }
-
-    fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F) {
-        for i in 0..SIZE {
-            if self.child_mask.at(i) {
-                let child = self.child(i);
-                child.traverse_leafs(f);
-            } else if self.value_mask.at(i) {
-                let tile = Leaf::Tile(Tile {
-                    origin: self.offset_to_global_index(i),
-                    size: TChild::resolution(),
-                    value: self.values[i],
-                });
-
-                f(tile);
-            }
-        }
+        return self.child_mask.is_empty() && self.value_mask.is_empty();
     }
 
     #[inline]
@@ -299,9 +288,9 @@ where
             if !self.child_mask.at(offset) {
                 continue;
             }
-            
+
             let child = self.child_mut(offset);
-            
+
             if child.is_empty() {
                 self.remove_child(offset);
                 continue;
@@ -312,7 +301,7 @@ where
             } else {
                 child.prune(tolerance)
             };
-                
+
             if let Some(value) = pruned {
                 self.replace_child_with_tile(offset, value);
             }
@@ -323,7 +312,9 @@ where
         }
 
         let first_value = self.values[0];
-        let is_constant = self.values.iter()
+        let is_constant = self
+            .values
+            .iter()
             .skip(1)
             .all(|value| value.is_within_tolerance(first_value, tolerance));
 
@@ -335,9 +326,9 @@ where
     }
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
-    where 
+    where
         TNewValue: super::GridValue,
-        TCast: Fn(Self::Value) -> TNewValue 
+        TCast: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = InternalNode {
             origin: self.origin,
@@ -372,17 +363,15 @@ where
                 .into_par_iter()
                 .for_each(|c| c.visit_leafs_par(visitor));
 
-            (0..SIZE)
-                .filter(|i| self.value_mask.at(*i))
-                .for_each(|i| {
-                    let tile = Tile {
-                        origin: self.offset_to_global_index(i),
-                        size: TChild::resolution(),
-                        value: self.values[i],
-                    };
+            (0..SIZE).filter(|i| self.value_mask.at(*i)).for_each(|i| {
+                let tile = Tile {
+                    origin: self.offset_to_global_index(i),
+                    size: TChild::resolution(),
+                    value: self.values[i],
+                };
 
-                    visitor.tile(tile);
-                });
+                visitor.tile(tile);
+            });
         } else {
             for i in 0..SIZE {
                 if self.child_mask.at(i) {
@@ -394,7 +383,7 @@ where
                         size: TChild::resolution(),
                         value: self.values[i],
                     };
-    
+
                     visitor.tile(tile);
                 }
             }
