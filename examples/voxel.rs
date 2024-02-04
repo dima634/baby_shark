@@ -24,7 +24,7 @@ fn main() {
 
     let now = Instant::now();
     
-    let mut mesh_to_sdf = MeshToSdf::new().voxel_size(2.0);
+    let mut mesh_to_sdf = MeshToSdf::new().with_voxel_size(2.0);
     let sdf: Sdf = mesh_to_sdf.approximate(&mesh);
 
     println!("Mesh to SDF: {}ms", now.elapsed().as_millis());

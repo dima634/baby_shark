@@ -8,7 +8,7 @@ type DynamicTree = dynamic_vdb!((), 4, 3, 2);
 
 #[test]
 fn test_static_tree_insert_remove() {
-    let mut tree = StaticTree::empty(Vector3::zeros());
+    let mut tree = StaticTree::empty(Vec3i::zeros());
 
     let size = 32;
 
@@ -29,7 +29,7 @@ fn test_static_tree_insert_remove() {
 
 #[test]
 fn test_static_tree_remove() {
-    let mut tree = StaticTree::empty(Vector3::zeros());
+    let mut tree = StaticTree::empty(Vec3i::zeros());
 
     let size = 32;
     let indices = box_indices(0, size).collect::<Vec<_>>();
@@ -59,7 +59,7 @@ fn test_static_tree_remove() {
 fn test_static_tree_fill() {
     type Tree = static_vdb!((), 3, 2);
 
-    let mut tree = Tree::empty(Vector3::zeros());
+    let mut tree = Tree::empty(Vec3i::zeros());
     let voxels_per_dim = Tree::resolution();
 
     assert!(tree.is_empty());

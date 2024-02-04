@@ -18,7 +18,7 @@ pub use leaf_node::*;
 pub use root_node::*;
 pub use sdf::*;
 
-use nalgebra::Vector3;
+use crate::helpers::aliases::Vec3i;
 
 pub trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
@@ -29,9 +29,10 @@ pub trait GridValue: Copy + Clone + Send + Sync + PartialEq + IsWithinTolerance 
 pub trait Accessor {
     type Value: GridValue; // Remove Copy?
 
-    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value>;
-    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value);
-    fn remove(&mut self, index: &Vector3<isize>);
+    fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
+    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
+    fn insert(&mut self, index: &Vec3i, value: Self::Value);
+    fn remove(&mut self, index: &Vec3i);
 }
 
 pub trait Visitor<T: TreeNode> {
@@ -63,8 +64,8 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     >;
 
     /// Creates empty node
-    fn empty(origin: Vector3<isize>) -> Box<Self>;
-    fn origin(&self) -> Vector3<isize>;
+    fn empty(origin: Vec3i) -> Box<Self>;
+    fn origin(&self) -> Vec3i;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
     fn traverse_leafs<F: FnMut(Leaf<Self::Leaf>)>(&self, f: &mut F);
@@ -129,7 +130,7 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
 }
 
 pub struct Tile<T> {
-    pub origin: Vector3<isize>,
+    pub origin: Vec3i,
     pub size: usize,
     pub value: T,
 }

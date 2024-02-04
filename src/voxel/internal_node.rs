@@ -147,6 +147,22 @@ where
         Some(&self.values[offset])
     }
 
+    
+    #[inline]
+    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
+        let offset = Self::offset(index);
+
+        if self.child_mask.at(offset) {
+            return self.child_mut(offset).at_mut(index);
+        }
+
+        if !self.value_mask.at(offset) {
+            return None;
+        }
+
+        Some(&mut self.values[offset])
+    }
+
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         // Node is branch - insert voxel
         // Node is tile:

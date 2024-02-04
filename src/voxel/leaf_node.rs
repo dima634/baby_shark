@@ -102,12 +102,23 @@ impl<
 {
     type Value = TValue;
 
-    #[inline(always)]
+    #[inline]
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
         if self.value_mask.at(offset) {
             Some(&self.values[offset])
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
+        let offset = Self::offset(index);
+
+        if self.value_mask.at(offset) {
+            Some(&mut self.values[offset])
         } else {
             None
         }

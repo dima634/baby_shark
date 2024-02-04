@@ -109,6 +109,15 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     }
 
     #[inline]
+    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
+        let root_key = Self::root_key(index);
+        self.root
+            .get_mut(&root_key)
+            .map(|child| child.at_mut(index))
+            .flatten()
+    }
+
+    #[inline]
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let root_key = Self::root_key(index);
 
