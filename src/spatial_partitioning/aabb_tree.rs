@@ -609,15 +609,14 @@ where
 }
 
 pub mod winding_numbers {
-    use std::{f32::consts::PI, path::Path};
+    use std::f32::consts::PI;
 
     use num_traits::Float;
 
     use crate::{
         geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
         helpers::aliases::{Mat3f, Vec3, Vec3f},
-        io::stl::StlWriter,
-        mesh::{builder::cube, polygon_soup::data_structure::PolygonSoup, traits::Mesh},
+        mesh::traits::Mesh,
     };
 
     use super::{AABBTree, Area, BinaryNode, MedianCut, NodeType};
