@@ -155,13 +155,15 @@ impl MeshToSdf {
 
         let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
 
-        let visitor = ComputeSigns {
+        let mut visitor = ComputeSigns {
             signs: signs,
             winding_numbers: &self.winding_numbers,
             voxel_size: self.voxel_size,
+            count: 0,
         };
 
-        self.sdf.visit_leafs_par(&visitor);
+        // self.sdf.visit_leafs_par(&visitor);
+        self.sdf.visit_leafs(&mut visitor);
 
         // let mut signs = TGrid::empty(Vec3i::zeros());        
 
@@ -208,6 +210,7 @@ impl MeshToSdf {
         //     };
         // });
 
+        println!("Voxels {}", visitor.count);
         println!("Signs computed in {} ms", now.elapsed().as_millis());
 
         // println!("{}", Arc::strong_count(&signs));
@@ -221,6 +224,7 @@ struct ComputeSigns<'a, TGrid: Grid<Value = Scalar>> {
     signs: Mutex<Box<TGrid>>,
     winding_numbers: &'a WindingNumbers,
     voxel_size: f32,
+    count: usize,
 }
 
 impl<'a, TGrid: Grid<Value = Scalar>> ParVisitor<TGrid::Leaf> for ComputeSigns<'a, TGrid> {
@@ -242,6 +246,42 @@ impl<'a, TGrid: Grid<Value = Scalar>> ParVisitor<TGrid::Leaf> for ComputeSigns<'
                         Some(v) => v.value,
                         None => continue,
                     };
+                    let wn = self.winding_numbers.approximate(&grid_point, 2.0);
+
+                    if wn < 0.05 {
+                        dist = dist.copysign(1.0);
+                    } else {
+                        dist = dist.copysign(-1.0);
+                    }
+
+                    self.signs.lock().unwrap().insert(&idx, dist.into());
+                }
+            }
+        }
+    }
+}
+
+impl<'a, TGrid: Grid<Value = Scalar>> Visitor<TGrid::Leaf> for ComputeSigns<'a, TGrid> {
+    fn tile(&mut self, _tile: Tile<TGrid::Value>) {
+        debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
+    }
+
+    fn dense(&mut self, n: &TGrid::Leaf) {
+        let origin = n.origin();
+        let size = n.size_t();
+        let max = origin + Vec3u::new(size, size, size).cast();
+        for x in origin.x..max.x {
+            for y in origin.y..max.y {
+                for z in origin.z..max.z {
+                    let idx = Vec3i::new(x, y, z);
+                    let grid_point = idx.cast() * self.voxel_size;
+
+                    let mut dist = match n.at(&idx) {
+                        Some(v) => v.value,
+                        None => continue,
+                    };
+                    self.count+=1;
+                
                     let wn = self.winding_numbers.approximate(&grid_point, 2.0);
 
                     if wn < 0.05 {

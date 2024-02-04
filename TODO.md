@@ -48,6 +48,7 @@
 - [ ] Mesh to SDF: implement union for tree nodes to speed up stuff???
 - [ ] Marching cubes: verify cases handling, especially subconfig usage
 - [ ] Fast winding numbers: order3 approx
+- AABB tree: pre-compute bbox centers etc
 
 ### RUST unstable
  - [ ] VDB: const expressions with generics

@@ -121,7 +121,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
         // Compute bbox of all objects
         let mut bbox = objects[0].bbox();
         for object in objects {
-            bbox.add_box3(&object.bbox());
+            bbox.union_box(&object.bbox());
         }
 
         let number_of_cells = objects.len() as f64;
