@@ -210,7 +210,7 @@ struct ComputeSignsVisitor<'a, TGrid: Grid<Value = Scalar>> {
 impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
         let origin = node.origin();
-        let size = node.size_t();
+        let size = TGrid::resolution();
         let max = origin + Vec3u::new(size, size, size).cast();
         for x in origin.x..max.x {
             for y in origin.y..max.y {

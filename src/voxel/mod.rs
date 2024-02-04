@@ -106,12 +106,6 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     fn size() -> usize {
         1 << Self::BRANCHING_TOTAL * 3
     }
-
-    /// Total number of voxels
-    #[inline]
-    fn size_t(&self) -> usize {
-        1 << Self::BRANCHING_TOTAL
-    }
 }
 
 pub struct Tile<T> {

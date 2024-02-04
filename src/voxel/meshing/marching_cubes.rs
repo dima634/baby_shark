@@ -962,7 +962,7 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
 
     fn dense(&mut self, dense: &T) {
         let min = dense.origin();
-        let size = dense.size_t() as isize;
+        let size = T::resolution() as isize;
         let max = Vec3i::new(min.x + size, min.y + size, min.z + size);
 
         for x in min.x..max.x {
