@@ -120,15 +120,6 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     #[inline]
     fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
         let root_key = Self::root_key(index);
-
-        // let child = if let Some(child) = self.root.get_mut(&root_key) {
-        //     child
-        // } else {
-        //     let new_child = TChild::empty(root_key.0);
-        //     self.root.insert(root_key, new_child);
-        //     self.root.get_mut(&root_key).unwrap()
-        // };
-
         self.root
             .entry(root_key)
             .or_insert_with(|| TChild::empty(root_key.0))
