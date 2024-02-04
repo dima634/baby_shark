@@ -162,61 +162,12 @@ impl MeshToSdf {
             count: 0,
         };
 
-        // self.sdf.visit_leafs_par(&visitor);
-        self.sdf.visit_leafs(&mut visitor);
-
-        // let mut signs = TGrid::empty(Vec3i::zeros());        
-
-        // let (v1, v2) = self.sdf.leafs_count();
-        // let leafs_count = v1 + v2;
-        // let mut i = 0;
-
-        // self.sdf.traverse_leafs(&mut |leaf| {
-        //     i += 1;
-
-        //     if i % 1000 == 0 {
-        //         println!("{} / {}", i, leafs_count);
-        //     }
-
-        //     match leaf {
-        //         Leaf::Tile(_) => todo!(),
-        //         Leaf::Dense(n) => {
-        //             let origin = n.origin();
-        //             let size = n.size_t();
-        //             let max = origin + Vec3u::new(size, size, size).cast();
-        //             for x in origin.x..max.x {
-        //                 for y in origin.y..max.y {
-        //                     for z in origin.z..max.z {
-        //                         let idx = Vec3i::new(x, y, z);
-        //                         let grid_point = idx.cast() * self.voxel_size;
-
-        //                         let mut dist = match n.at(&idx) {
-        //                             Some(v) => v.value,
-        //                             None => continue,
-        //                         };
-        //                         let wn = self.sa.winding_number(&grid_point, 2.0);
-
-        //                         if wn < 0.05 {
-        //                             dist = dist.copysign(1.0);
-        //                         } else {
-        //                             dist = dist.copysign(-1.0);
-        //                         }
-
-        //                         signs.insert(&idx, dist.into());
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     };
-        // });
+        self.sdf.visit_leafs_par(&mut visitor);
 
         println!("Voxels {}", visitor.count);
         println!("Signs computed in {} ms", now.elapsed().as_millis());
 
-        // println!("{}", Arc::strong_count(&signs));
-
         self.sdf = visitor.signs.into_inner().unwrap();
-        // self.sdf = signs;
     }
 }
 

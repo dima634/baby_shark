@@ -1,10 +1,12 @@
 use std::{
-    collections::BTreeMap, hash::{Hash, Hasher}
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
 };
 
 use nalgebra::Vector3;
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
-use super::{Accessor, Leaf, TreeNode, GridValue};
+use super::{Accessor, GridValue, Leaf, TreeNode};
 
 pub struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
@@ -57,36 +59,38 @@ where
         for node in self.root.values_mut() {
             node.prune(tolerance);
         }
-        
+
         // TODO: Remove empty nodes
 
         None
     }
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
-    where 
+    where
         TNewValue: GridValue,
-        TCast: Fn(Self::Value) -> TNewValue 
+        TCast: Fn(Self::Value) -> TNewValue,
     {
-        let root = self.root.iter()
+        let root = self
+            .root
+            .iter()
             .map(|(key, child)| (*key, child.cast(cast).into()))
             .collect();
 
-        RootNode {
-            root
-        }
+        RootNode { root }
     }
 
     fn visit_leafs_par<T: super::ParVisitor<Self::Leaf>>(&self, visitor: &T) {
-        rayon::scope(|s| {
-            for node in self.root.values() {
-                s.spawn(|_| node.visit_leafs_par(visitor));
-            }
-        })
+        self.root
+            .values()
+            .par_bridge()
+            .into_par_iter()
+            .for_each(|node| node.visit_leafs_par(visitor));
     }
 
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
-        self.root.values().for_each(|node| node.visit_leafs(visitor));
+        self.root
+            .values()
+            .for_each(|node| node.visit_leafs(visitor));
     }
 }
 
@@ -116,7 +120,8 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
         //     self.root.get_mut(&root_key).unwrap()
         // };
 
-        self.root.entry(root_key)
+        self.root
+            .entry(root_key)
             .or_insert_with(|| TChild::empty(root_key.0))
             .insert(index, value);
     }
