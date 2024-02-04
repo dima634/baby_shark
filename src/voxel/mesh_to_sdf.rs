@@ -1,8 +1,17 @@
-use std::{path::Path, sync::Mutex};
+use std::sync::Mutex;
 
 use rayon::prelude::*;
 
-use crate::{geometry::{primitives::{box3::Box3, triangle3::Triangle3}, traits::{HasBBox3, ClosestPoint3}}, helpers::aliases::{Vec3f, Vec3i, Vec3u}, io::stl::StlWriter, mesh::{polygon_soup::data_structure::PolygonSoup, traits::Mesh}, spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers, voxel::{Leaf, ParVisitor, Tile, TreeNode, Visitor}};
+use crate::{
+    geometry::{
+        primitives::{box3::Box3, triangle3::Triangle3},
+        traits::{ClosestPoint3, HasBBox3},
+    },
+    helpers::aliases::{Vec3f, Vec3i, Vec3u},
+    mesh::traits::Mesh,
+    spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers,
+    voxel::{ParVisitor, Tile, TreeNode, Visitor},
+};
 
 use super::{Accessor, Grid, Scalar, Sdf, SdfGrid};
 
@@ -35,10 +44,10 @@ impl MeshToSdf {
     }
 
     pub fn approximate<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf {
-        for tri in mesh.faces().map(|f| mesh.face_positions(&f)){
+        for tri in mesh.faces().map(|f| mesh.face_positions(&f)) {
             self.subdivide_triangle(&tri);
         }
-        
+
         self.winding_numbers = WindingNumbers::from_mesh(mesh);
 
         self.compute_unsigned_distance_field();
@@ -91,29 +100,31 @@ impl MeshToSdf {
             self.points.push(Triangle3::new(a, b, c));
             a += s1;
         }
-    
     }
 
     fn compute_unsigned_distance_field(&mut self) {
         let now = std::time::Instant::now();
 
-        let neighbors: Vec<_> = self.points.par_iter().map(|tri| {
+        let neighbors: Vec<_> = self
+            .points
+            .par_iter()
+            .map(|tri| {
                 // Compute distance for voxels intersecting triangle and its `band_width` neighborhood
                 let bbox = tri.bbox();
                 let nbh_min = Vec3i::new(
-                    (bbox.get_min().x * self.inverse_voxel_size).floor() as isize - self.band_width, 
-                    (bbox.get_min().y * self.inverse_voxel_size).floor() as isize - self.band_width, 
+                    (bbox.get_min().x * self.inverse_voxel_size).floor() as isize - self.band_width,
+                    (bbox.get_min().y * self.inverse_voxel_size).floor() as isize - self.band_width,
                     (bbox.get_min().z * self.inverse_voxel_size).floor() as isize - self.band_width,
                 );
                 let nbh_max = Vec3i::new(
-                    (bbox.get_max().x * self.inverse_voxel_size).ceil() as isize + self.band_width, 
-                    (bbox.get_max().y * self.inverse_voxel_size).ceil() as isize + self.band_width, 
+                    (bbox.get_max().x * self.inverse_voxel_size).ceil() as isize + self.band_width,
+                    (bbox.get_max().y * self.inverse_voxel_size).ceil() as isize + self.band_width,
                     (bbox.get_max().z * self.inverse_voxel_size).ceil() as isize + self.band_width,
                 );
                 let neighbors_box = Box3::new(nbh_min, nbh_max);
 
                 let mut distances = Vec::with_capacity(neighbors_box.volume() as usize);
-                
+
                 for x in nbh_min.x..=nbh_max.x {
                     let x_world = x as f32 * self.voxel_size;
                     for y in nbh_min.y..=nbh_max.y {
@@ -125,7 +136,10 @@ impl MeshToSdf {
                             let dist = (closest - grid_point).norm();
                             distances.push(dist);
 
-                            debug_assert!(dist.is_finite(), "Mesh to SDF: distance from grid point to mesh is not finite");
+                            debug_assert!(
+                                dist.is_finite(),
+                                "Mesh to SDF: distance from grid point to mesh is not finite"
+                            );
                         }
                     }
                 }
@@ -137,19 +151,23 @@ impl MeshToSdf {
         for (bbox, dist) in neighbors {
             let min = bbox.get_min();
             let max = bbox.get_max();
-            
-            let mut i = 0;  
+
+            let mut i = 0;
 
             for x in min.x..=max.x {
                 for y in min.y..=max.y {
                     for z in min.z..=max.z {
                         let idx = Vec3i::new(x, y, z);
 
-                        let cur_dist = self.distance_field.at(&idx).map(|v| v.value).unwrap_or(f32::INFINITY);
+                        let cur_dist = self
+                            .distance_field
+                            .at(&idx)
+                            .map(|v| v.value)
+                            .unwrap_or(f32::INFINITY);
                         if dist[i] < cur_dist {
                             self.distance_field.insert(&idx, dist[i].into());
                         }
-                        
+
                         i += 1;
                     }
                 }
@@ -207,7 +225,10 @@ impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
                         dist = dist.copysign(-1.0);
                     }
 
-                    self.distance_field.lock().unwrap().insert(&idx, dist.into());
+                    self.distance_field
+                        .lock()
+                        .unwrap()
+                        .insert(&idx, dist.into());
                 }
             }
         }
