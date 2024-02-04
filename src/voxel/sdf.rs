@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 
 use crate::dynamic_vdb;
 
-use super::{meshing::MarchingCubes, Accessor, Leaf, Scalar, TreeNode, SMALL_SCALAR};
+use super::{Accessor, Scalar, TreeNode, SMALL_SCALAR};
 
 pub(super) type SdfGrid = dynamic_vdb!(Scalar, par 5, 4, 3);
 
@@ -14,7 +14,7 @@ impl Sdf {
     ///
     /// Creates new SDF grid by evaluating given function on each grid point.
     /// Inside is negative.
-    /// 
+    ///
     pub fn from_fn<TFn: Fn(&Vector3<f32>) -> f32>(
         grid_size: usize,
         min: f32,
@@ -48,46 +48,17 @@ impl Sdf {
 
         grid.prune(SMALL_SCALAR);
 
-        Self { 
-            grid
-        }
-    }
-}
-
-impl MarchingCubes for Sdf {
-    type Value = Scalar;
-
-    fn cubes<TFn: FnMut(Vector3<isize>)> (&self, mut func: TFn) {
-        self.grid.traverse_leafs(&mut |leaf| {
-            let (origin, size) = match leaf {
-                Leaf::Tile(t) => (t.origin, t.size),
-                Leaf::Dense(n) => (*n.origin(), n.size_t())
-            };
-
-            let max = origin + Vector3::new(size, size, size).cast();
-            for x in origin.x..max.x {
-                for y in origin.y..max.y {
-                    for z in origin.z..max.z {
-                        let v = Vector3::new(x, y, z);
-                        func(v);
-                    }
-                }
-            }
-        });
+        Self { grid }
     }
 
-    #[inline]
-    fn at(&self, idx: &Vector3<isize>) -> Option<f32> {
-        self.grid.at(idx).map(|v| v.value)
+    pub fn grid(&self) -> &SdfGrid {
+        &self.grid
     }
 }
 
 impl From<Box<SdfGrid>> for Sdf {
     #[inline]
     fn from(grid: Box<SdfGrid>) -> Self {
-        Self {
-            grid,
-        }
+        Self { grid }
     }
 }
-

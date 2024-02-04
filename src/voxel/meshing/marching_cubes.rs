@@ -3,27 +3,15 @@ use std::{fmt::Debug, ops::Index};
 use nalgebra::Vector3;
 
 use crate::{
+    geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3f, Vec3i},
-    voxel::utils::CUBE_OFFSETS, geometry::primitives::triangle3::Triangle3,
+    voxel::{utils::CUBE_OFFSETS, Accessor, Scalar, Sdf, SdfGrid, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Vertex {
-    pub index: Vec3i,
-    pub value: f32,
-}
-
-pub trait MarchingCubes {
-    type Value;
-
-    fn cubes<T: FnMut(Vector3<isize>)>(&self, func: T);
-    fn at(&self, idx: &Vector3<isize>) -> Option<f32>;
-}
-
-pub struct MarchingCubesMesher<'a, T: MarchingCubes> {
-    grid: &'a T,
+pub struct MarchingCubesMesher<'a> {
+    sdf: &'a SdfGrid,
     vertices: Vec<Vector3<f32>>,
     voxel_size: f32,
     v12: Vec3f,
@@ -32,10 +20,10 @@ pub struct MarchingCubesMesher<'a, T: MarchingCubes> {
     config: usize,
 }
 
-impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
-    pub fn new(grid: &'a T, voxel_size: f32) -> Self {
+impl<'a> MarchingCubesMesher<'a> {
+    pub fn new(sdf: &'a Sdf, voxel_size: f32) -> Self {
         Self {
-            grid,
+            sdf: sdf.grid(),
             vertices: Vec::new(),
             v12: Vec3f::zeros(),
             cube: Default::default(),
@@ -46,12 +34,12 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
     }
 
     pub fn mesh(&mut self) -> Vec<Vector3<f32>> {
-        self.grid.cubes(|i| self.handle_cube(i));
+        self.sdf.visit_leafs(self);
         self.vertices.clone()
     }
 
     fn handle_cube(&mut self, v: Vector3<isize>) {
-        self.cube = match Cube::from_voxel(v, self.grid) {
+        self.cube = match Cube::from_voxel(v, self.sdf) {
             Some(cube) => cube,
             None => return,
         };
@@ -917,6 +905,55 @@ impl<'a, T: MarchingCubes> MarchingCubesMesher<'a, T> {
     }
 }
 
+impl<T: TreeNode<Value = Scalar>> Visitor<T> for MarchingCubesMesher<'_> {
+    fn tile(&mut self, tile: Tile<T::Value>) {
+        let o = tile.origin;
+        let s = tile.size;
+
+        // Test only boundary voxels
+        for i in 0..s {
+            for j in 0..s {
+                let left = o + Vector3::new(0, i, j).cast();
+                let right = o + Vector3::new(tile.size - 1, i, j).cast();
+
+                let top = o + Vector3::new(i, j, tile.size - 1).cast();
+                let bottom = o + Vector3::new(i, j, 0).cast();
+
+                let front = o + Vector3::new(i, tile.size - 1, j).cast();
+                let back = o + Vector3::new(i, 0, j).cast();
+
+                self.handle_cube(left);
+                self.handle_cube(right);
+                self.handle_cube(top);
+                self.handle_cube(bottom);
+                self.handle_cube(front);
+                self.handle_cube(back);
+            }
+        }
+    }
+
+    fn dense(&mut self, dense: &T) {
+        let min = dense.origin();
+        let size = dense.size_t() as isize;
+        let max = Vec3i::new(min.x + size, min.y + size, min.z + size);
+
+        for x in min.x..max.x {
+            for y in min.y..max.y {
+                for z in min.z..max.z {
+                    let voxel_idx = Vector3::new(x, y, z);
+                    self.handle_cube(voxel_idx);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Vertex {
+    index: Vec3i,
+    value: f32,
+}
+
 #[derive(Debug)]
 struct Cube {
     id: u8,
@@ -947,7 +984,7 @@ impl Index<usize> for Cube {
 }
 
 impl Cube {
-    fn from_voxel<TGrid: MarchingCubes>(voxel: Vector3<isize>, grid: &TGrid) -> Option<Self> {
+    fn from_voxel(voxel: Vector3<isize>, grid: &SdfGrid) -> Option<Self> {
         let mut cube: Self = Default::default();
 
         let vertex_indices = CUBE_OFFSETS.map(|off| voxel + off);
@@ -955,7 +992,7 @@ impl Cube {
         for i in 0..vertex_indices.len() {
             let index = vertex_indices[i];
             let value = match grid.at(&index) {
-                Some(v) => v,
+                Some(v) => (*v).into(),
                 None => return None,
             };
 
