@@ -845,13 +845,15 @@ pub mod winding_numbers {
 
     fn hessians(dipole: &Vec3f, query_point: &Vec3f) -> (Vec3f, Mat3f) {
         let r = dipole - query_point;
-        let r_len = r.norm();
-        let r3 = r_len * r_len * r_len;
+        let r2 = r.norm_squared();
+        let r1 = r2.sqrt();
+        let r3 = r2 * r1;
         let ord1_den = 4.0 * PI * r3;
-        let ord1 = r / ord1_den;
+        let ord1_den_inv = 1.0 / ord1_den;
+        let ord1 = r * ord1_den_inv;
 
-        let r5 = r3 * r_len * r_len;
-        let ord2 = Mat3f::identity() / ord1_den - 3.0 * r * r.transpose() / (4.0 * PI * r5);
+        let r5 = r3 * r2;
+        let ord2 = Mat3f::identity() * ord1_den_inv - 3.0 * r * r.transpose() / (4.0 * PI * r5);
 
         (ord1, ord2)
     }
