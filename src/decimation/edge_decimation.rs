@@ -436,12 +436,12 @@ where
 /// Will choose the maximum error, and decimate accordingly, depending on the distance from origin.
 #[derive(Debug)]
 pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
-    origin: Point3::<TMesh::ScalarType>,
+    origin: Vec3::<TMesh::ScalarType>,
     radii_sq_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>
 }
 
 impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
-    pub fn new(origin: Point3::<TMesh::ScalarType>, radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>) -> Self {
+    pub fn new(origin: Vec3::<TMesh::ScalarType>, radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>) -> Self {
         let radii_sq_error_map = radii_error_map.into_iter().map(|(r, e)| (r * r, e)).collect();
         Self { origin, radii_sq_error_map }
     }
@@ -453,8 +453,8 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCrit
     fn should_decimate(&self, error: <TMesh as Mesh>::ScalarType, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) -> bool {
         let edge_positions = mesh.edge_positions(edge);
         let max_error = self.radii_sq_error_map.iter().find(|(radius_sq, _)| 
-            nalgebra::distance_squared(&self.origin, &edge_positions.0 ) < *radius_sq 
-            || nalgebra::distance_squared(&self.origin, &edge_positions.1) < *radius_sq);
+            (self.origin - edge_positions.0).norm_squared() < *radius_sq 
+            || (self.origin - edge_positions.1).norm_squared() < *radius_sq);
         
         let max_error = max_error.unwrap_or(self.radii_sq_error_map.last().unwrap()).1;
 
@@ -468,7 +468,7 @@ where
     TMesh: Mesh,
 {
     fn default() -> Self {
-        let origin = Point3::<TMesh::ScalarType>::origin();
+        let origin = Vec3::<TMesh::ScalarType>::zeros();
         let radius = TMesh::ScalarType::max_value();
         let radii_error = vec![(radius, cast(0.001).unwrap())];
         return Self::new(origin, radii_error);

@@ -1,14 +1,11 @@
 use std::path::Path;
 
 use baby_shark::{
-    decimation::{
-        prelude::EdgeDecimator, edge_decimation::BoundingSphereDecimationCriteria,
-    },
+    decimation::{edge_decimation::BoundingSphereDecimationCriteria, prelude::EdgeDecimator},
     io::stl::{StlReader, StlWriter},
     mesh::corner_table::prelude::CornerTableF,
 };
-
-use nalgebra::Point3;
+use nalgebra::Vector3;
 
 fn main() {
     let mut reader = StlReader::new();
@@ -21,12 +18,8 @@ fn main() {
         .read_stl_from_file(Path::new(&path))
         .expect("Read mesh from STL");
 
-    let origin = Point3::<f32>::origin();
-    let radii_error_map = vec![
-        (5.0f32, 0.0001f32),
-        (10.0f32, 0.001f32),
-        (15.0f32, 0.8f32),
-    ];
+    let origin = Vector3::<f32>::zeros();
+    let radii_error_map = vec![(5.0f32, 0.0001f32), (10.0f32, 0.001f32), (15.0f32, 0.8f32)];
 
     let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
 
