@@ -11,7 +11,8 @@ categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
     ".github/workflows/*",
     ".vscode/*",
-    "docs/*"
+    "docs/*",
+    "TODO.md"
 ]
 
 [profile.release-debug-info]
