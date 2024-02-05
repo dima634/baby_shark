@@ -2,7 +2,7 @@ use nalgebra::Vector3;
 
 use crate::voxel::{Grid, TreeNode, Visitor};
 
-pub struct ActiveVoxelsMesher {
+pub(super) struct ActiveVoxelsMesher {
     vertices: Vec<Vector3<isize>>,
     box_vertices: [Vector3<isize>; 8],
 }

@@ -6,7 +6,7 @@ use crate::data_structures::bitset::BitSet;
 
 use super::{Accessor, GridValue, IsWithinTolerance, ParVisitor, Tile, TreeNode};
 
-pub struct InternalNode<
+pub(super) struct InternalNode<
     TValue,
     TChild: TreeNode,
     const BRANCHING: usize,
@@ -33,10 +33,6 @@ impl<
 where
     TChild: TreeNode,
 {
-    pub fn new() -> Box<Self> {
-        Self::empty(Vector3::zeros())
-    }
-
     fn offset_to_global_index(&self, offset: usize) -> Vector3<isize> {
         let mut local = Self::offset_to_local_index(offset);
 

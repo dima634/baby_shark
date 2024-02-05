@@ -8,7 +8,7 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 use super::{Accessor, GridValue, TreeNode};
 
-pub struct RootNode<TChild: TreeNode> {
+pub(super) struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
 }
 
@@ -138,11 +138,6 @@ impl<TChild: TreeNode> RootNode<TChild> {
         Self {
             root: Default::default(),
         }
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.root.iter().all(|(_, node)| node.is_empty())
     }
 
     #[inline]

@@ -1,32 +1,31 @@
-pub mod init;
-pub mod internal_node;
-pub mod leaf_node;
+pub mod mesh_to_sdf;
 pub mod meshing;
-pub mod root_node;
-pub mod utils;
 pub mod sdf;
 
-pub mod mesh_to_sdf;
 mod grid_value;
-
+mod init;
+mod internal_node;
+mod leaf_node;
+mod root_node;
 #[cfg(test)]
 mod tests;
+mod utils;
 
-pub use grid_value::*;
-pub use internal_node::*;
-pub use leaf_node::*;
-pub use root_node::*;
 pub use sdf::*;
 
 use crate::helpers::aliases::Vec3i;
+use grid_value::*;
+use internal_node::*;
+use leaf_node::*;
+use root_node::*;
 
-pub trait IsWithinTolerance {
+trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
 }
 
-pub trait GridValue: Copy + Clone + Send + Sync + PartialEq + IsWithinTolerance {}
+trait GridValue: Copy + Clone + Send + Sync + PartialEq + IsWithinTolerance {}
 
-pub trait Accessor {
+trait Accessor {
     type Value: GridValue; // Remove Copy?
 
     fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
@@ -35,17 +34,17 @@ pub trait Accessor {
     fn remove(&mut self, index: &Vec3i);
 }
 
-pub trait Visitor<T: TreeNode> {
+trait Visitor<T: TreeNode> {
     fn tile(&mut self, tile: Tile<T::Value>);
     fn dense(&mut self, dense: &T);
 }
 
-pub trait ParVisitor<T: TreeNode>: Send + Sync {
+trait ParVisitor<T: TreeNode>: Send + Sync {
     fn tile(&self, tile: Tile<T::Value>);
     fn dense(&self, dense: &T);
 }
 
-pub trait TreeNode: Accessor + Send + Sync + Sized {
+trait TreeNode: Accessor + Send + Sync + Sized {
     /// Number of tiles in one dimension on current level
     const BRANCHING: usize;
     /// Total number of tiles in one dimension
@@ -58,9 +57,9 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     type Leaf: TreeNode<Value = Self::Value>;
     type Child: TreeNode<Value = Self::Value, Leaf = Self::Leaf>;
     type As<TValue: GridValue>: TreeNode<
-        Value = TValue, 
-        Child = <Self::Child as TreeNode>::As<TValue>, 
-        Leaf = <Self::Leaf as TreeNode>::As<TValue>
+        Value = TValue,
+        Child = <Self::Child as TreeNode>::As<TValue>,
+        Leaf = <Self::Leaf as TreeNode>::As<TValue>,
     >;
 
     /// Creates empty node
@@ -72,28 +71,25 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 
     ///
-    /// Checks if node is constant within tolerance. 
+    /// Checks if node is constant within tolerance.
     /// Empty nodes are not constant.
-    /// 
+    ///
     /// Returns `None` if node is not constant, otherwise returns constant value
-    /// 
+    ///
     fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value>;
 
     ///
     /// Prune all nodes where all values are within tolerance
-    /// 
+    ///
     fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>;
 
-    /// 
+    ///
     /// Creates a copy of the node with same topology but with different values
-    /// 
+    ///
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
-    where 
+    where
         TNewValue: GridValue,
         TCast: Fn(Self::Value) -> TNewValue;
-
-    ///
-    // fn dilate(&mut self, value: Self::Value, neighbor_masks: [&[usize]; 6]);
 
     /// Number of voxels in one dimension
     #[inline]
@@ -108,18 +104,13 @@ pub trait TreeNode: Accessor + Send + Sync + Sized {
     }
 }
 
-pub struct Tile<T> {
+struct Tile<T> {
     pub origin: Vec3i,
     pub size: usize,
     pub value: T,
 }
 
-pub enum Leaf<'a, T: Accessor> {
-    Tile(Tile<T::Value>),
-    Dense(&'a T),
-}
-
-pub trait Grid: TreeNode {}
+trait Grid: TreeNode {}
 
 impl<T: TreeNode> Grid for T {}
 

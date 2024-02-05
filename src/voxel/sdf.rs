@@ -51,7 +51,7 @@ impl Sdf {
         Self { grid }
     }
 
-    pub fn grid(&self) -> &SdfGrid {
+    pub(super) fn grid(&self) -> &SdfGrid {
         &self.grid
     }
 }

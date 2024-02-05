@@ -6,7 +6,7 @@ use crate::data_structures::bitset::BitSet;
 
 use super::{Accessor, GridValue, ParVisitor, TreeNode};
 
-pub struct LeafNode<
+pub(super) struct LeafNode<
     TValue,
     const BRANCHING: usize,
     const BRANCHING_TOTAL: usize,
@@ -34,20 +34,6 @@ impl<
             + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
 
         offset as usize
-    }
-
-    #[inline]
-    pub fn empty() -> Self {
-        return Self {
-            origin: Vector3::new(0, 0, 0),
-            value_mask: BitSet::zeroes(),
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-        };
-    }
-
-    #[inline]
-    pub fn origin(&self) -> &Vector3<isize> {
-        return &self.origin;
     }
 }
 
