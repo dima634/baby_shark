@@ -1,6 +1,6 @@
 [package]
 name = "baby_shark"
-version = "0.1.6"
+version = "0.2.6"
 edition = "2021"
 description="Geometry processing library"
 license="MIT"
@@ -10,7 +10,8 @@ keywords = ["mesh", "mesh-processing", "geometry", "computational-geom", "algori
 categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
     ".github/workflows/*",
-    ".vscode/*"
+    ".vscode/*",
+    "docs/*"
 ]
 
 [profile.release-debug-info]
