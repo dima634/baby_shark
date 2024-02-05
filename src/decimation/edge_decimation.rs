@@ -147,28 +147,32 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// ## Example
 /// ```ignore
 /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
-///     .max_error(Some(0.00015))
+///     .decimation_criteria(ConstantErrorDecimationCriteria::new(0.00015))
 ///     .min_faces_count(None);
 /// decimator.decimate(&mut mesh);
 /// ```
 /// 
-pub struct IncrementalDecimator<TMesh, TCollapseStrategy>
+pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh>
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>
+
 {
-    max_error: TMesh::ScalarType,
+    decimation_criteria: TEdgeDecimationCriteria,
     min_faces_count: usize,
     min_face_quality: TMesh::ScalarType,
+    keep_boundary: bool,
     priority_queue: BinaryHeap<Contraction<TMesh>>,
     not_safe_collapses: Vec<Contraction<TMesh>>,
     collapse_strategy: TCollapseStrategy
 }
 
-impl<TMesh, TCollapseStrategy> IncrementalDecimator<TMesh, TCollapseStrategy> 
+impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh> 
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>
 {
     #[inline]
     pub fn new() -> Self {
@@ -176,19 +180,13 @@ where
     }
 
     ///
-    /// Set maximum allowed error for decimation. Edges with higher error won't be collapsed. 
-    /// Should be a positive number. Default is `0.001`.
-    /// Pass `None` to disable max error check.
+    /// Set the decimation_criteria trait.
+    /// This defines the strategy for deciding if an edge needs to be simplified/decimated.
+    /// See the `EdgeDecimationCriteria` trait.
     /// 
     #[inline]
-    pub fn max_error(mut self, max_error: Option<TMesh::ScalarType>) -> Self {
-        match max_error {
-            Some(err) => { 
-                debug_assert!(err.is_sign_positive(), "Max error should be a positive");
-                self.max_error = err;
-            },
-            None => self.max_error = TMesh::ScalarType::infinity(),
-        };
+    pub fn decimation_criteria(mut self, criteria: TEdgeDecimationCriteria) -> Self {
+        self.decimation_criteria = criteria;
 
         return self;
     }    
@@ -212,18 +210,27 @@ where
     }
 
     ///
+    /// Keep boundary on decimation.
+    /// 
+    #[inline]
+    pub fn keep_boundary(mut self, keep_boundary: bool) -> Self {
+        self.keep_boundary = keep_boundary;
+
+        return self;
+    }    
+
+    ///
     /// Decimated given `mesh`.
     /// 
     /// ## Example
     /// ```ignore
     /// let mut decimator = IncrementalDecimator::<CornerTableD, QuadricError<CornerTableD>>::new()
-    ///     .max_error(Some(0.00015))
+    ///     .decimation_criteria(ConstantErrorDecimationCriteria::new(0.00015))
     ///     .min_faces_count(None);
     /// decimator.decimate(&mut mesh);
     /// ```
     /// 
     pub fn decimate(&mut self, mesh: &mut TMesh) {
-        debug_assert!(self.max_error.is_finite() || self.min_faces_count > 0, "Either max error or min faces count should be set.");
 
         // Clear internals data structures
         self.priority_queue.clear();
@@ -262,7 +269,7 @@ where
                     marker.mark_edge(&best.edge, false);
 
                     best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if best.cost < self.max_error {
+                    if self.decimation_criteria.should_decimate(best.cost, mesh, &best.edge) {
                         self.priority_queue.push(best);
                     }
 
@@ -307,7 +314,8 @@ where
                     let new_position = (v1_pos + v2_pos) * cast::<_, TMesh::ScalarType>(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if new_cost < self.max_error && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
+                    if  self.decimation_criteria.should_decimate(new_cost, mesh, &collapse.edge) 
+                        && edge_collapse::is_safe(mesh, &collapse.edge, &new_position, self.min_face_quality) {
                         self.priority_queue.push(Contraction::new(collapse.edge, new_cost));
                     }
                 }
@@ -322,28 +330,147 @@ where
         for edge in mesh.edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
+            
+            if self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, &edge) {
+                continue;
+            }
 
             // Collapsable and low cost?
-            if cost < self.max_error && is_collapse_topologically_safe {
+            if self.decimation_criteria.should_decimate(cost, mesh, &edge) && is_collapse_topologically_safe {
                 self.priority_queue.push(Contraction::new(edge, cost));
             }
         }
     }
 }
 
-impl<TMesh, TCollapseStrategy> Default for IncrementalDecimator<TMesh, TCollapseStrategy> 
+impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> Default for IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> 
 where 
     TMesh: EditableMesh + TopologicalMesh + MeshMarker, 
-    TCollapseStrategy: CollapseStrategy<TMesh> 
+    TCollapseStrategy: CollapseStrategy<TMesh>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
 {
     fn default() -> Self {
         return Self {
-            max_error: cast(0.001).unwrap(),
+            decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
+            keep_boundary: false,
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default()
         };
+    }
+}
+
+///
+/// Trait used to decide whether to decimate an edge
+/// 
+pub trait EdgeDecimationCriteria<TMesh: Mesh> : Default {
+    fn should_decimate(&self, error: TMesh::ScalarType, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> bool;
+}
+
+///
+/// Always decimate edges
+/// 
+#[derive(Debug, Default)]
+pub struct AlwaysDecimate;
+
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
+    #[inline]
+    fn should_decimate(&self, _error: TMesh::ScalarType, _mesh: &TMesh, _edge: &TMesh::EdgeDescriptor) -> bool {
+        return true;
+    }
+}
+
+///
+/// Never decimate edges
+/// 
+#[derive(Debug, Default)]
+pub struct NeverDecimate;
+
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
+    #[inline]
+    fn should_decimate(&self, _error: TMesh::ScalarType, _mesh: &TMesh, _edge: &TMesh::EdgeDescriptor) -> bool {
+        return false;
+    }
+}
+
+///
+/// Decimate with a constant error value.
+/// This will result in a uniform decimation result.
+/// 
+#[derive(Debug)]
+pub struct ConstantErrorDecimationCriteria<TMesh: Mesh> {
+    max_error: TMesh::ScalarType,
+}
+
+impl<TMesh> ConstantErrorDecimationCriteria<TMesh>
+where
+    TMesh: Mesh,
+{
+    pub fn new(max_error: TMesh::ScalarType) -> Self {
+        Self { max_error }
+    }
+}
+
+impl<TMesh> EdgeDecimationCriteria<TMesh> for ConstantErrorDecimationCriteria<TMesh>
+where
+    TMesh: Mesh,
+{
+    #[inline]
+    fn should_decimate(&self, error: <TMesh as Mesh>::ScalarType, _mesh: &TMesh, _edge: &<TMesh as Mesh>::EdgeDescriptor) -> bool {
+        error < self.max_error
+    }
+}
+
+impl<TMesh> Default for ConstantErrorDecimationCriteria<TMesh>
+where
+    TMesh: Mesh,
+{
+    fn default() -> Self {
+        Self::new(cast(0.001).unwrap())
+    }
+}
+
+///
+/// Will choose the maximum error, and decimate accordingly, depending on the distance from origin.
+#[derive(Debug)]
+pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
+    origin: Point3::<TMesh::ScalarType>,
+    radii_sq_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>
+}
+
+impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
+    pub fn new(origin: Point3::<TMesh::ScalarType>, radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>) -> Self {
+        let radii_sq_error_map = radii_error_map.into_iter().map(|(r, e)| (r * r, e)).collect();
+        Self { origin, radii_sq_error_map }
+    }
+
+}
+
+impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCriteria<TMesh> {
+    #[inline]
+    fn should_decimate(&self, error: <TMesh as Mesh>::ScalarType, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) -> bool {
+        let edge_positions = mesh.edge_positions(edge);
+        let max_error = self.radii_sq_error_map.iter().find(|(radius_sq, _)| 
+            nalgebra::distance_squared(&self.origin, &edge_positions.0 ) < *radius_sq 
+            || nalgebra::distance_squared(&self.origin, &edge_positions.1) < *radius_sq);
+        
+        let max_error = max_error.unwrap_or(self.radii_sq_error_map.last().unwrap()).1;
+
+        return error < max_error;
+    }
+
+}
+
+impl<TMesh> Default for BoundingSphereDecimationCriteria<TMesh>
+where
+    TMesh: Mesh,
+{
+    fn default() -> Self {
+        let origin = Point3::<TMesh::ScalarType>::origin();
+        let radius = TMesh::ScalarType::max_value();
+        let radii_error = vec![(radius, cast(0.001).unwrap())];
+        return Self::new(origin, radii_error);
     }
 }

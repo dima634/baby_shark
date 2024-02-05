@@ -9,4 +9,8 @@ pub mod decimation;
 pub mod triangulation;
 pub mod voxel;
 
+pub mod exports {
+    pub use nalgebra as nalgebra;
+}
+
 mod helpers;
