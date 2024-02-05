@@ -511,7 +511,11 @@ where
             let b1_count = TObject::ScalarType::from_usize(b1_count).unwrap();
             let c = TObject::ScalarType::from_f64(0.125).unwrap();
 
-            costs[i] = c + (b0_count * b0.area() + b1_count * b1.area()) / objects_bbox.area();
+            if b0_count == TObject::ScalarType::zero() || b1_count == TObject::ScalarType::zero() {
+                costs[i] = TObject::ScalarType::infinity();
+            } else {
+                costs[i] = c + (b0_count * b0.area() + b1_count * b1.area()) / objects_bbox.area();
+            }
         }
 
         let (min_cost_bucket_idx, _) = costs

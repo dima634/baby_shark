@@ -25,11 +25,25 @@ pub struct MeshToSdf {
 }
 
 impl MeshToSdf {
+    #[inline]
+    pub fn with_narrow_band_width(mut self, width: isize) -> Self {
+        self.set_narrow_band_width(width);
+        self
+    }
+
+    #[inline]
+    pub fn set_narrow_band_width(&mut self, width: isize) -> &mut Self {
+        self.band_width = width;
+        self
+    }
+
+    #[inline]
     pub fn with_voxel_size(mut self, size: f32) -> Self {
         self.set_voxel_size(size);
         self
     }
 
+    #[inline]
     pub fn set_voxel_size(&mut self, size: f32) -> *mut Self {
         self.voxel_size = size;
         self.inverse_voxel_size = 1.0 / size;
@@ -210,8 +224,9 @@ struct ComputeSignsVisitor<'a, TGrid: Grid<Value = Scalar>> {
 impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
         let origin = node.origin();
-        let size = TGrid::resolution();
+        let size = TGrid::Leaf::resolution();
         let max = origin + Vec3u::new(size, size, size).cast();
+
         for x in origin.x..max.x {
             for y in origin.y..max.y {
                 for z in origin.z..max.z {

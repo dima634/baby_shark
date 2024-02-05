@@ -28,7 +28,7 @@ impl VoxelRemesher {
 impl Default for VoxelRemesher {
     fn default() -> Self {
         Self {
-            mesh_to_sdf: MeshToSdf::default(),
+            mesh_to_sdf: MeshToSdf::default().with_narrow_band_width(0),
             marching_cubes: MarchingCubesMesher::default(),
         }
     }
