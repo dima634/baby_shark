@@ -27,7 +27,7 @@ use crate::{
 /// fn main() {
 ///     let mesh: PolygonSoup<f32> = builder::cube(Vector3::zeros(), 1.0, 1.0, 1.0);
 ///     let mut remesher = VoxelRemesher::default().with_voxel_size(0.02);
-///     let remeshed = remesher.remesh(&mesh);
+///     let remeshed = remesher.remesh(&mesh).unwrap();
 /// }
 /// ```
 /// 
@@ -43,12 +43,14 @@ impl VoxelRemesher {
         self.marching_cubes.set_voxel_size(size);
         self
     }
-
-    pub fn remesh<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> T {
-        let distance_field = self.mesh_to_sdf.convert(mesh);
+    
+    pub fn remesh<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<T> {
+        let distance_field = self.mesh_to_sdf.convert(mesh)?;
         let faces = self.marching_cubes.mesh(distance_field);
         let indexed_faces = merge_points(&faces);
-        T::from_vertices_and_indices(&indexed_faces.points, &indexed_faces.indices)
+        let mesh = T::from_vertices_and_indices(&indexed_faces.points, &indexed_faces.indices);
+
+        Some(mesh)
     }
 }
 

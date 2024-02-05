@@ -50,22 +50,27 @@ impl MeshToSdf {
         self
     }
 
-    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Sdf {
-        self.clear();
+    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Sdf> {
+        if mesh.faces().count() == 0 {
+            return None;
+        }
 
+        self.clear();
         for tri in mesh.faces().map(|f| mesh.face_positions(&f)) {
             self.subdivide_triangle(&tri);
         }
 
         self.winding_numbers = WindingNumbers::from_mesh(mesh);
-
         self.compute_unsigned_distance_field();
-        self.compute_sings();
+
+        if !self.compute_sings() {
+            return None;
+        }
 
         let mut sdf = SdfGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.distance_field);
 
-        sdf.into()
+        Some(sdf.into())
     }
 
     fn subdivide_triangle(&mut self, tri: &Triangle3<f32>) {
@@ -183,7 +188,7 @@ impl MeshToSdf {
         }
     }
 
-    fn compute_sings(&mut self) {
+    fn compute_sings(&mut self) -> bool {
         let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
         let mut visitor = ComputeSignsVisitor {
             distance_field: signs,
@@ -192,7 +197,14 @@ impl MeshToSdf {
         };
 
         self.distance_field.visit_leafs_par(&mut visitor);
-        self.distance_field = visitor.distance_field.into_inner().unwrap();
+        
+        match visitor.distance_field.into_inner() {
+            Ok(df) => {
+                self.distance_field = df;
+                true
+            },
+            Err(_) => false,
+        }
     }
 
     fn clear(&mut self) {
@@ -223,6 +235,10 @@ struct ComputeSignsVisitor<'a, TGrid: Grid<Value = Scalar>> {
 
 impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
+        if self.distance_field.is_poisoned() {
+            return;
+        }
+
         let origin = node.origin();
         let size = TGrid::Leaf::resolution();
         let max = origin + Vec3u::new(size, size, size).cast();
@@ -245,10 +261,10 @@ impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
                         dist = dist.copysign(-1.0);
                     }
 
-                    self.distance_field
-                        .lock()
-                        .unwrap()
-                        .insert(&idx, dist.into());
+                    match self.distance_field.lock() {
+                        Ok(mut df) => df.insert(&idx, dist.into()),
+                        Err(_) => return,
+                    }
                 }
             }
         }

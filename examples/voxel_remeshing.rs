@@ -15,7 +15,7 @@ fn main() {
         .expect("Read mesh");
 
     let mut remesher = VoxelRemesher::default().with_voxel_size(0.02);
-    let remeshed = remesher.remesh(&mesh);
+    let remeshed = remesher.remesh(&mesh).unwrap();
 
     StlWriter::new()
         .write_stl_to_file(&remeshed, Path::new("remeshed.stl"))
