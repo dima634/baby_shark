@@ -12,6 +12,7 @@ exclude = [
     ".github/workflows/*",
     ".vscode/*",
     "docs/*",
+    "assets/*
     "TODO.md"
 ]
 
