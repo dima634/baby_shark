@@ -6,6 +6,7 @@ use super::{Accessor, Scalar, TreeNode, SMALL_SCALAR};
 
 pub(super) type SdfGrid = dynamic_vdb!(Scalar, par 5, 4, 3);
 
+#[derive(Debug)]
 pub struct Sdf {
     grid: Box<SdfGrid>,
 }

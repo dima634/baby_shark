@@ -8,6 +8,7 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 use super::{Accessor, GridValue, TreeNode};
 
+#[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
 }

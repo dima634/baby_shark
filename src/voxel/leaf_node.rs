@@ -6,6 +6,7 @@ use crate::data_structures::bitset::BitSet;
 
 use super::{Accessor, GridValue, ParVisitor, TreeNode};
 
+#[derive(Debug)]
 pub(super) struct LeafNode<
     TValue,
     const BRANCHING: usize,

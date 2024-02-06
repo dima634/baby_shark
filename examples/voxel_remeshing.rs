@@ -11,10 +11,10 @@ fn main() {
 
     let mut reader = StlReader::new();
     let mesh: Mesh = reader
-        .read_stl_from_file(Path::new("head.stl"))
+        .read_stl_from_file(Path::new("./assets/box.stl"))
         .expect("Read mesh");
 
-    let mut remesher = VoxelRemesher::default().with_voxel_size(0.02);
+    let mut remesher = VoxelRemesher::default().with_voxel_size(0.01);
     let remeshed = remesher.remesh(&mesh).unwrap();
 
     StlWriter::new()

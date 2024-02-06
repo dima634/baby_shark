@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::{alloc::Layout, mem::MaybeUninit};
 
 use nalgebra::Vector3;
 
@@ -6,6 +6,7 @@ use crate::data_structures::bitset::BitSet;
 
 use super::{Accessor, GridValue, IsWithinTolerance, ParVisitor, Tile, TreeNode};
 
+#[derive(Debug)]
 pub(super) struct InternalNode<
     TValue,
     TChild: TreeNode,
@@ -15,11 +16,11 @@ pub(super) struct InternalNode<
     const BIT_SIZE: usize,
     const PARALLEL: bool,
 > {
-    childs: [Option<Box<TChild>>; SIZE],
-    child_mask: BitSet<SIZE, BIT_SIZE>,
-    values: [TValue; SIZE],
-    value_mask: BitSet<SIZE, BIT_SIZE>,
     origin: Vector3<isize>,
+    child_mask: BitSet<SIZE, BIT_SIZE>,
+    value_mask: BitSet<SIZE, BIT_SIZE>,
+    childs: [Option<Box<TChild>>; SIZE],
+    values: [TValue; SIZE],
 }
 
 impl<
@@ -110,6 +111,31 @@ where
         let z = offset & ((1 << BRANCHING) - 1);
 
         return Vector3::new(x, y, z);
+    }
+
+    ///
+    /// Allocates memory for the node on the heap and initializes it with default values.
+    ///
+    unsafe fn alloc_on_heap(origin: Vector3<isize>) -> Box<Self> {
+        let layout = Layout::new::<Self>();
+        let ptr = std::alloc::alloc(layout) as *mut Self;
+
+        if ptr.is_null() {
+            std::alloc::handle_alloc_error(layout);
+        }
+
+        (*ptr).origin = origin;
+        (*ptr).child_mask.off_all();
+        (*ptr).value_mask.off_all();
+
+        let child_ptr = (*ptr).childs.as_mut_ptr();
+        for i in 0..SIZE {
+            child_ptr.add(i).write(None);
+        }
+
+        // (*ptr).value_mask - no need to initialize because value mask is empty
+
+        Box::from_raw(ptr)
     }
 }
 
@@ -245,13 +271,8 @@ where
     >;
 
     fn empty(origin: Vector3<isize>) -> Box<Self> {
-        Box::new(Self {
-            origin,
-            childs: std::array::from_fn(|_| None),
-            child_mask: BitSet::zeroes(),
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
-            value_mask: BitSet::zeroes(),
-        })
+        // Allocate directly on a heap, otherwise we will overflow the stack with large grids
+        unsafe { Self::alloc_on_heap(origin) }
     }
 
     #[inline]

@@ -123,25 +123,42 @@ impl MeshToSdf {
             .map(|tri| {
                 // Compute distance for voxels intersecting triangle and its `band_width` neighborhood
                 let bbox = tri.bbox();
-                let nbh_min = Vec3i::new(
+                let mut min = Vec3i::new(
                     (bbox.get_min().x * self.inverse_voxel_size).floor() as isize - self.band_width,
                     (bbox.get_min().y * self.inverse_voxel_size).floor() as isize - self.band_width,
                     (bbox.get_min().z * self.inverse_voxel_size).floor() as isize - self.band_width,
                 );
-                let nbh_max = Vec3i::new(
+                let mut max = Vec3i::new(
                     (bbox.get_max().x * self.inverse_voxel_size).ceil() as isize + self.band_width,
                     (bbox.get_max().y * self.inverse_voxel_size).ceil() as isize + self.band_width,
                     (bbox.get_max().z * self.inverse_voxel_size).ceil() as isize + self.band_width,
                 );
-                let neighbors_box = Box3::new(nbh_min, nbh_max);
+
+                // Triangle intersecting voxel along the voxel side
+                if max.x == min.x {
+                    min.x -= 1;
+                    max.x += 1;
+                }
+
+                if max.y == min.y {
+                    min.y -= 1;
+                    max.y += 1;
+                }
+
+                if max.z == min.z {
+                    min.z -= 1;
+                    max.z += 1;
+                }
+
+                let neighbors_box = Box3::new(min, max);
 
                 let mut distances = Vec::with_capacity(neighbors_box.volume() as usize);
 
-                for x in nbh_min.x..=nbh_max.x {
+                for x in min.x..=max.x {
                     let x_world = x as f32 * self.voxel_size;
-                    for y in nbh_min.y..=nbh_max.y {
+                    for y in min.y..=max.y {
                         let y_world = y as f32 * self.voxel_size;
-                        for z in nbh_min.z..=nbh_max.z {
+                        for z in min.z..=max.z {
                             let z_world = z as f32 * self.voxel_size;
                             let grid_point = Vec3f::new(x_world, y_world, z_world);
                             let closest = tri.closest_point(&grid_point.into());

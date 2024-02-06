@@ -91,9 +91,21 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
         self.set(index, true);
     }
 
+    pub fn on_all(&mut self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] = usize::MAX;
+        }
+    }
+
     #[inline]
     pub fn off(&mut self, index: usize) {
         self.set(index, false);
+    }
+
+    pub fn off_all(&mut self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] = 0;
+        }
     }
 
     #[inline]
