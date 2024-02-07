@@ -4,7 +4,7 @@ use std::{
 };
 
 use nalgebra::{Matrix4, Vector4};
-use num_traits::{cast, Float, FromPrimitive};
+use num_traits::{cast, Float, FromPrimitive, One};
 
 use crate::{
     algo::edge_collapse,
@@ -117,7 +117,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
         let q2 = self.vertex_quadric_map.get(&v2).unwrap();
 
         let new_position = self.get_placement(mesh, edge);
-        let v = new_position.to_homogeneous();
+        let v = Vector4::new(new_position.x, new_position.y, new_position.z, TMesh::ScalarType::one());
         let v_t = v.transpose();
 
         return (v_t * (q1 + q2) * v)[0].abs().sqrt();
