@@ -2,9 +2,9 @@ use nalgebra::Vector3;
 
 use crate::dynamic_vdb;
 
-use super::{Accessor, Scalar, TreeNode, SMALL_SCALAR};
+use super::{Accessor, TreeNode};
 
-pub(super) type SdfGrid = dynamic_vdb!(Scalar, par 5, 4, 3);
+pub(super) type SdfGrid = dynamic_vdb!(f32, par 5, 4, 3);
 
 #[derive(Debug)]
 pub struct Sdf {
@@ -41,13 +41,12 @@ impl Sdf {
                         continue;
                     }
 
-                    let val = Scalar { value };
-                    grid.insert(&idx, val);
+                    grid.insert(&idx, value);
                 }
             }
         }
 
-        grid.prune(SMALL_SCALAR);
+        // TODO: prune
 
         Self { grid }
     }

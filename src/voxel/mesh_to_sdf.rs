@@ -13,7 +13,7 @@ use crate::{
     voxel::{ParVisitor, Tile, TreeNode, Visitor},
 };
 
-use super::{Accessor, Grid, Scalar, Sdf, SdfGrid};
+use super::{Accessor, Grid, Sdf, SdfGrid};
 
 pub struct MeshToSdf {
     band_width: isize,
@@ -182,7 +182,7 @@ impl MeshToSdf {
                         let cur_dist = self
                             .distance_field
                             .at(&idx)
-                            .map(|v| v.value)
+                            .map(|v| *v)
                             .unwrap_or(f32::INFINITY);
 
                         if dist[i] < cur_dist {
@@ -235,13 +235,13 @@ impl Default for MeshToSdf {
     }
 }
 
-struct ComputeSignsVisitor<'a, TGrid: Grid<Value = Scalar>> {
+struct ComputeSignsVisitor<'a, TGrid: Grid<Value = f32>> {
     distance_field: Mutex<Box<TGrid>>,
     winding_numbers: &'a WindingNumbers,
     voxel_size: f32,
 }
 
-impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: Grid<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
         if self.distance_field.is_poisoned() {
             return;
@@ -258,7 +258,7 @@ impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
                     let grid_point = idx.cast() * self.voxel_size;
 
                     let mut dist = match node.at(&idx) {
-                        Some(v) => v.value,
+                        Some(v) => *v,
                         None => continue,
                     };
                     let wn = self.winding_numbers.approximate(&grid_point, 2.0);
@@ -280,7 +280,7 @@ impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
     }
 }
 
-impl<'a, TGrid: Grid<Value = Scalar>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: Grid<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }
@@ -291,7 +291,7 @@ impl<'a, TGrid: Grid<Value = Scalar>> ParVisitor<TGrid::Leaf> for ComputeSignsVi
     }
 }
 
-impl<'a, TGrid: Grid<Value = Scalar>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: Grid<Value = f32>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&mut self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }

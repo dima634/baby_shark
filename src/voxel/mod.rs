@@ -16,14 +16,9 @@ use std::ops::Sub;
 pub use sdf::*;
 
 use crate::helpers::aliases::Vec3i;
-use grid_value::*;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
-
-trait IsWithinTolerance {
-    fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
-}
 
 trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 

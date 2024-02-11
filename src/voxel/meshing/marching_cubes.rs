@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{utils::CUBE_OFFSETS, Accessor, Scalar, Sdf, SdfGrid, Tile, TreeNode, Visitor},
+    voxel::{utils::CUBE_OFFSETS, Accessor, Sdf, SdfGrid, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
@@ -989,7 +989,7 @@ impl<'a> CubesVisitor<'a> {
     }
 }
 
-impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
+impl<T: TreeNode<Value = f32>> Visitor<T> for CubesVisitor<'_> {
     fn tile(&mut self, tile: Tile<T::Value>) {
         let o = tile.origin;
         let s = tile.size;
@@ -1033,21 +1033,21 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
     }
 }
 
-struct ComputeEdgeIntersections<'a, T: TreeNode<Value = Scalar>> {
+struct ComputeEdgeIntersections<'a, T: TreeNode<Value = f32>> {
     grid: &'a T,
     x_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
     y_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
     z_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
 }
 
-impl<'a, T: TreeNode<Value = Scalar>> ComputeEdgeIntersections<'a, T> {
+impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
     fn compute_intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
         if self.x_int.at(v2).is_some() {
             return;
         }
 
         let (v1_val, v2_val) = match (self.grid.at(v1), self.grid.at(v2)) {
-            (Some(v1), Some(v2)) => (v1.value, v2.value),
+            (Some(v1), Some(v2)) => (*v1, *v2),
             _ => return,
         };
 
@@ -1077,7 +1077,7 @@ impl<'a, T: TreeNode<Value = Scalar>> ComputeEdgeIntersections<'a, T> {
     }
 }
 
-impl<'a, T: TreeNode<Value = Scalar>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
+impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
     fn tile(&mut self, _tile: Tile<T::Value>) {
         todo!("Marching cubes: support for tiles");
     }

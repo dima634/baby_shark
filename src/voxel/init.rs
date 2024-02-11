@@ -44,7 +44,7 @@ macro_rules! dynamic_vdb {
 
 #[cfg(test)]
 mod tests {
-    use crate::voxel::*;
+    use crate::voxel::{grid_value::Empty, *};
 
     #[test]
     fn test_static_vdb_macro_5_4_3() {
