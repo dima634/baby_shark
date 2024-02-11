@@ -134,20 +134,11 @@ impl MeshToSdf {
                     (bbox.get_max().z * self.inverse_voxel_size).ceil() as isize + self.band_width,
                 );
 
-                // Triangle intersecting voxel along the voxel side
-                if max.x == min.x {
-                    min.x -= 1;
-                    max.x += 1;
-                }
-
-                if max.y == min.y {
-                    min.y -= 1;
-                    max.y += 1;
-                }
-
-                if max.z == min.z {
-                    min.z -= 1;
-                    max.z += 1;
+                // Triangle intersecting voxel along the voxel side?
+                if max.x == min.x || max.y == min.y || max.z == min.z {
+                    // Extend box so it is not 0-volume
+                    min.add_scalar_mut(-1);
+                    max.add_scalar_mut(1);
                 }
 
                 let neighbors_box = Box3::new(min, max);

@@ -1,5 +1,7 @@
 use std::{fmt::Debug, ops::Index};
 
+use nalgebra::ComplexField;
+
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
@@ -1053,19 +1055,10 @@ impl<'a, T: TreeNode<Value = Scalar>> ComputeEdgeIntersections<'a, T> {
             return;
         }
 
-        let v1_val_a = v1_val.abs(); //.max(1e-6);
-        let v2_val_a = v2_val.abs(); //.max(1e-6);
+        let v1_val_a = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let v2_val_a = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
         let l = v1_val_a + v2_val_a;
-        let t = v1_val_a / l; //.max(1e-6);
-
-        debug_assert!(
-            l != 0.0,
-            "Marching cubes: edge vertices cannot both have 0 distance to surface"
-        );
-
-        if t < f32::EPSILON {
-            println!("t == {}, v1_val: {}, v2_val: {}", t, v1_val, v2_val);
-        }
+        let t = v1_val_a / l;
 
         match dir {
             EdgeDir::X => {
@@ -1085,8 +1078,8 @@ impl<'a, T: TreeNode<Value = Scalar>> ComputeEdgeIntersections<'a, T> {
 }
 
 impl<'a, T: TreeNode<Value = Scalar>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
-    fn tile(&mut self, tile: Tile<T::Value>) {
-        todo!("Support for tiles");
+    fn tile(&mut self, _tile: Tile<T::Value>) {
+        todo!("Marching cubes: support for tiles");
     }
 
     fn dense(&mut self, dense: &T::Leaf) {
@@ -1115,6 +1108,8 @@ impl<'a, T: TreeNode<Value = Scalar>> Visitor<T::Leaf> for ComputeEdgeIntersecti
         }
     }
 }
+
+const MIN_ABS_VERTEX_VALUE: f32 = 1e-6;
 
 #[derive(Debug, Clone, Copy)]
 struct Vertex {
@@ -1159,10 +1154,14 @@ impl Cube {
 
         for i in 0..vertex_indices.len() {
             let index = vertex_indices[i];
-            let value = match grid.at(&index) {
+            let mut value: f32 = match grid.at(&index) {
                 Some(v) => (*v).into(),
                 None => return None,
             };
+
+            if value.abs() < MIN_ABS_VERTEX_VALUE {
+                value = MIN_ABS_VERTEX_VALUE.copysign(value);
+            }
 
             if value < 0.0 {
                 cube.id |= 1 << i; // inside
@@ -1173,38 +1172,4 @@ impl Cube {
 
         Some(cube)
     }
-
-    // fn interpolate_checked(&self, v1: usize, v2: usize) -> Option<Vec3f> {
-    //     let v1_val = &self.vertices[v1].value;
-    //     let v2_val = &self.vertices[v2].value;
-
-    //     if v1_val * v2_val > 0.0 {
-    //         return None;
-    //     }
-
-    //     Some(self.interpolate(v1, v2))
-    // }
-
-    // fn interpolate(&self, v1: usize, v2: usize) -> Vec3f {
-    //     let v1 = self.vertices[v1];
-    //     let v2 = self.vertices[v2];
-
-    //     let v1_val = v1.value.abs();
-    //     let v2_val = v2.value.abs();
-    //     let l = v1_val + v2_val;
-    //     let dir = v2.index - v1.index;
-    //     let t = v1.index.cast() + dir.cast() * v1_val / l;
-
-    //     debug_assert!(
-    //         t.iter().all(|v| v.is_finite()),
-    //         "Marching cubes: intersection coordinates are not finite: {:?}",
-    //         t
-    //     );
-
-    //     if v1_val < 0.00001 || v2_val < 0.00001 {
-    //         // println!("v1 {v1_val}\tv2 {v2_val}\tt {}", v1_val / l);
-    //     }
-
-    //     t
-    // }
 }
