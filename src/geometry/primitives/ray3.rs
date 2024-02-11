@@ -1,6 +1,6 @@
-use nalgebra::{Point3, Vector3};
+use nalgebra::Vector3;
 
-use crate::geometry::traits::{RealNumber, HasScalarType, ClosestPoint3};
+use crate::{geometry::traits::{RealNumber, HasScalarType, ClosestPoint3}, helpers::aliases::Vec3};
 
 use super::{line3::Line3, plane3::Plane3, box3::Box3};
 
@@ -10,17 +10,17 @@ pub struct Ray3<TScalar: RealNumber> {
 }
 
 impl<TScalar: RealNumber> Ray3<TScalar> {
-    pub fn new(point: Point3<TScalar>, direction: Vector3<TScalar>) -> Self {
+    pub fn new(point: Vec3<TScalar>, direction: Vector3<TScalar>) -> Self {
         return Self { line: Line3::new(point, direction) };
     }
 
     #[inline]
-    pub fn get_origin(&self) -> &Point3<TScalar> {
+    pub fn get_origin(&self) -> &Vec3<TScalar> {
         return self.line.get_point();
     }
 
     #[inline]
-    pub fn get_direction(&self) -> &Vector3<TScalar> {
+    pub fn get_direction(&self) -> &Vec3<TScalar> {
         return self.line.get_direction();
     }
 
@@ -72,7 +72,7 @@ impl<TScalar: RealNumber> HasScalarType for Ray3<TScalar> {
 
 impl<TScalar: RealNumber> ClosestPoint3 for Ray3<TScalar> {
     #[inline]
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+    fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let mut t = self.line.parameter_at(point);
 
         if t < TScalar::zero() {

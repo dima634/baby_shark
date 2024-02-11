@@ -1,12 +1,12 @@
-use nalgebra::{Point3, Vector3};
-use crate::{mesh::traits::{Mesh}, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}};
+use crate::{mesh::traits::Mesh, geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, helpers::aliases::Vec3};
 use super::traversal::{FacesIter, VerticesIter, EdgesIter};
 
 ///
 /// Polygon soup
 /// 
+#[derive(Debug)]
 pub struct PolygonSoup<TScalar: RealNumber> {
-   pub(super) vertices: Vec<Point3<TScalar>>
+   pub(super) vertices: Vec<Vec3<TScalar>>
 }
 
 impl<TScalar: RealNumber> PolygonSoup<TScalar> {
@@ -15,10 +15,20 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
         return Default::default();
     }
 
-    pub fn add_face(&mut self, v1: Point3<TScalar>, v2: Point3<TScalar>, v3: Point3<TScalar>) {
+    #[inline]
+    pub fn from_vertices(vertices: Vec<Vec3<TScalar>>) -> Self {
+        return Self { vertices };
+    }
+
+    pub fn add_face(&mut self, v1: Vec3<TScalar>, v2: Vec3<TScalar>, v3: Vec3<TScalar>) {
         self.vertices.push(v1);
         self.vertices.push(v2);
         self.vertices.push(v3);
+    }
+
+    #[inline]
+    pub fn concat(&mut self, other: PolygonSoup<TScalar>) {
+        self.vertices.extend(other.vertices);
     }
 }
 
@@ -39,7 +49,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     type VerticesIter<'iter> = VerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = EdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &[Point3<Self::ScalarType>], faces: &[usize]) -> Self {
+    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self {
         let mut soup = Vec::with_capacity(faces.len());
 
         for vertex_index in faces {
@@ -72,7 +82,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     #[inline]
-    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Point3<Self::ScalarType>, Point3<Self::ScalarType>) {
+    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
         let v2 = if edge % 3 == 2 { edge - 2 } else { edge + 1 };
         return (self.vertices[*edge], self.vertices[v2]);
     }
@@ -83,16 +93,23 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     #[inline]
-    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Point3<Self::ScalarType> {
+    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
         return &self.vertices[*vertex];
     }
 
     #[inline]
-    fn vertex_normal(&self, _vertex: &Self::VertexDescriptor) -> Option<Vector3<Self::ScalarType>> {
+    fn vertex_normal(&self, _vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>> {
         todo!()
     }
 
     fn face_vertices(&self, _face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         todo!()
+    }
+}
+
+impl<TScalar: RealNumber> From<Vec<Vec3<TScalar>>> for PolygonSoup<TScalar> {
+    #[inline]
+    fn from(value: Vec<Vec3<TScalar>>) -> Self {
+        Self::from_vertices(value)
     }
 }

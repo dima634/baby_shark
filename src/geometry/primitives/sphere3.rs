@@ -1,17 +1,15 @@
-use nalgebra::Point3;
-
-use crate::geometry::traits::{RealNumber, HasBBox3, HasScalarType};
+use crate::{geometry::traits::{RealNumber, HasBBox3, HasScalarType}, helpers::aliases::Vec3};
 
 use super::box3::Box3;
 
 /// 3D sphere
 pub struct Sphere3<TScalar: RealNumber> {
-    center: Point3<TScalar>,
+    center: Vec3<TScalar>,
     radius: TScalar
 }
 
 impl<TScalar: RealNumber> Sphere3<TScalar> {
-    pub fn new(center: Point3<TScalar>, radius: TScalar) -> Self { 
+    pub fn new(center: Vec3<TScalar>, radius: TScalar) -> Self { 
         return Self { center, radius };
     }
 
@@ -29,8 +27,8 @@ impl<TScalar: RealNumber> HasBBox3 for Sphere3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<Self::ScalarType> {
         return Box3::new(
-            self.center.coords.add_scalar(-self.radius).into(), 
-            self.center.coords.add_scalar(self.radius).into()
+            self.center.add_scalar(-self.radius).into(), 
+            self.center.add_scalar(self.radius).into()
         );
     }
 }

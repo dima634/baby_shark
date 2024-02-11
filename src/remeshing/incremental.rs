@@ -197,7 +197,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
             let v1_pos = mesh.vertex_position(&v1);
             let v2_pos = mesh.vertex_position(&v2);
-            let collapse_at = (v1_pos + v2_pos.coords) * cast(0.5).unwrap();
+            let collapse_at = (v1_pos + v2_pos) * cast::<f32, TMesh::ScalarType>(0.5).unwrap();
 
             if edge_collapse::is_safe(mesh, &edge, &collapse_at, cast(0.5).unwrap()) {
                 mesh.collapse_edge(&edge, &collapse_at);

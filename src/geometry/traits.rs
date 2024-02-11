@@ -1,5 +1,7 @@
-use nalgebra::{Point3, ClosedDiv};
+use nalgebra::ClosedDiv;
 use num_traits::{NumCast, Float};
+
+use crate::helpers::aliases::Vec3;
 
 use super::primitives::{box3::Box3, triangle3::Triangle3, plane3::Plane3};
 
@@ -22,7 +24,7 @@ pub trait HasBBox3: HasScalarType {
 /// Closest point to primitive query
 pub trait ClosestPoint3: HasScalarType {
     /// Returns closest point on primitive to given point 
-    fn closest_point(&self, point: &Point3<Self::ScalarType>) -> Point3<Self::ScalarType>;
+    fn closest_point(&self, point: &Vec3<Self::ScalarType>) -> Vec3<Self::ScalarType>;
 }
 
 pub trait IntersectsTriangle3: HasScalarType {

@@ -1,4 +1,4 @@
-/target
-Cargo.lock
-/test_files
 /.vs
+/target
+/test_files
+Cargo.lock

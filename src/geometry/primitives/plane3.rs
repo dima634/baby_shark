@@ -1,13 +1,13 @@
 use nalgebra::{Point3, Vector3};
 use num_traits::Float;
 
-use crate::geometry::traits::{
+use crate::{geometry::traits::{
     RealNumber, 
     HasScalarType, 
     ClosestPoint3, 
     Number, 
     IntersectsPlane3
-};
+}, helpers::aliases::Vec3};
 
 use super::{box3::Box3, line3::Line3};
 
@@ -42,8 +42,8 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
 
     /// Returns signed distance from point to plane
     #[inline]
-    pub fn distance_to_point(&self, point: &Point3<TScalar>) -> TScalar {
-        return (self.normal.dot(&point.coords) - self.distance) / self.normal.dot(&self.normal); 
+    pub fn distance_to_point(&self, point: &Vec3<TScalar>) -> TScalar {
+        return (self.normal.dot(&point) - self.distance) / self.normal.dot(&self.normal); 
     }
 
     pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
@@ -53,7 +53,7 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
         // Compute the projection interval radius of b onto L(t) = b.c + t * p.n
         let r = e[0]*Float::abs(self.normal[0]) + e[1]*Float::abs(self.normal[1]) + e[2]*Float::abs(self.normal[2]);
         // Compute distance of box center from plane
-        let s = self.normal.dot(&c.coords) - self.distance;
+        let s = self.normal.dot(&c) - self.distance;
         // Intersection occurs when distance s falls within [-r,+r] interval
         return Float::abs(s) <= r
     }
@@ -66,7 +66,7 @@ impl<TScalar: RealNumber> HasScalarType for Plane3<TScalar> {
 impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
     /// Returns closest point on plane to given point
     #[inline]
-    fn closest_point(&self, point: &Point3<TScalar>) -> Point3<TScalar> {
+    fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let t = self.distance_to_point(point);
         return point - self.normal.scale(t); 
     }

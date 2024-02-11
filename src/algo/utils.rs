@@ -1,18 +1,18 @@
 use nalgebra::{Point3, Vector3};
 use num_traits::Float;
 
-use crate::geometry::traits::{RealNumber, Number};
+use crate::{geometry::traits::{RealNumber, Number}, helpers::aliases::Vec3};
 
-pub fn barycenter<'a, TScalar, TPointsIter>(points: TPointsIter) -> Point3<TScalar> 
+pub fn barycenter<'a, TScalar, TPointsIter>(points: TPointsIter) -> Vec3<TScalar> 
 where 
     TScalar: RealNumber, 
-    TPointsIter: Iterator<Item = &'a Point3<TScalar>> 
+    TPointsIter: Iterator<Item = &'a Vec3<TScalar>> 
 {
-    let mut barycenter = Point3::origin();
+    let mut barycenter = Vec3::zeros();
     let mut size = 0;
 
     for p in points {
-        barycenter += p.coords;
+        barycenter += p;
         size += 1 ;
     }
 
@@ -21,10 +21,10 @@ where
     return barycenter;
 }
 
-pub fn tangential_relaxation<'a, TScalar, TPointsIter>(points: TPointsIter, origin: &Point3<TScalar>,  normal: &Vector3<TScalar>) -> Point3<TScalar> 
+pub fn tangential_relaxation<'a, TScalar, TPointsIter>(points: TPointsIter, origin: &Vec3<TScalar>,  normal: &Vec3<TScalar>) -> Vec3<TScalar> 
 where 
     TScalar: RealNumber, 
-    TPointsIter: Iterator<Item = &'a Point3<TScalar>> 
+    TPointsIter: Iterator<Item = &'a Vec3<TScalar>> 
 {
     let normal_t = normal.clone().transpose();
     let barycenter = barycenter(points);
