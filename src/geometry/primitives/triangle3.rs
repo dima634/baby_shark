@@ -296,8 +296,8 @@ impl<TScalar: RealNumber> HasBBox3 for Triangle3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<TScalar> {
         return Box3::new(
-            min2(&self.c, &min2(&self.a, &self.b)).into(),
-            max2(&self.c, &max2(&self.a, &self.b)).into(),
+            min2(&self.c, &min2(&self.a, &self.b)),
+            max2(&self.c, &max2(&self.a, &self.b)),
         );
     }
 }
