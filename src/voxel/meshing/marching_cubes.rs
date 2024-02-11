@@ -306,26 +306,8 @@ impl MarchingCubesMesher {
             };
 
             if Triangle3::is_degenerate(&v1, &v2, &v3) {
-                // println!("{} {} {}", v1, v2, v3);
                 continue;
             }
-
-            // let e1 = E::new(v1, v2);
-            // let e2 = E::new(v2, v3);
-            // let e3 = E::new(v3, v1);
-
-            // if self.edges.get(&e1).is_some_and(|v| *v > 2)
-            // || self.edges.get(&e2).is_some_and(|v| *v > 2)
-            // || self.edges.get(&e3).is_some_and(|v| *v > 2)
-            // {
-            //     println!("Edge already exists. case {}", self.case);
-            //     // panic!();
-            //     continue;
-            // } else {
-            //     self.edges.entry(e1).and_modify(|v| *v += 1).or_insert(1);
-            //     self.edges.entry(e2).and_modify(|v| *v += 1).or_insert(1);
-            //     self.edges.entry(e3).and_modify(|v| *v += 1).or_insert(1);
-            // }
 
             self.vertices.push(v1 * self.voxel_size);
             self.vertices.push(v2 * self.voxel_size);
