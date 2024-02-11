@@ -1,7 +1,5 @@
 use std::{fmt::Debug, ops::Index};
 
-use nalgebra::ComplexField;
-
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
@@ -303,7 +301,6 @@ impl MarchingCubesMesher {
             };
 
             if Triangle3::is_degenerate(&v1, &v2, &v3) {
-                println!("degenerate {}", self.case);
                 // println!("{} {} {}", v1, v2, v3);
                 continue;
             }
@@ -936,8 +933,6 @@ impl MarchingCubesMesher {
     }
 
     fn compute_c_vertex(&mut self) {
-        println!("Compute C vertex");
-
         let intersections = [
             self.intersection(Edge { v1: 0, v2: 1 }),
             self.intersection(Edge { v1: 1, v2: 2 }),

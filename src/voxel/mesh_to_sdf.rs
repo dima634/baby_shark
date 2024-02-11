@@ -205,12 +205,12 @@ impl MeshToSdf {
         };
 
         self.distance_field.visit_leafs_par(&mut visitor);
-        
+
         match visitor.distance_field.into_inner() {
             Ok(df) => {
                 self.distance_field = df;
                 true
-            },
+            }
             Err(_) => false,
         }
     }
@@ -263,7 +263,8 @@ impl<'a, TGrid: Grid<Value = Scalar>> ComputeSignsVisitor<'a, TGrid> {
                     };
                     let wn = self.winding_numbers.approximate(&grid_point, 2.0);
 
-                    if wn < 0.05 {
+                    if wn < 0.2 {
+                        // Outside, threshold value picked experimentally
                         dist = dist.copysign(1.0);
                     } else {
                         dist = dist.copysign(-1.0);
