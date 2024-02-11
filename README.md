@@ -55,6 +55,28 @@ let remesher = IncrementalRemesher::new()
 remesher.remesh(&mut mesh, 0.002f32);
 ```
 
+## Voxel remeshing
+*Voxel remeshing* is a computational process used in computer graphics to reconstruct or optimize the topology of a three-dimensional (3D) model.
+Voxels are volumetric pixels that make up the 3D space, and remeshing involves reorganizing these voxels to create a more uniform and well-defined mesh structure.
+Also, it comes with the benefit of removing overlapping geometry, a valuable asset in sculpting applications.
+
+<img width="1330" alt="image" src="assets/readme/voxel_remeshing.png">
+
+### Example
+```rust
+use baby_shark::{
+    mesh::{builder, polygon_soup::data_structure::PolygonSoup},
+    remeshing::voxel::VoxelRemesher,
+};
+use nalgebra::Vector3;
+
+fn main() {
+    let mesh: PolygonSoup<f32> = builder::cube(Vector3::zeros(), 1.0, 1.0, 1.0);
+    let mut remesher = VoxelRemesher::default().with_voxel_size(0.02);
+    let remeshed = remesher.remesh(&mesh).unwrap();
+}
+```
+
 ## Mesh simplification (decimation)
 This library implements incremental edge decimation algorithm. On each iteration edge with lowest collapse cost is collapsed.
 Several stop condition are supported:
