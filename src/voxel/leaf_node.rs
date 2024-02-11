@@ -140,9 +140,9 @@ impl<
                 continue;
             }
 
-            let value = &self.values[offset];
+            let value = self.values[offset];
 
-            if !value.is_within_tolerance(first_value, tolerance) {
+            if (value - first_value) > tolerance {
                 return None;
             }
         }

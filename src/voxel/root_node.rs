@@ -6,7 +6,7 @@ use std::{
 use nalgebra::Vector3;
 use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
-use super::{Accessor, GridValue, TreeNode};
+use super::{Accessor, GridValue, ParVisitor, TreeNode, Visitor};
 
 #[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
@@ -73,7 +73,7 @@ where
         RootNode { root }
     }
 
-    fn visit_leafs_par<T: super::ParVisitor<Self::Leaf>>(&self, visitor: &T) {
+    fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
         self.root
             .values()
             .par_bridge()
@@ -81,7 +81,7 @@ where
             .for_each(|node| node.visit_leafs_par(visitor));
     }
 
-    fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
+    fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         self.root
             .values()
             .for_each(|node| node.visit_leafs(visitor));

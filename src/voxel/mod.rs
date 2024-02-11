@@ -11,6 +11,8 @@ mod root_node;
 mod tests;
 mod utils;
 
+use std::ops::Sub;
+
 pub use sdf::*;
 
 use crate::helpers::aliases::Vec3i;
@@ -23,7 +25,7 @@ trait IsWithinTolerance {
     fn is_within_tolerance(&self, value: Self, tolerance: Self) -> bool;
 }
 
-trait GridValue: Copy + Clone + Send + Sync + PartialEq + IsWithinTolerance {}
+trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
 trait Accessor {
     type Value: GridValue; // Remove Copy?

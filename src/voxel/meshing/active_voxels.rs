@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 
-use crate::voxel::{Grid, TreeNode, Visitor};
+use crate::voxel::{Grid, Tile, TreeNode, Visitor};
 
 pub(super) struct ActiveVoxelsMesher {
     vertices: Vec<Vector3<isize>>,
@@ -125,7 +125,7 @@ struct ActiveVoxelsVisitor<'a, T: TreeNode> {
 }
 
 impl<T: Grid> Visitor<T::Leaf> for ActiveVoxelsVisitor<'_, T> {
-    fn tile(&mut self, tile: crate::voxel::Tile<<T>::Value>) {
+    fn tile(&mut self, tile: Tile<<T>::Value>) {
         // Test only boundary voxels
         for i in 0..tile.size {
             for j in 0..tile.size {

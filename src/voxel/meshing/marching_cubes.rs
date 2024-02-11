@@ -1,22 +1,23 @@
 use std::{fmt::Debug, ops::Index};
 
-use nalgebra::Vector3;
-
 use crate::{
     geometry::primitives::triangle3::Triangle3,
-    helpers::aliases::{Vec3f, Vec3i},
+    helpers::aliases::{Vec3, Vec3f, Vec3i},
     voxel::{utils::CUBE_OFFSETS, Accessor, Scalar, Sdf, SdfGrid, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
 
 pub struct MarchingCubesMesher {
-    vertices: Vec<Vector3<f32>>,
+    vertices: Vec<Vec3f>,
     voxel_size: f32,
     v12: Vec3f,
     cube: Cube,
     case: i8,
     config: usize,
+    x_int: Box<<SdfGrid as TreeNode>::As<f32>>,
+    y_int: Box<<SdfGrid as TreeNode>::As<f32>>,
+    z_int: Box<<SdfGrid as TreeNode>::As<f32>>,
 }
 
 impl MarchingCubesMesher {
@@ -32,13 +33,25 @@ impl MarchingCubesMesher {
         self
     }
 
-    pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vector3<f32>> {
+    pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vec3f> {
+        let mut compute_intersections = ComputeEdgeIntersections {
+            grid: sdf.grid(),
+            x_int: self.x_int.as_mut(),
+            y_int: self.y_int.as_mut(),
+            z_int: self.z_int.as_mut(),
+        };
+
+        sdf.grid().visit_leafs(&mut compute_intersections);
+
         let mut cubes_visitor = CubesVisitor {
             grid: sdf.grid(),
             mc: self,
         };
 
         sdf.grid().visit_leafs(&mut cubes_visitor);
+
+        // println!("Edges: {:?}", self.edges.values());
+
         self.vertices.clone()
     }
 
@@ -47,7 +60,7 @@ impl MarchingCubesMesher {
             Some(c) => c,
             None => return,
         };
-        let [cube_case, cube_config] = CASES[self.cube.id() as usize];
+        let [cube_case, cube_config] = CASES[self.cube.id as usize];
         self.case = cube_case;
         self.config = cube_config as usize;
 
@@ -275,13 +288,40 @@ impl MarchingCubesMesher {
             let e3 = edges[i + 1];
             let e2 = edges[i + 2];
 
-            let v1 = self.intersection(&e1);
-            let v2 = self.intersection(&e2);
-            let v3 = self.intersection(&e3);
+            let (v1, v2, v3) = match (
+                self.intersection(e1),
+                self.intersection(e2),
+                self.intersection(e3),
+            ) {
+                (Some(v1), Some(v2), Some(v3)) => (v1, v2, v3),
+                _ => {
+                    debug_assert!(false, "Marching cubes: intersection should exist");
+                    continue;
+                }
+            };
 
             if Triangle3::is_degenerate(&v1, &v2, &v3) {
+                println!("degenerate {}", self.case);
+                // println!("{} {} {}", v1, v2, v3);
                 continue;
             }
+
+            // let e1 = E::new(v1, v2);
+            // let e2 = E::new(v2, v3);
+            // let e3 = E::new(v3, v1);
+
+            // if self.edges.get(&e1).is_some_and(|v| *v > 2)
+            // || self.edges.get(&e2).is_some_and(|v| *v > 2)
+            // || self.edges.get(&e3).is_some_and(|v| *v > 2)
+            // {
+            //     println!("Edge already exists. case {}", self.case);
+            //     // panic!();
+            //     continue;
+            // } else {
+            //     self.edges.entry(e1).and_modify(|v| *v += 1).or_insert(1);
+            //     self.edges.entry(e2).and_modify(|v| *v += 1).or_insert(1);
+            //     self.edges.entry(e3).and_modify(|v| *v += 1).or_insert(1);
+            // }
 
             self.vertices.push(v1 * self.voxel_size);
             self.vertices.push(v2 * self.voxel_size);
@@ -290,12 +330,20 @@ impl MarchingCubesMesher {
     }
 
     #[inline]
-    fn intersection(&self, edge: &Edge) -> Vec3f {
+    fn intersection(&self, edge: Edge) -> Option<Vec3f> {
         if edge.is_special_edge() {
-            return self.v12;
+            return Some(self.v12);
         }
 
-        self.cube.interpolate(edge.v1 as usize, edge.v2 as usize)
+        let idx = &self.cube.vertices[edge.v1 as usize].index;
+
+        let int = match edge.dir() {
+            EdgeDir::X => Vec3f::new(*self.x_int.at(idx)?, idx.y as f32, idx.z as f32),
+            EdgeDir::Y => Vec3f::new(idx.x as f32, *self.y_int.at(idx)?, idx.z as f32),
+            EdgeDir::Z => Vec3f::new(idx.x as f32, idx.y as f32, *self.z_int.at(idx)?),
+        };
+
+        Some(int)
     }
 
     fn interior_test_case13(&self) -> bool {
@@ -886,19 +934,22 @@ impl MarchingCubesMesher {
     }
 
     fn compute_c_vertex(&mut self) {
+        println!("Compute C vertex");
+
         let intersections = [
-            self.cube.interpolate_checked(0, 1),
-            self.cube.interpolate_checked(0, 5),
-            self.cube.interpolate_checked(5, 4),
-            self.cube.interpolate_checked(4, 0),
-            self.cube.interpolate_checked(3, 2),
-            self.cube.interpolate_checked(2, 6),
-            self.cube.interpolate_checked(6, 7),
-            self.cube.interpolate_checked(7, 3),
-            self.cube.interpolate_checked(1, 2),
-            self.cube.interpolate_checked(0, 3),
-            self.cube.interpolate_checked(4, 7),
-            self.cube.interpolate_checked(5, 6),
+            self.intersection(Edge { v1: 0, v2: 1 }),
+            self.intersection(Edge { v1: 1, v2: 2 }),
+            self.intersection(Edge { v1: 3, v2: 2 }),
+            self.intersection(Edge { v1: 0, v2: 3 }),
+            self.intersection(Edge { v1: 4, v2: 5 }),
+            self.intersection(Edge { v1: 5, v2: 6 }),
+            self.intersection(Edge { v1: 7, v2: 6 }),
+            self.intersection(Edge { v1: 4, v2: 7 }),
+            self.intersection(Edge { v1: 0, v2: 4 }),
+            self.intersection(Edge { v1: 1, v2: 5 }),
+            self.intersection(Edge { v1: 2, v2: 6 }),
+            self.intersection(Edge { v1: 3, v2: 7 }),
+            self.intersection(Edge { v1: 0, v2: 0 }),
         ];
 
         let count = intersections.iter().filter(|e| e.is_some()).count();
@@ -917,6 +968,9 @@ impl Default for MarchingCubesMesher {
             case: 0,
             config: 0,
             voxel_size: 1.0,
+            x_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
+            y_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
+            z_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
         }
     }
 }
@@ -941,14 +995,14 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
         // Test only boundary voxels
         for i in 0..s {
             for j in 0..s {
-                let left = o + Vector3::new(0, i, j).cast();
-                let right = o + Vector3::new(tile.size - 1, i, j).cast();
+                let left = o + Vec3::new(0, i, j).cast();
+                let right = o + Vec3::new(tile.size - 1, i, j).cast();
 
-                let top = o + Vector3::new(i, j, tile.size - 1).cast();
-                let bottom = o + Vector3::new(i, j, 0).cast();
+                let top = o + Vec3::new(i, j, tile.size - 1).cast();
+                let bottom = o + Vec3::new(i, j, 0).cast();
 
-                let front = o + Vector3::new(i, tile.size - 1, j).cast();
-                let back = o + Vector3::new(i, 0, j).cast();
+                let front = o + Vec3::new(i, tile.size - 1, j).cast();
+                let back = o + Vec3::new(i, 0, j).cast();
 
                 self.mc.handle_cube(self.cube(left));
                 self.mc.handle_cube(self.cube(right));
@@ -968,9 +1022,94 @@ impl<T: TreeNode<Value = Scalar>> Visitor<T> for CubesVisitor<'_> {
         for x in min.x..max.x {
             for y in min.y..max.y {
                 for z in min.z..max.z {
-                    let voxel_idx = Vector3::new(x, y, z);
+                    let voxel_idx = Vec3i::new(x, y, z);
                     let cube = self.cube(voxel_idx);
                     self.mc.handle_cube(cube);
+                }
+            }
+        }
+    }
+}
+
+struct ComputeEdgeIntersections<'a, T: TreeNode<Value = Scalar>> {
+    grid: &'a T,
+    x_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
+    y_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
+    z_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
+}
+
+impl<'a, T: TreeNode<Value = Scalar>> ComputeEdgeIntersections<'a, T> {
+    fn compute_intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
+        if self.x_int.at(v2).is_some() {
+            return;
+        }
+
+        let (v1_val, v2_val) = match (self.grid.at(v1), self.grid.at(v2)) {
+            (Some(v1), Some(v2)) => (v1.value, v2.value),
+            _ => return,
+        };
+
+        if v1_val * v2_val > 0.0 {
+            return;
+        }
+
+        let v1_val_a = v1_val.abs(); //.max(1e-6);
+        let v2_val_a = v2_val.abs(); //.max(1e-6);
+        let l = v1_val_a + v2_val_a;
+        let t = v1_val_a / l; //.max(1e-6);
+
+        debug_assert!(
+            l != 0.0,
+            "Marching cubes: edge vertices cannot both have 0 distance to surface"
+        );
+
+        if t < f32::EPSILON {
+            println!("t == {}, v1_val: {}, v2_val: {}", t, v1_val, v2_val);
+        }
+
+        match dir {
+            EdgeDir::X => {
+                let int = v1.x as f32 + t;
+                self.x_int.insert(v1, int);
+            }
+            EdgeDir::Y => {
+                let int = v1.y as f32 + t;
+                self.y_int.insert(v1, int);
+            }
+            EdgeDir::Z => {
+                let int = v1.z as f32 + t;
+                self.z_int.insert(v1, int);
+            }
+        };
+    }
+}
+
+impl<'a, T: TreeNode<Value = Scalar>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
+    fn tile(&mut self, tile: Tile<T::Value>) {
+        todo!("Support for tiles");
+    }
+
+    fn dense(&mut self, dense: &T::Leaf) {
+        let min = dense.origin();
+        let size = T::Leaf::resolution() as isize;
+        let max = Vec3i::new(min.x + size, min.y + size, min.z + size);
+
+        for x in min.x..max.x {
+            for y in min.y..max.y {
+                for z in min.z..max.z {
+                    let v = Vec3i::new(x, y, z);
+
+                    let mut v1 = v;
+                    v1.x += 1;
+                    self.compute_intersection(&v, &v1, EdgeDir::X);
+
+                    let mut v2 = v;
+                    v2.y += 1;
+                    self.compute_intersection(&v, &v2, EdgeDir::Y);
+
+                    let mut v3 = v;
+                    v3.z += 1;
+                    self.compute_intersection(&v, &v3, EdgeDir::Z);
                 }
             }
         }
@@ -1013,7 +1152,7 @@ impl Index<usize> for Cube {
 }
 
 impl Cube {
-    fn from_voxel(voxel: Vector3<isize>, grid: &SdfGrid) -> Option<Self> {
+    fn from_voxel(voxel: Vec3i, grid: &SdfGrid) -> Option<Self> {
         let mut cube: Self = Default::default();
 
         let vertex_indices = CUBE_OFFSETS.map(|off| voxel + off);
@@ -1026,7 +1165,7 @@ impl Cube {
             };
 
             if value < 0.0 {
-                cube.id |= 1 << i;
+                cube.id |= 1 << i; // inside
             }
 
             cube.vertices[i] = Vertex { index, value };
@@ -1035,38 +1174,37 @@ impl Cube {
         Some(cube)
     }
 
-    fn interpolate_checked(&self, v1: usize, v2: usize) -> Option<Vec3f> {
-        let v1_val = &self.vertices[v1].value;
-        let v2_val = &self.vertices[v2].value;
+    // fn interpolate_checked(&self, v1: usize, v2: usize) -> Option<Vec3f> {
+    //     let v1_val = &self.vertices[v1].value;
+    //     let v2_val = &self.vertices[v2].value;
 
-        if v1_val * v2_val > 0.0 {
-            return None;
-        }
+    //     if v1_val * v2_val > 0.0 {
+    //         return None;
+    //     }
 
-        Some(self.interpolate(v1, v2))
-    }
+    //     Some(self.interpolate(v1, v2))
+    // }
 
-    fn interpolate(&self, v1: usize, v2: usize) -> Vec3f {
-        let v1 = self.vertices[v1];
-        let v2 = self.vertices[v2];
+    // fn interpolate(&self, v1: usize, v2: usize) -> Vec3f {
+    //     let v1 = self.vertices[v1];
+    //     let v2 = self.vertices[v2];
 
-        let v1_val = v1.value.abs();
-        let v2_val = v2.value.abs();
-        let l = v1_val + v2_val;
-        let dir = v2.index - v1.index;
-        let t = v1.index.cast() + dir.cast() * v1_val / l;
+    //     let v1_val = v1.value.abs();
+    //     let v2_val = v2.value.abs();
+    //     let l = v1_val + v2_val;
+    //     let dir = v2.index - v1.index;
+    //     let t = v1.index.cast() + dir.cast() * v1_val / l;
 
-        debug_assert!(
-            t.iter().all(|v| v.is_finite()),
-            "Marching cubes: intersection coordinates are not finite: {:?}",
-            t
-        );
+    //     debug_assert!(
+    //         t.iter().all(|v| v.is_finite()),
+    //         "Marching cubes: intersection coordinates are not finite: {:?}",
+    //         t
+    //     );
 
-        t
-    }
+    //     if v1_val < 0.00001 || v2_val < 0.00001 {
+    //         // println!("v1 {v1_val}\tv2 {v2_val}\tt {}", v1_val / l);
+    //     }
 
-    #[inline]
-    fn id(&self) -> u8 {
-        self.id
-    }
+    //     t
+    // }
 }

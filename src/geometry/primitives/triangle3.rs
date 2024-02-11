@@ -252,14 +252,14 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Vec3<TScalar> {
         let cross = (b - a).cross(&(c - a));
-        debug_assert!(cross.norm_squared() > TScalar::zero(), "Degenerate face");
+        debug_assert!(cross.norm_squared() > TScalar::zero(), "Triangle3: degenerate face");
         return cross.normalize();
     }
 
     #[inline]
     pub fn is_degenerate(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> bool {
         let cross = (b - a).cross(&(c - a));
-        return cross.norm_squared() == TScalar::zero();
+        cross.norm_squared() == TScalar::zero()
     }
 
     #[inline]

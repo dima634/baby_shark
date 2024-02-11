@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_static_vdb_macro_5_4_3() {
-        type Grid = static_vdb!((), 5, 4, 3);
+        type Grid = static_vdb!(Empty, 5, 4, 3);
         type Lvl1 = <Grid as TreeNode>::Child;
         type Lvl2 = <Lvl1 as TreeNode>::Child;
 
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_vdb_macro() {
-        type Grid = dynamic_vdb!((), 5, 4, 3);
+        type Grid = dynamic_vdb!(Empty, 5, 4, 3);
         type Lvl1 = <Grid as TreeNode>::Child;
         type Lvl2 = <Lvl1 as TreeNode>::Child;
         type Lvl3 = <Lvl2 as TreeNode>::Child;
@@ -87,8 +87,8 @@ mod tests {
 
     #[test]
     fn test_parallel_internal_node_macro() {
-        type _Grid1 = dynamic_vdb!((), par 5, 4, 3);
-        type _Grid2 = dynamic_vdb!((), par 5, par 4, 3);
-        type _Grid3 = dynamic_vdb!((), 5, par 4, 3);
+        type _Grid1 = dynamic_vdb!(Empty, par 5, 4, 3);
+        type _Grid2 = dynamic_vdb!(Empty, par 5, par 4, 3);
+        type _Grid3 = dynamic_vdb!(Empty, 5, par 4, 3);
     }
 }

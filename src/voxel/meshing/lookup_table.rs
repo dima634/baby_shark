@@ -25,6 +25,12 @@ use std::mem::MaybeUninit;
 ///   0          1        0          1
 ///
 
+pub enum EdgeDir {
+    X,
+    Y,
+    Z,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Edge {
     pub v1: u8,
@@ -36,16 +42,25 @@ impl Edge {
         self.v1 == 0 && self.v2 == 0
     }
 
+    pub fn dir(&self) -> EdgeDir {
+        match (self.v1, self.v2) {
+            (0, 1) | (3, 2) | (4, 5) | (7, 6) => EdgeDir::X,
+            (0, 3) | (1, 2) | (4, 7) | (5, 6) => EdgeDir::Y,
+            (0, 4) | (1, 5) | (2, 6) | (3, 7) => EdgeDir::Z,
+            _ => panic!("Invalid edge"),
+        }
+    }
+
     const fn from_edge_num(num: i8) -> Self {
         match num {
             0 => Self { v1: 0, v2: 1 },
             1 => Self { v1: 1, v2: 2 },
-            2 => Self { v1: 2, v2: 3 },
-            3 => Self { v1: 3, v2: 0 },
+            2 => Self { v1: 3, v2: 2 },
+            3 => Self { v1: 0, v2: 3 },
             4 => Self { v1: 4, v2: 5 },
             5 => Self { v1: 5, v2: 6 },
-            6 => Self { v1: 6, v2: 7 },
-            7 => Self { v1: 7, v2: 4 },
+            6 => Self { v1: 7, v2: 6 },
+            7 => Self { v1: 4, v2: 7 },
             8 => Self { v1: 0, v2: 4 },
             9 => Self { v1: 1, v2: 5 },
             10 => Self { v1: 2, v2: 6 },

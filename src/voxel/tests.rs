@@ -3,8 +3,8 @@ use crate::static_vdb;
 use crate::voxel::utils::box_indices;
 use crate::voxel::*;
 
-type StaticTree = static_vdb!((), 4, 3, 2);
-type DynamicTree = dynamic_vdb!((), 4, 3, 2);
+type StaticTree = static_vdb!(Empty, 4, 3, 2);
+type DynamicTree = dynamic_vdb!(Empty, 4, 3, 2);
 
 #[test]
 fn test_static_tree_insert_remove() {
@@ -13,7 +13,7 @@ fn test_static_tree_insert_remove() {
     let size = 32;
 
     for idx in box_indices(0, size) {
-        tree.insert(&idx, ());
+        tree.insert(&idx, Empty);
         assert!(tree.at(&idx).is_some());
     }
 
@@ -35,7 +35,7 @@ fn test_static_tree_remove() {
     let indices = box_indices(0, size).collect::<Vec<_>>();
 
     for idx in &indices {
-        tree.insert(idx, ());
+        tree.insert(idx, Empty);
         assert!(tree.at(&idx).is_some());
     }
 
@@ -57,14 +57,14 @@ fn test_static_tree_remove() {
 
 #[test]
 fn test_static_tree_fill() {
-    type Tree = static_vdb!((), 3, 2);
+    type Tree = static_vdb!(Empty, 3, 2);
 
     let mut tree = Tree::empty(Vec3i::zeros());
     let voxels_per_dim = Tree::resolution();
 
     assert!(tree.is_empty());
 
-    tree.fill(());
+    tree.fill(Empty);
 
     for idx in box_indices(0, voxels_per_dim as isize) {
         assert!(tree.at(&idx).is_some());
@@ -80,7 +80,7 @@ fn test_dynamic_tree_insert_remove() {
     let size = 32;
 
     for idx in box_indices(0, size) {
-        tree.insert(&idx, ());
+        tree.insert(&idx, Empty);
         assert!(tree.at(&idx).is_some());
     }
 

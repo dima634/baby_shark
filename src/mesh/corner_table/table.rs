@@ -340,7 +340,7 @@ impl<TScalar: RealNumber> Display for CornerTable<TScalar> {
     }
 }
 
-pub(super) mod helpers {
+pub mod helpers {
     use std::mem::swap;
 
     #[derive(Hash, PartialEq, Eq, Clone, Copy)]

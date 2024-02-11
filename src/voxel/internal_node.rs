@@ -4,7 +4,7 @@ use nalgebra::Vector3;
 
 use crate::data_structures::bitset::BitSet;
 
-use super::{Accessor, GridValue, IsWithinTolerance, ParVisitor, Tile, TreeNode};
+use super::{Accessor, GridValue, ParVisitor, Tile, TreeNode};
 
 #[derive(Debug)]
 pub(super) struct InternalNode<
@@ -333,7 +333,7 @@ where
             .values
             .iter()
             .skip(1)
-            .all(|value| value.is_within_tolerance(first_value, tolerance));
+            .all(|value| (*value - first_value) <= tolerance);
 
         if is_constant {
             return Some(first_value);

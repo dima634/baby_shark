@@ -1,9 +1,22 @@
+use std::ops::Sub;
+
+use crate::helpers::aliases::Vec3f;
+
 use super::{GridValue, IsWithinTolerance};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Empty;
 
 impl GridValue for Empty {}
+
+impl Sub for Empty {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, _: Self) -> Self {
+        self
+    }
+}
 
 impl IsWithinTolerance for Empty {
     #[inline]
@@ -19,7 +32,7 @@ impl From<()> for Empty {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialOrd)]
 pub struct Scalar {
     pub value: f32,
 }
@@ -29,6 +42,17 @@ pub const SMALL_SCALAR: Scalar = Scalar {
 };
 
 impl GridValue for Scalar {}
+
+impl Sub for Scalar {
+    type Output = Scalar;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            value: self.value - rhs.value,
+        }
+    }
+}
 
 impl IsWithinTolerance for Scalar {
     #[inline]
@@ -60,16 +84,10 @@ impl PartialEq for Scalar {
     }
 }
 
-impl GridValue for () {}
-
-impl IsWithinTolerance for () {
-    #[inline]
-    fn is_within_tolerance(&self, _: Self, _: Self) -> bool {
-        true
-    }
-}
-
 const SMALL_NUMBER: f32 = 1e-6;
+
+impl GridValue for Vec3f {}
+impl GridValue for f32 {}
 
 #[cfg(test)]
 mod tests {
