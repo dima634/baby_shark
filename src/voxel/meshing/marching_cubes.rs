@@ -8,6 +8,11 @@ use crate::{
 
 use super::lookup_table::*;
 
+///
+/// Corrected marching cubes 33.
+/// 
+/// Based on article: ["Practical considerations on Marching Cubes 33 topological correctness"](https://www.sci.utah.edu/~etiene/pdf/mc33.pdf)
+/// 
 pub struct MarchingCubesMesher {
     vertices: Vec<Vec3f>,
     voxel_size: f32,
