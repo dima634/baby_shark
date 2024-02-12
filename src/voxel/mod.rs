@@ -22,6 +22,11 @@ use root_node::*;
 
 trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
+trait Signed: GridValue {
+    fn copy_sign(&mut self, other: Self);
+    fn is_neg() -> bool;
+}
+
 trait Accessor {
     type Value: GridValue; // Remove Copy?
 
@@ -99,6 +104,10 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     fn size() -> usize {
         1 << Self::BRANCHING_TOTAL * 3
     }
+}
+
+trait FloodFill: TreeNode where Self::Value: Signed {
+    fn flood_fill(&mut self);
 }
 
 struct Tile<T> {

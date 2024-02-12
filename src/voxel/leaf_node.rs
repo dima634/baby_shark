@@ -2,9 +2,9 @@ use std::mem::MaybeUninit;
 
 use nalgebra::Vector3;
 
-use crate::data_structures::bitset::BitSet;
+use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 
-use super::{Accessor, GridValue, ParVisitor, TreeNode};
+use super::{Accessor, FloodFill, GridValue, ParVisitor, Signed, TreeNode};
 
 #[derive(Debug)]
 pub(super) struct LeafNode<
@@ -35,6 +35,11 @@ impl<
             + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
 
         offset as usize
+    }
+
+    #[inline]
+    fn first_value_on(&self) -> Option<usize> {
+        self.value_mask.iter().position(|v| v)
     }
 }
 
@@ -131,7 +136,7 @@ impl<
             return None;
         }
 
-        let first_value_offset = self.value_mask.iter().position(|v| v)?;
+        let first_value_offset = self.first_value_on()?;
         let first_value = self.values[first_value_offset];
 
         // Check if all values are within tolerance
@@ -184,6 +189,51 @@ impl<
     #[inline]
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         visitor.dense(self);
+    }
+}
+
+
+impl<
+        TValue: Signed,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > FloodFill for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
+    fn flood_fill(&mut self) {
+        let mut i = match self.first_value_on() {
+            Some(i) => i,
+            None => return,
+        };
+
+        for x in 0..SIZE {
+            let x00 = x << (BRANCHING + BRANCHING); // offset for block(x, 0, 0)
+
+            if self.value_mask.is_on(x00) {
+                i = x00;
+            }
+
+            let mut j = i;
+            for y in 0..SIZE {
+                let xy0 = x00 + (y << BRANCHING); // offset for block(x, y, 0)
+
+                if self.value_mask.is_on(xy0) {
+                    j = xy0;
+                }
+
+                let mut k = j;
+                for z in 0..SIZE {
+                    let xyz = xy0 + z; // offset for block(x, y, z)
+
+                    if self.value_mask.is_on(xyz) {
+                        k = xyz;
+                    } else {
+                        self.values[xyz].copy_sign(self.values[k]);
+                    }
+                }
+            }
+        }
     }
 }
 
