@@ -69,6 +69,7 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     fn origin(&self) -> Vec3i;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
+    fn clear(&mut self);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 

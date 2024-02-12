@@ -131,6 +131,10 @@ impl<
         self.values = [value; SIZE];
     }
 
+    fn clear(&mut self) {
+        self.value_mask.off_all();
+    }
+
     fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
         if self.is_empty() || !self.value_mask.is_full() {
             return None;

@@ -292,6 +292,12 @@ where
         self.values = [value; SIZE];
     }
 
+    fn clear(&mut self) {
+        self.child_mask.off_all();
+        self.value_mask.off_all();
+        self.childs.fill_with(|| None);
+    }
+
     fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
         unimplemented!("Unsupported operation. Internal node should never be constant");
     }

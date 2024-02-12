@@ -39,6 +39,8 @@ impl MarchingCubesMesher {
     }
 
     pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vec3f> {
+        self.clear();
+
         let mut compute_intersections = ComputeEdgeIntersections {
             grid: sdf.grid(),
             x_int: self.x_int.as_mut(),
@@ -58,6 +60,13 @@ impl MarchingCubesMesher {
         // println!("Edges: {:?}", self.edges.values());
 
         self.vertices.clone()
+    }
+
+    fn clear(&mut self) {
+        self.vertices.clear();
+        self.x_int.clear();
+        self.y_int.clear();
+        self.z_int.clear();
     }
 
     fn handle_cube(&mut self, cube: Option<Cube>) {

@@ -45,6 +45,10 @@ where
         unimplemented!("Unsupported operation. Dynamic root node can't be filled");
     }
 
+    fn clear(&mut self) {
+        self.root.clear();
+    }
+
     fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
         unimplemented!("Unsupported operation. Dynamic root node can't be constant");
     }

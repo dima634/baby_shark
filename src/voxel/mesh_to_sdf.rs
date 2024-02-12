@@ -217,6 +217,7 @@ impl MeshToSdf {
 
     fn clear(&mut self) {
         self.subdivided_mesh.clear();
+        self.distance_field.clear();
     }
 }
 
