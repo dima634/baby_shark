@@ -16,8 +16,8 @@ macro_rules! static_vdb {
             $crate::static_vdb!(@internal $value_type, $($rest)*),
             $branching,
             { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size($branching) },
+            { $crate::voxel::internal_node_bit_size($branching) },
             false,
         >
     };
@@ -28,8 +28,8 @@ macro_rules! static_vdb {
             $crate::static_vdb!(@internal $value_type, $($rest)*),
             $branching,
             { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size($branching) },
+            { $crate::voxel::internal_node_bit_size($branching) },
             true,
         >
     };

@@ -425,14 +425,58 @@ where
     }
 }
 
-pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
+pub const fn internal_node_size(branching: usize) -> usize {
     return 1 << branching * 3;
 }
 
-pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
-    return internal_node_size::<T>(branching) / usize::BITS as usize;
+pub const fn internal_node_bit_size(branching: usize) -> usize {
+    return internal_node_size(branching) / usize::BITS as usize;
 }
 
-pub const fn internal_node_branching<T: TreeNode>(branching: usize) -> usize {
-    return branching + T::BRANCHING_TOTAL;
+pub const fn internal_node_branching<TChild: TreeNode>(branching: usize) -> usize {
+    return branching + TChild::BRANCHING_TOTAL;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        data_structures::bitset::BitSet,
+        helpers::aliases::Vec3i,
+        voxel::{
+            internal_node_bit_size, internal_node_size, leaf_node_bit_size, leaf_node_size,
+            LeafNode, TreeNode,
+        },
+    };
+
+    use super::InternalNode;
+
+    #[test]
+    fn test_alloc_internal_node() {
+        const LEAF_LOG2: usize = 2;
+        const INTERNAL_LOG2: usize = 3;
+
+        type Leaf = LeafNode<
+            f32,
+            LEAF_LOG2,
+            LEAF_LOG2,
+            { leaf_node_size(LEAF_LOG2) },
+            { leaf_node_bit_size(LEAF_LOG2) },
+        >;
+        type Internal = InternalNode<
+            f32,
+            Leaf,
+            INTERNAL_LOG2,
+            { LEAF_LOG2 + INTERNAL_LOG2 },
+            { internal_node_size(INTERNAL_LOG2) },
+            { internal_node_bit_size(INTERNAL_LOG2) },
+            false,
+        >;
+
+        let origin = Vec3i::new(1, 2, 3);
+        let node = Internal::empty(origin);
+        assert_eq!(node.child_mask, BitSet::zeroes());
+        assert_eq!(node.value_mask, BitSet::zeroes());
+        assert_eq!(node.origin, origin);
+        assert!(node.childs.iter().all(|c| c.is_none()));
+    }
 }
