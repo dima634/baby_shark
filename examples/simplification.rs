@@ -9,7 +9,7 @@ use baby_shark::{
 fn main() {
     let mut reader = StlReader::new();
     let mut mesh: CornerTableF = reader
-        .read_stl_from_file(Path::new("./test_files/torus.stl"))
+        .read_stl_from_file(Path::new("./assets/torus.stl"))
         .expect("Read mesh from STL");
 
     let decimation_criteria = ConstantErrorDecimationCriteria::new(0.1f32);
