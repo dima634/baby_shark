@@ -4,7 +4,7 @@ use nalgebra::Vector3;
 
 use crate::data_structures::bitset::BitSet;
 
-use super::{Accessor, GridValue, ParVisitor, Tile, TreeNode};
+use super::{Accessor, FloodFill, GridValue, ParVisitor, Signed, Tile, TreeNode};
 
 #[derive(Debug)]
 pub(super) struct InternalNode<
@@ -59,7 +59,6 @@ where
     fn remove_child(&mut self, offset: usize) {
         debug_assert!(self.child_mask.at(offset));
 
-        // self.value_mask.set(offset, false);
         self.child_mask.off(offset);
         self.childs[offset] = None;
     }
@@ -111,6 +110,10 @@ where
         let z = offset & ((1 << BRANCHING) - 1);
 
         return Vector3::new(x, y, z);
+    }
+
+    const fn childs_per_dim() -> usize {
+        1 << BRANCHING
     }
 
     ///
@@ -431,14 +434,204 @@ where
     }
 }
 
+impl<
+        TChild,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+        const PARALLEL: bool,
+    > FloodFill
+    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
+where
+    TChild: TreeNode + FloodFill,
+    TChild::Value: Signed,
+{
+    fn flood_fill(&mut self) {
+        self.childs
+            .iter_mut()
+            .filter_map(|c| c.as_mut())
+            .for_each(|c| c.flood_fill());
+
+        let first_value = self.value_mask.find_first_on();
+        let first_child = self.child_mask.find_first_on();
+
+        let mut i = match (first_value, first_child) {
+            (Some(v), Some(c)) if v <= c => self.values[v].sign(),
+            (Some(_), Some(c)) => self.child(c).first_value_sign(),
+            (Some(i), None) => self.values[i].sign(),
+            (None, Some(i)) => self.child(i).first_value_sign(),
+            (None, None) => return,
+        };
+
+        for x in 0..Self::childs_per_dim() {
+            let x00 = x << (BRANCHING + BRANCHING); // offset for block(x, 0, 0)
+
+            if self.child_mask.is_on(x00) {
+                i = self.child(x00).last_value_sign();
+            } else if self.value_mask.is_on(x00) {
+                i = self.values[x00].sign();
+            }
+
+            let mut j = i;
+            for y in 0..Self::childs_per_dim() {
+                let xy0 = x00 + (y << BRANCHING); // offset for block(x, y, 0)
+
+                if self.child_mask.is_on(xy0) {
+                    i = self.child(xy0).last_value_sign();
+                } else if self.value_mask.is_on(xy0) {
+                    j = self.values[xy0].sign();
+                }
+
+                let mut k = j;
+                for z in 0..Self::childs_per_dim() {
+                    let xyz = xy0 + z; // offset for block(x, y, z)
+
+                    if self.child_mask.is_on(xyz) {
+                        k = self.child(xyz).last_value_sign();
+                    } else if self.value_mask.is_on(xyz) {
+                        k = self.values[xyz].sign();
+                    } else {
+                        self.values[xyz] = Self::Value::far();
+                        self.values[xyz].set_sign(k);
+                    }
+                }
+            }
+        }
+
+        self.value_mask = !self.child_mask;
+    }
+
+    #[inline]
+    fn first_value_sign(&self) -> super::ValueSign {
+        self.values[0].sign()
+    }
+
+    #[inline]
+    fn last_value_sign(&self) -> super::ValueSign {
+        self.values[SIZE - 1].sign()
+    }
+}
+
 pub const fn internal_node_size<T: TreeNode>(branching: usize) -> usize {
-    return 1 << branching * 3;
+    1 << branching * 3
 }
 
 pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
-    return internal_node_size::<T>(branching) / usize::BITS as usize;
+    let size = internal_node_size::<T>(branching) / usize::BITS as usize;
+
+    if size == 0 {
+        1
+    } else {
+        size
+    }
 }
 
 pub const fn internal_node_branching<T: TreeNode>(branching: usize) -> usize {
-    return branching + T::BRANCHING_TOTAL;
+    branching + T::BRANCHING_TOTAL
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        helpers::aliases::{Vec3, Vec3i},
+        static_vdb,
+        voxel::{utils::box_indices, *},
+    };
+
+    #[test]
+    fn test_flood_fill() {
+        type Internal = static_vdb!(f32, 2, 1);
+        type Leaf = <Internal as TreeNode>::Child;
+
+        struct TestSignVisitor {
+            sign: ValueSign,
+        }
+
+        impl Visitor<Leaf> for TestSignVisitor {
+            fn tile(&mut self, tile: Tile<f32>) {
+                assert_eq!(tile.value.sign(), self.sign, "Tile sign is wrong");
+            }
+
+            fn dense(&mut self, dense: &Leaf) {
+                let correct_sign = box_indices(0, Leaf::resolution() as isize)
+                    .all(|i| dense.at(&i).is_some_and(|v| v.sign() == self.sign));
+                assert!(correct_sign, "Leaf sign is wrong");
+            }
+        }
+
+        // One voxel with positive sign
+        let mut node = Internal::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(3, 2, 1), 1.0);
+        node.flood_fill();
+        node.visit_leafs(&mut TestSignVisitor {
+            sign: ValueSign::Positive,
+        });
+
+        // One voxel with negative sign
+        let mut node = Internal::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(3, 3, 3), -1.0);
+        node.flood_fill();
+        node.visit_leafs(&mut TestSignVisitor {
+            sign: ValueSign::Negative,
+        });
+
+        // Node split in half with narrow stripe of leaf nodes
+        let mut node = Internal::empty(Vec3i::zeros());
+        let x_neg = 4;
+        let x_pos = 5;
+
+        for y in 0..Internal::resolution() {
+            for z in 0..Internal::resolution() {
+                node.insert(&Vec3i::new(x_neg, y as isize, z as isize), -1.0);
+                node.insert(&Vec3i::new(x_pos, y as isize, z as isize), 1.0);
+            }
+        }
+
+        node.flood_fill();
+
+        let mut correct_signs = box_indices(0, x_neg + 1)
+            .all(|i| node.at(&i).is_some_and(|v| v.sign() == ValueSign::Negative));
+        correct_signs &= box_indices(x_pos, Internal::resolution() as isize)
+            .all(|i| node.at(&i).is_some_and(|v| v.sign() == ValueSign::Positive));
+
+        assert!(correct_signs);
+
+        // Node split in half with tiles
+        let mut tiled_node = Internal::empty(Vec3i::zeros());
+        let x_neg = 2;
+        let x_pos = 4;
+
+        for x in x_neg..Leaf::resolution() + x_neg {
+            for y in 0..Internal::resolution() {
+                for z in 0..Internal::resolution() {
+                    tiled_node.insert(&Vec3::new(x, y, z).cast(), -1.0);
+                }
+            }
+        }
+
+        for x in x_pos..Leaf::resolution() + x_pos {
+            for y in 0..Internal::resolution() {
+                for z in 0..Internal::resolution() {
+                    tiled_node.insert(&Vec3::new(x, y, z).cast(), 1.0);
+                }
+            }
+        }
+
+        tiled_node.prune(0.1);
+        tiled_node.flood_fill();
+
+        let mut correct_signs = box_indices(0, (x_neg + Leaf::resolution()) as isize).all(|i| {
+            tiled_node
+                .at(&i)
+                .is_some_and(|v| v.sign() == ValueSign::Negative)
+        });
+        correct_signs &= box_indices(x_pos as isize, Internal::resolution() as isize).all(|i| {
+            tiled_node
+                .at(&i)
+                .is_some_and(|v| v.sign() == ValueSign::Positive)
+        });
+
+        assert!(correct_signs);
+    }
 }

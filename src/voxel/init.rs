@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! static_vdb {
-    (@internal $value_type:ty, $branching:expr) => {
+    ($value_type:ty, $branching:expr) => {
         $crate::voxel::LeafNode<
             $value_type,
             $branching,
@@ -10,26 +10,26 @@ macro_rules! static_vdb {
         >
     };
 
-    ($(@internal)? $value_type:ty, $branching:expr, $($rest:tt)+) => {
+    ($value_type:ty, $branching:expr, $($rest:tt)+) => {
         $crate::voxel::InternalNode::<
             $value_type,
-            $crate::static_vdb!(@internal $value_type, $($rest)*),
+            $crate::static_vdb!($value_type, $($rest)*),
             $branching,
-            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_branching::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
             false,
         >
     };
 
-    ($(@internal)? $value_type:ty, par $branching:expr, $($rest:tt)+) => {
+    ($value_type:ty, par $branching:expr, $($rest:tt)+) => {
         $crate::voxel::InternalNode::<
             $value_type,
-            $crate::static_vdb!(@internal $value_type, $($rest)*),
+            $crate::static_vdb!($value_type, $($rest)*),
             $branching,
-            { $crate::voxel::internal_node_branching::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
-            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!(@internal $value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_branching::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_size::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
+            { $crate::voxel::internal_node_bit_size::<$crate::static_vdb!($value_type, $($rest)*)>($branching) },
             true,
         >
     };
@@ -38,7 +38,7 @@ macro_rules! static_vdb {
 #[macro_export]
 macro_rules! dynamic_vdb {
     ($value_type:ty, $($rest:tt)+) => {
-        $crate::voxel::RootNode::<$crate::static_vdb!(@internal $value_type, $($rest)*)>
+        $crate::voxel::RootNode::<$crate::static_vdb!($value_type, $($rest)*)>
     };
 }
 

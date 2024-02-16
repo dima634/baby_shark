@@ -22,9 +22,16 @@ use root_node::*;
 
 trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ValueSign {
+    Positive,
+    Negative,
+}
+
 trait Signed: GridValue {
-    fn copy_sign(&mut self, other: Self);
-    fn is_neg() -> bool;
+    fn set_sign(&mut self, sign: ValueSign);
+    fn sign(&self) -> ValueSign;
+    fn far() -> Self;
 }
 
 trait Accessor {
@@ -107,8 +114,13 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     }
 }
 
-trait FloodFill: TreeNode where Self::Value: Signed {
+trait FloodFill: TreeNode
+where
+    Self::Value: Signed,
+{
     fn flood_fill(&mut self);
+    fn first_value_sign(&self) -> ValueSign;
+    fn last_value_sign(&self) -> ValueSign;
 }
 
 struct Tile<T> {

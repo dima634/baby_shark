@@ -6,7 +6,9 @@ use std::{
 use nalgebra::Vector3;
 use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
-use super::{Accessor, GridValue, ParVisitor, TreeNode, Visitor};
+use crate::helpers::aliases::Vec3i;
+
+use super::{Accessor, FloodFill, GridValue, ParVisitor, Signed, TreeNode, ValueSign, Visitor};
 
 #[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
@@ -137,6 +139,55 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     }
 }
 
+impl<TChild: TreeNode> FloodFill for RootNode<TChild>
+where
+    TChild: FloodFill,
+    TChild::Value: Signed,
+{
+    fn flood_fill(&mut self) {
+        if self.root.is_empty() {
+            return;
+        }
+
+        self.root.values_mut().for_each(|c| c.flood_fill());
+        let child_origins: Vec<_> = self.root.keys().copied().collect();
+        let child_res = TChild::resolution() as isize;
+
+        for (a, b) in child_origins.iter().zip(child_origins.iter().skip(1)) {
+            // Check if tiles are on same z-line
+            if a.x() != b.x() || a.y() != b.y() || b.z() == a.z() + child_res {
+                continue;
+            }
+
+            let a_sign = self.root[a].last_value_sign();
+            let b_sign = self.root[b].first_value_sign();
+
+            // Is inside?
+            if a_sign == ValueSign::Positive || b_sign == ValueSign::Positive {
+                continue;
+            }
+
+            // Add tiles between inside childs
+            let mut inside_val = TChild::Value::far();
+            inside_val.set_sign(ValueSign::Negative);
+            let mut tile_origin = a.0 + Vec3i::new(0, 0, child_res);
+
+            while tile_origin.z < b.z() {
+                self.add_tile(&tile_origin, inside_val);
+                tile_origin.z += child_res;
+            }
+        }
+    }
+
+    fn first_value_sign(&self) -> ValueSign {
+        unimplemented!("Unsupported operation")
+    }
+
+    fn last_value_sign(&self) -> ValueSign {
+        unimplemented!("Unsupported operation")
+    }
+}
+
 impl<TChild: TreeNode> RootNode<TChild> {
     #[inline]
     pub fn new() -> Self {
@@ -146,17 +197,41 @@ impl<TChild: TreeNode> RootNode<TChild> {
     }
 
     #[inline]
-    fn root_key(index: &Vector3<isize>) -> RootKey {
-        return RootKey(Vector3::new(
+    fn root_key(index: &Vec3i) -> RootKey {
+        return RootKey(Vec3i::new(
             index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
             index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
         ));
     }
+
+    fn add_tile(&mut self, index: &Vec3i, value: TChild::Value) {
+        let key = Self::root_key(&index);
+        let mut tile = TChild::empty(key.0);
+        tile.fill(value);
+        self.root.insert(key, tile);
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-struct RootKey(Vector3<isize>);
+struct RootKey(Vec3i);
+
+impl RootKey {
+    #[inline]
+    fn x(&self) -> isize {
+        self.0.x
+    }
+
+    #[inline]
+    fn y(&self) -> isize {
+        self.0.y
+    }
+
+    #[inline]
+    fn z(&self) -> isize {
+        self.0.z
+    }
+}
 
 impl PartialOrd for RootKey {
     #[inline]
@@ -178,5 +253,37 @@ impl Hash for RootKey {
         let hash =
             ((1 << 8) - 1) & (self.0.x * 73856093 ^ self.0.y * 19349663 ^ self.0.z * 83492791);
         state.write_isize(hash);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        dynamic_vdb,
+        helpers::aliases::Vec3i,
+        voxel::{utils::region, Accessor, FloodFill, Signed, TreeNode, ValueSign},
+    };
+
+    #[test]
+    fn test_flood_fill() {
+        type Tree = dynamic_vdb!(f32, 1);
+
+        let mut tree = Tree::empty(Vec3i::zeros());
+
+        let o1 = Vec3i::new(0, 4, 4);
+        for i in region(o1, o1.add_scalar(2)) {
+            tree.insert(&i, -1.0);
+        }
+
+        let o2 = Vec3i::new(0, 4, 10);
+        for i in region(o2, o2.add_scalar(2)) {
+            tree.insert(&i, -1.0);
+        }
+
+        tree.flood_fill();
+
+        for i in region(o1, o2.add_scalar(2)) {
+            assert!(tree.at(&i).is_some_and(|v| v.sign() == ValueSign::Negative));
+        }
     }
 }

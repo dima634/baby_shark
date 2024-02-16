@@ -16,7 +16,7 @@ pub(super) struct LeafNode<
 > {
     values: [TValue; SIZE],
     value_mask: BitSet<SIZE, BIT_SIZE>,
-    origin: Vector3<isize>,
+    origin: Vec3i,
 }
 
 impl<
@@ -28,18 +28,13 @@ impl<
     > LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     #[inline]
-    fn offset(index: &Vector3<isize>) -> usize {
+    fn offset(index: &Vec3i) -> usize {
         let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1)
             << Self::BRANCHING + Self::BRANCHING)
             + ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING)
             + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
 
         offset as usize
-    }
-
-    #[inline]
-    fn first_value_on(&self) -> Option<usize> {
-        self.value_mask.iter().position(|v| v)
     }
 }
 
@@ -54,7 +49,7 @@ impl<
     type Value = TValue;
 
     #[inline]
-    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
+    fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
         let offset = Self::offset(index);
 
         if self.value_mask.at(offset) {
@@ -65,7 +60,7 @@ impl<
     }
 
     #[inline]
-    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
+    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value> {
         let offset = Self::offset(index);
 
         if self.value_mask.at(offset) {
@@ -76,14 +71,14 @@ impl<
     }
 
     #[inline]
-    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
+    fn insert(&mut self, index: &Vec3i, value: Self::Value) {
         let offset = Self::offset(index);
         self.value_mask.on(offset);
         self.values[offset] = value;
     }
 
     #[inline]
-    fn remove(&mut self, index: &Vector3<isize>) {
+    fn remove(&mut self, index: &Vec3i) {
         self.value_mask.off(Self::offset(index));
     }
 }
@@ -107,7 +102,7 @@ impl<
     type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
-    fn empty(origin: Vector3<isize>) -> Box<Self> {
+    fn empty(origin: Vec3i) -> Box<Self> {
         Box::new(Self {
             origin,
             value_mask: BitSet::zeroes(),
@@ -121,7 +116,7 @@ impl<
     }
 
     #[inline]
-    fn origin(&self) -> Vector3<isize> {
+    fn origin(&self) -> Vec3i {
         self.origin
     }
 
@@ -140,7 +135,7 @@ impl<
             return None;
         }
 
-        let first_value_offset = self.first_value_on()?;
+        let first_value_offset = self.value_mask.find_first_on()?;
         let first_value = self.values[first_value_offset];
 
         // Check if all values are within tolerance
@@ -196,7 +191,6 @@ impl<
     }
 }
 
-
 impl<
         TValue: Signed,
         const BRANCHING: usize,
@@ -206,38 +200,51 @@ impl<
     > FloodFill for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     fn flood_fill(&mut self) {
-        let mut i = match self.first_value_on() {
-            Some(i) => i,
+        let mut i = match self.value_mask.find_first_on() {
+            Some(i) => self.values[i].sign(),
             None => return,
         };
 
-        for x in 0..SIZE {
-            let x00 = x << (BRANCHING + BRANCHING); // offset for block(x, 0, 0)
+        for x in 0..Self::resolution() {
+            let x00 = x << (BRANCHING + BRANCHING); // offset for element(x, 0, 0)
 
             if self.value_mask.is_on(x00) {
-                i = x00;
+                i = self.values[x00].sign();
             }
 
             let mut j = i;
-            for y in 0..SIZE {
-                let xy0 = x00 + (y << BRANCHING); // offset for block(x, y, 0)
+            for y in 0..Self::resolution() {
+                let xy0 = x00 + (y << BRANCHING); // offset for element(x, y, 0)
 
                 if self.value_mask.is_on(xy0) {
-                    j = xy0;
+                    j = self.values[xy0].sign();
                 }
 
                 let mut k = j;
-                for z in 0..SIZE {
-                    let xyz = xy0 + z; // offset for block(x, y, z)
+                for z in 0..Self::resolution() {
+                    let xyz = xy0 + z; // offset for element(x, y, z)
 
                     if self.value_mask.is_on(xyz) {
-                        k = xyz;
+                        k = self.values[xyz].sign();
                     } else {
-                        self.values[xyz].copy_sign(self.values[k]);
+                        self.values[xyz] = Self::Value::far();
+                        self.values[xyz].set_sign(k);
                     }
                 }
             }
         }
+
+        self.value_mask.on_all();
+    }
+
+    #[inline]
+    fn first_value_sign(&self) -> super::ValueSign {
+        self.values[0].sign()
+    }
+
+    #[inline]
+    fn last_value_sign(&self) -> super::ValueSign {
+        self.values[SIZE - 1].sign()
     }
 }
 
@@ -246,5 +253,49 @@ pub const fn leaf_node_size(branching: usize) -> usize {
 }
 
 pub const fn leaf_node_bit_size(branching: usize) -> usize {
-    leaf_node_size(branching) / usize::BITS as usize
+    let size = leaf_node_size(branching) / usize::BITS as usize;
+
+    if size == 0 {
+        1
+    } else {
+        size
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{helpers::aliases::Vec3i, static_vdb, voxel::*};
+
+    #[test]
+    fn test_flood_fill() {
+        type Leaf = static_vdb!(f32, 2);
+
+        // One voxel with positive sign
+        let mut node = Leaf::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(2, 2, 2), 1.0);
+        node.flood_fill();
+        assert!(node.values.iter().all(|v| v.is_sign_positive()));
+
+        // One voxel with negative sign
+        let mut node = Leaf::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(2, 2, 2), -1.0);
+        node.flood_fill();
+        assert!(node.values.iter().all(|v| v.is_sign_negative()));
+
+        // Node split in half with positive and negative signs
+        let mut node = Leaf::empty(Vec3i::zeros());
+        let x_neg = 1;
+        let x_pos = 2;
+
+        for y in 0..Leaf::resolution() {
+            for z in 0..Leaf::resolution() {
+                node.insert(&Vec3i::new(x_neg, y as isize, z as isize), -1.0);
+                node.insert(&Vec3i::new(x_pos, y as isize, z as isize), 1.0);
+            }
+        }
+
+        node.flood_fill();
+        assert!(node.values[0..32].iter().all(|v| v.is_sign_negative()));
+        assert!(node.values[32..64].iter().all(|v| v.is_sign_positive()));
+    }
 }
