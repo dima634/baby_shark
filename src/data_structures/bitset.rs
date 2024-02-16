@@ -244,6 +244,24 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> Not for BitSet<BITS, STORAGE_
     }
 }
 
+impl<const BITS: usize, const STORAGE_SIZE: usize> PartialEq for BitSet<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let mut xor = 0;
+
+        for i in 0..STORAGE_SIZE - 1 {
+            xor |= self.storage[i] ^ other.storage[i];
+        }
+
+        xor |= (self.storage[STORAGE_SIZE - 1] & Self::unused_mask())
+            ^ (other.storage[STORAGE_SIZE - 1] & Self::unused_mask());
+
+        xor == 0
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> Eq for BitSet<BITS, STORAGE_SIZE> {}
+
 pub struct BitsIter<'a, const BITS: usize, const STORAGE_SIZE: usize> {
     bit_set: &'a BitSet<BITS, STORAGE_SIZE>,
     bit: usize,
@@ -359,5 +377,33 @@ mod tests {
         
         set.on(2);
         assert_eq!(set.find_first_on(), Some(2));
+    }
+
+    #[test]
+    fn test_eq() {
+        let set1 = BitSet::<10, 1>::ones();
+        let set2 = BitSet::<10, 1>::zeroes();
+        assert_ne!(set1, set2);
+
+        let set1 = BitSet::<10, 1>::ones();
+        let mut set2 = BitSet::<10, 1>::ones();
+        set2.off(5);
+        assert_ne!(set1, set2);
+
+        let mut set1 = BitSet::<10, 1>::ones();
+        set1.off(1);
+        let mut set2 = BitSet::<10, 1>::ones();
+        set2.off(5);
+        assert_ne!(set1, set2);
+
+        let set1 = BitSet::<10, 1>::ones();
+        let set2 = BitSet::<10, 1>::ones();
+        assert_eq!(set1, set2);
+
+        let mut set1 = BitSet::<10, 1>::zeroes();
+        set1.on(3);
+        let mut set2 = BitSet::<10, 1>::zeroes();
+        set2.on(3);
+        assert_eq!(set1, set2);
     }
 }
