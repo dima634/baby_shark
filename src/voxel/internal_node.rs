@@ -514,11 +514,11 @@ where
 }
 
 pub const fn internal_node_size(branching: usize) -> usize {
-    return 1 << branching * 3;
+    1 << branching * 3
 }
 
-pub const fn internal_node_bit_size<T: TreeNode>(branching: usize) -> usize {
-    let size = internal_node_size::<T>(branching) / usize::BITS as usize;
+pub const fn internal_node_bit_size(branching: usize) -> usize {
+    let size = internal_node_size(branching) / usize::BITS as usize;
 
     if size == 0 {
         1
@@ -535,11 +535,9 @@ pub const fn internal_node_branching<TChild: TreeNode>(branching: usize) -> usiz
 mod tests {
     use crate::{
         data_structures::bitset::BitSet,
-        helpers::aliases::Vec3i,
-        voxel::{
-            internal_node_bit_size, internal_node_size, leaf_node_bit_size, leaf_node_size,
-            LeafNode, TreeNode,
-        },
+        helpers::aliases::{Vec3, Vec3i},
+        static_vdb,
+        voxel::{utils::box_indices, *},
     };
 
     use super::InternalNode;
@@ -572,5 +570,101 @@ mod tests {
         assert_eq!(node.value_mask, BitSet::zeroes());
         assert_eq!(node.origin, origin);
         assert!(node.childs.iter().all(|c| c.is_none()));
+    }
+
+    #[test]
+    fn test_flood_fill() {
+        type Internal = static_vdb!(f32, 2, 1);
+        type Leaf = <Internal as TreeNode>::Child;
+
+        struct TestSignVisitor {
+            sign: ValueSign,
+        }
+
+        impl Visitor<Leaf> for TestSignVisitor {
+            fn tile(&mut self, tile: Tile<f32>) {
+                assert_eq!(tile.value.sign(), self.sign, "Tile sign is wrong");
+            }
+
+            fn dense(&mut self, dense: &Leaf) {
+                let correct_sign = box_indices(0, Leaf::resolution() as isize)
+                    .all(|i| dense.at(&i).is_some_and(|v| v.sign() == self.sign));
+                assert!(correct_sign, "Leaf sign is wrong");
+            }
+        }
+
+        // One voxel with positive sign
+        let mut node = Internal::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(3, 2, 1), 1.0);
+        node.flood_fill();
+        node.visit_leafs(&mut TestSignVisitor {
+            sign: ValueSign::Positive,
+        });
+
+        // One voxel with negative sign
+        let mut node = Internal::empty(Vec3i::zeros());
+        node.insert(&Vec3i::new(3, 3, 3), -1.0);
+        node.flood_fill();
+        node.visit_leafs(&mut TestSignVisitor {
+            sign: ValueSign::Negative,
+        });
+
+        // Node split in half with narrow stripe of leaf nodes
+        let mut node = Internal::empty(Vec3i::zeros());
+        let x_neg = 4;
+        let x_pos = 5;
+
+        for y in 0..Internal::resolution() {
+            for z in 0..Internal::resolution() {
+                node.insert(&Vec3i::new(x_neg, y as isize, z as isize), -1.0);
+                node.insert(&Vec3i::new(x_pos, y as isize, z as isize), 1.0);
+            }
+        }
+
+        node.flood_fill();
+
+        let mut correct_signs = box_indices(0, x_neg + 1)
+            .all(|i| node.at(&i).is_some_and(|v| v.sign() == ValueSign::Negative));
+        correct_signs &= box_indices(x_pos, Internal::resolution() as isize)
+            .all(|i| node.at(&i).is_some_and(|v| v.sign() == ValueSign::Positive));
+
+        assert!(correct_signs);
+
+        // Node split in half with tiles
+        let mut tiled_node = Internal::empty(Vec3i::zeros());
+        let x_neg = 2;
+        let x_pos = 4;
+
+        for x in x_neg..Leaf::resolution() + x_neg {
+            for y in 0..Internal::resolution() {
+                for z in 0..Internal::resolution() {
+                    tiled_node.insert(&Vec3::new(x, y, z).cast(), -1.0);
+                }
+            }
+        }
+
+        for x in x_pos..Leaf::resolution() + x_pos {
+            for y in 0..Internal::resolution() {
+                for z in 0..Internal::resolution() {
+                    tiled_node.insert(&Vec3::new(x, y, z).cast(), 1.0);
+                }
+            }
+        }
+
+        tiled_node.prune(0.1);
+        tiled_node.flood_fill();
+
+        let mut correct_signs = box_indices(0, (x_neg + Leaf::resolution()) as isize).all(|i| {
+            tiled_node
+                .at(&i)
+                .is_some_and(|v| v.sign() == ValueSign::Negative)
+        });
+        correct_signs &= box_indices(x_pos as isize, Internal::resolution() as isize).all(|i| {
+            tiled_node
+                .at(&i)
+                .is_some_and(|v| v.sign() == ValueSign::Positive)
+        });
+
+        assert!(correct_signs);
     }
 }
