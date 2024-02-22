@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{utils::CUBE_OFFSETS, Accessor, Sdf, SdfGrid, Tile, TreeNode, Visitor},
+    voxel::{sdf::{Sdf, SdfGrid}, utils::CUBE_OFFSETS, Accessor, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
@@ -942,7 +942,6 @@ impl MarchingCubesMesher {
             self.intersection(Edge { v1: 1, v2: 5 }),
             self.intersection(Edge { v1: 2, v2: 6 }),
             self.intersection(Edge { v1: 3, v2: 7 }),
-            self.intersection(Edge { v1: 0, v2: 0 }),
         ];
 
         let count = intersections.iter().filter(|e| e.is_some()).count();
@@ -1069,8 +1068,27 @@ impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
 }
 
 impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
-    fn tile(&mut self, _tile: Tile<T::Value>) {
-        todo!("Marching cubes: support for tiles");
+    fn tile(&mut self, tile: Tile<T::Value>) {
+        // Test only boundary voxels
+        for i in 0..tile.size {
+            for j in 0..tile.size {
+                let right = tile.origin + Vec3::new(tile.size - 1, i, j).cast();
+                let mut right2 = right;
+                right2.x += 1;
+
+                let front = tile.origin + Vec3::new(i, tile.size - 1, j).cast();
+                let mut front2 = front;
+                front2.y += 1;
+
+                let top = tile.origin + Vec3::new(i, j, tile.size - 1).cast();
+                let mut top2 = top;
+                top2.z += 1;
+
+                self.compute_intersection(&right, &right2, EdgeDir::X);
+                self.compute_intersection(&front, &front2, EdgeDir::Y);
+                self.compute_intersection(&top, &top2, EdgeDir::Z);
+            }
+        }
     }
 
     fn dense(&mut self, dense: &T::Leaf) {
