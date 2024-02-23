@@ -32,9 +32,9 @@ impl Sdf {
         let min = (min / voxel_size).map(|x| x.floor() as isize);
         let max = (max / voxel_size).map(|x| x.ceil() as isize);
 
-        for x in min.x..max.x {
-            for y in min.y..max.y {
-                for z in min.z..max.z {
+        for x in min.x..=max.x {
+            for y in min.y..=max.y {
+                for z in min.z..=max.z {
                     let idx = Vec3i::new(x, y, z);
                     let grid_point = idx.cast() * voxel_size;
                     let value = func(&grid_point);
