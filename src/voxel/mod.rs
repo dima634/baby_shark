@@ -11,9 +11,7 @@ mod root_node;
 mod tests;
 mod utils;
 
-use std::ops::Sub;
-
-pub use sdf::*;
+use std::ops::{Neg, Sub};
 
 use crate::helpers::aliases::Vec3i;
 use internal_node::*;
@@ -114,15 +112,29 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     }
 }
 
-trait FloodFill: TreeNode
+trait FloodFill
 where
+    Self: TreeNode,
     Self::Value: Signed,
 {
     fn flood_fill(&mut self);
+    fn fill_with_sign(&mut self, sign: ValueSign);
     fn first_value_sign(&self) -> ValueSign;
     fn last_value_sign(&self) -> ValueSign;
 }
 
+trait Csg
+where
+    Self: TreeNode + FloodFill,
+    Self::Value: Signed + Neg<Output = Self::Value>,
+{
+    fn union(&mut self, other: Box<Self>);
+    fn subtract(&mut self, other: Box<Self>);
+    fn intersect(&mut self, other: Box<Self>);
+    fn flip_signs(&mut self);
+}
+
+#[derive(Debug)]
 struct Tile<T> {
     pub origin: Vec3i,
     pub size: usize,

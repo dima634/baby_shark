@@ -1,6 +1,6 @@
 use std::{
-    collections::BTreeMap,
-    hash::{Hash, Hasher},
+    collections::{BTreeMap, BTreeSet},
+    hash::{Hash, Hasher}, ops::Neg,
 };
 
 use nalgebra::Vector3;
@@ -8,11 +8,29 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 use crate::helpers::aliases::Vec3i;
 
-use super::{Accessor, FloodFill, GridValue, ParVisitor, Signed, TreeNode, ValueSign, Visitor};
+use super::{Accessor, Csg, FloodFill, GridValue, ParVisitor, Signed, Tile, TreeNode, ValueSign, Visitor};
 
 #[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
     root: BTreeMap<RootKey, Box<TChild>>,
+}
+
+impl<TChild: TreeNode> RootNode<TChild> {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            root: Default::default(),
+        }
+    }
+
+    #[inline]
+    fn root_key(index: &Vec3i) -> RootKey {
+        return RootKey(Vec3i::new(
+            index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
+            index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
+            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
+        ));
+    }
 }
 
 impl<TChild> TreeNode for RootNode<TChild>
@@ -163,20 +181,25 @@ where
             let b_sign = self.root[b].first_value_sign();
 
             // Is inside?
-            if a_sign == ValueSign::Positive || b_sign == ValueSign::Positive {
+            if a_sign != ValueSign::Negative || b_sign != ValueSign::Negative {
                 continue;
             }
 
             // Add tiles between inside childs
-            let mut inside_val = TChild::Value::far();
-            inside_val.set_sign(ValueSign::Negative);
             let mut tile_origin = a.0 + Vec3i::new(0, 0, child_res);
 
             while tile_origin.z < b.z() {
-                self.add_tile(&tile_origin, inside_val);
+                let key = Self::root_key(&tile_origin);
+                let mut node = TChild::empty(key.0);
+                node.fill_with_sign(ValueSign::Negative);
+                self.root.insert(key, node);
                 tile_origin.z += child_res;
             }
         }
+    }
+    
+    fn fill_with_sign(&mut self, _: ValueSign) {
+        unimplemented!("Unsupported operation")
     }
 
     fn first_value_sign(&self) -> ValueSign {
@@ -188,28 +211,56 @@ where
     }
 }
 
-impl<TChild: TreeNode> RootNode<TChild> {
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            root: Default::default(),
+impl<TChild: TreeNode> Csg for RootNode<TChild>
+where
+    TChild: FloodFill + Csg,
+    TChild::Value: Signed + Neg<Output = TChild::Value>,
+{
+    fn union(&mut self, mut other: Box<Self>) {
+        let keys = self.root.keys()
+            .chain(other.root.keys())
+            .copied()
+            .collect::<BTreeSet<_>>();
+
+        for key in keys {
+            match (self.root.get_mut(&key), other.root.remove(&key)) {
+                (Some(n1), Some(n2)) => n1.union(n2),
+                (None, Some(n2)) => { self.root.insert(key, n2); },
+                (Some(_), None) | (None, None) => continue,
+            };
         }
     }
 
-    #[inline]
-    fn root_key(index: &Vec3i) -> RootKey {
-        return RootKey(Vec3i::new(
-            index.x & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.y & !((1 << TChild::BRANCHING_TOTAL) - 1),
-            index.z & !((1 << TChild::BRANCHING_TOTAL) - 1),
-        ));
+    fn subtract(&mut self, mut other: Box<Self>) {
+        let other_key = other.root.keys().copied().collect::<BTreeSet<_>>();
+
+        for key in other_key {
+            if let Some(node) = self.root.get_mut(&key) {
+                let other_node = other.root.remove(&key).unwrap(); // It exists for sure because we are iterating over `other.root`` keys
+                node.subtract(other_node);
+            }
+        }
     }
 
-    fn add_tile(&mut self, index: &Vec3i, value: TChild::Value) {
-        let key = Self::root_key(&index);
-        let mut tile = TChild::empty(key.0);
-        tile.fill(value);
-        self.root.insert(key, tile);
+    fn intersect(&mut self, mut other: Box<Self>) {
+        let self_keys = self.root.keys().copied().collect::<BTreeSet<_>>();
+        let other_keys = other.root.keys().copied().collect::<BTreeSet<_>>();
+        let nodes_outside_intersection = self_keys.symmetric_difference(&other_keys);
+
+        for key in nodes_outside_intersection {
+            self.root.remove(&key);
+        }
+
+        let keys = self.root.keys().copied().collect::<BTreeSet<_>>();
+        for key in keys {
+            if let Some(other_node) = other.root.remove(&key) {
+                self.root.get_mut(&key).unwrap().intersect(other_node);
+            }
+        }
+    }
+
+    fn flip_signs(&mut self) {
+        self.root.values_mut().for_each(|n| n.flip_signs());
     }
 }
 

@@ -1,8 +1,8 @@
 use nalgebra::Vector3;
 
-use crate::voxel::{Grid, Tile, TreeNode, Visitor};
+use crate::voxel::{utils::CUBE_OFFSETS, Grid, Tile, TreeNode, Visitor};
 
-pub(super) struct ActiveVoxelsMesher {
+pub struct ActiveVoxelsMesher {
     vertices: Vec<Vector3<isize>>,
     box_vertices: [Vector3<isize>; 8],
 }
@@ -18,6 +18,13 @@ impl ActiveVoxelsMesher {
 
         grid.visit_leafs(&mut visitor);
         std::mem::take(&mut self.vertices)
+    }
+
+    pub fn new() -> Self {
+        Self {
+            vertices: Vec::new(),
+            box_vertices: CUBE_OFFSETS,
+        }
     }
 
     fn test_voxel(&mut self, voxel: Vector3<isize>, grid: &impl Grid) {
@@ -42,11 +49,11 @@ impl ActiveVoxelsMesher {
         if !top {
             let faces = [
                 voxel + self.box_vertices[4],
-                voxel + self.box_vertices[7],
                 voxel + self.box_vertices[6],
+                voxel + self.box_vertices[7],
                 voxel + self.box_vertices[4],
                 voxel + self.box_vertices[5],
-                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[6],
             ];
 
             self.vertices.extend_from_slice(&faces);
@@ -54,12 +61,12 @@ impl ActiveVoxelsMesher {
 
         if !bottom {
             let faces = [
-                voxel + self.box_vertices[0],
-                voxel + self.box_vertices[2],
-                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[1],
                 voxel + self.box_vertices[0],
                 voxel + self.box_vertices[3],
                 voxel + self.box_vertices[1],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[2],
             ];
 
             self.vertices.extend_from_slice(&faces);
@@ -69,10 +76,10 @@ impl ActiveVoxelsMesher {
             let faces = [
                 voxel + self.box_vertices[0],
                 voxel + self.box_vertices[4],
-                voxel + self.box_vertices[6],
-                voxel + self.box_vertices[0],
-                voxel + self.box_vertices[6],
-                voxel + self.box_vertices[2],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[4],
+                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[3],
             ];
 
             self.vertices.extend_from_slice(&faces);
@@ -81,11 +88,11 @@ impl ActiveVoxelsMesher {
         if !right {
             let faces = [
                 voxel + self.box_vertices[1],
-                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[6],
                 voxel + self.box_vertices[5],
                 voxel + self.box_vertices[1],
-                voxel + self.box_vertices[3],
-                voxel + self.box_vertices[7],
+                voxel + self.box_vertices[2],
+                voxel + self.box_vertices[6],
             ];
 
             self.vertices.extend_from_slice(&faces);
@@ -94,11 +101,11 @@ impl ActiveVoxelsMesher {
         if !front {
             let faces = [
                 voxel + self.box_vertices[2],
-                voxel + self.box_vertices[6],
-                voxel + self.box_vertices[7],
-                voxel + self.box_vertices[2],
-                voxel + self.box_vertices[7],
                 voxel + self.box_vertices[3],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[6],
+                voxel + self.box_vertices[3],
+                voxel + self.box_vertices[7],
             ];
 
             self.vertices.extend_from_slice(&faces);
@@ -106,12 +113,12 @@ impl ActiveVoxelsMesher {
 
         if !back {
             let faces = [
+                voxel + self.box_vertices[1],
+                voxel + self.box_vertices[5],
                 voxel + self.box_vertices[0],
                 voxel + self.box_vertices[5],
                 voxel + self.box_vertices[4],
                 voxel + self.box_vertices[0],
-                voxel + self.box_vertices[1],
-                voxel + self.box_vertices[5],
             ];
 
             self.vertices.extend_from_slice(&faces);

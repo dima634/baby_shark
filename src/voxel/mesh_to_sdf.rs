@@ -13,7 +13,7 @@ use crate::{
     voxel::{ParVisitor, Tile, TreeNode, Visitor},
 };
 
-use super::{Accessor, Grid, Sdf, SdfGrid};
+use super::{sdf::{Sdf, SdfGrid}, Accessor, Grid};
 
 pub struct MeshToSdf {
     band_width: isize,

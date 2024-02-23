@@ -1,10 +1,8 @@
-use std::mem::MaybeUninit;
-
-use nalgebra::Vector3;
+use std::{mem::MaybeUninit, ops::Neg};
 
 use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 
-use super::{Accessor, FloodFill, GridValue, ParVisitor, Signed, TreeNode};
+use super::{utils::{partial_max, partial_min}, Accessor, Csg, FloodFill, GridValue, ParVisitor, Signed, TreeNode, ValueSign};
 
 #[derive(Debug)]
 pub(super) struct LeafNode<
@@ -29,12 +27,32 @@ impl<
 {
     #[inline]
     fn offset(index: &Vec3i) -> usize {
-        let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1)
-            << Self::BRANCHING + Self::BRANCHING)
+        let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING + Self::BRANCHING)
             + ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING)
             + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
 
         offset as usize
+    }
+}
+
+impl<
+        TValue: GridValue,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+where 
+    TValue: Signed,
+{
+    #[inline]
+    pub fn is_inside(&self) -> bool {
+        self.values.iter().all(|v| v.sign() == ValueSign::Negative)
+    }
+
+    #[inline]
+    pub fn is_outside(&self) -> bool {
+        self.values.iter().all(|v| v.sign() == ValueSign::Positive)
     }
 }
 
@@ -200,6 +218,10 @@ impl<
     > FloodFill for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     fn flood_fill(&mut self) {
+        if self.value_mask.is_full() {
+            return;
+        }
+
         let mut i = match self.value_mask.find_first_on() {
             Some(i) => self.values[i].sign(),
             None => return,
@@ -234,7 +256,17 @@ impl<
             }
         }
 
-        self.value_mask.on_all();
+        // self.value_mask.on_all();
+    }
+
+    fn fill_with_sign(&mut self, sign: ValueSign) {
+        for i in 0..self.values.len() {
+            if self.value_mask.is_off(i) {
+                self.values[i] = Self::Value::far();
+            }
+
+            self.values[i].set_sign(sign);
+        }
     }
 
     #[inline]
@@ -245,6 +277,63 @@ impl<
     #[inline]
     fn last_value_sign(&self) -> super::ValueSign {
         self.values[SIZE - 1].sign()
+    }
+}
+
+///
+/// CSG operations for leaf nodes
+/// This implementation assuming that nodes are flood filler prior to CSG operations
+/// 
+impl<
+        TValue: Signed + Neg<Output = Self::Value>,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > Csg for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
+    fn union(&mut self, other: Box<Self>) {
+        for i in 0..SIZE {
+            self.values[i] = partial_min(self.values[i], other.values[i]);
+        }
+
+        self.value_mask |= other.value_mask;
+    }
+
+    fn subtract(&mut self, mut other: Box<Self>) {
+        
+        // println!("{}", self.value_mask.iter().filter(|i| *i).count());
+        // println!("{}\n", other.value_mask.iter().filter(|i| *i).count());
+        
+        for i in 0..SIZE {
+            // match (self.value_mask.is_on(i), other.value_mask.is_on(i)) {
+            //     (true, true) => self.values[i] = partial_max(self.values[i], -other.values[i]),
+            //     (true, false) =>  println!("1"),
+            //     (false, true) =>  println!("2"),
+            //     (false, false) => println!("3"),
+            // };
+
+            self.values[i] = partial_max(self.values[i], -other.values[i]);
+            // if (self.value_mask | other.value_mask).is_on(i) {
+            //     println!("{:?}", self.values[i]);
+            // }
+        }
+
+        self.value_mask |= other.value_mask;
+    }
+
+    fn intersect(&mut self, other: Box<Self>) {
+        for i in 0..SIZE {
+            self.values[i] = partial_max(self.values[i], other.values[i]);
+        }
+
+        self.value_mask |= other.value_mask;
+    }
+
+    fn flip_signs(&mut self) {
+        for i in 0..SIZE {
+            self.values[i] = -self.values[i];
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{cmp::Ordering, ops::Range};
 
 use crate::helpers::aliases::Vec3i;
 
@@ -32,6 +32,30 @@ pub fn region_boundary(start: Vec3i, end: Vec3i) -> impl Iterator<Item = Vec3i> 
             Vec3i::new(start.x + 1, end.y - 1, start.z + 1),
             Vec3i::new(end.x - 1, end.y, end.z - 1),
         ))
+}
+
+#[inline]
+pub fn partial_min<T: PartialOrd>(a: T, b: T) -> T {
+    match a.partial_cmp(&b) {
+        Some(Ordering::Less) => a,
+        None => {
+            debug_assert!(false, "Partial comparison failed");
+            b
+        }
+        _ => b,
+    }
+}
+
+#[inline]
+pub fn partial_max<T: PartialOrd>(a: T, b: T) -> T {
+    match a.partial_cmp(&b) {
+        Some(Ordering::Greater) => a,
+        None => {
+            debug_assert!(false, "Partial comparison failed");
+            b
+        }
+        _ => b,
+    }
 }
 
 pub struct GridIter {
@@ -69,6 +93,17 @@ impl Iterator for GridIter {
     }
 }
 
+///         7 ________ 6 
+///         /|       /|  
+///       /  |     /  |  
+///   4 /_______ /    |  
+///    |     |  |5    |  
+///    |    3|__|_____|2 
+///    |    /   |    /   
+///    |  /     |  /     
+///    |/_______|/       
+///   0          1       
+///
 pub const CUBE_OFFSETS: [Vec3i; 8] = [
     Vec3i::new(0, 0, 0),
     Vec3i::new(1, 0, 0),
