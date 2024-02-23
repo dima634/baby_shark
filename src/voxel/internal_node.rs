@@ -565,15 +565,13 @@ where
                         k = self.child_node(xyz).last_value_sign();
                     } else if self.value_mask.is_on(xyz) {
                         k = self.values[xyz].sign();
-                    } else {
-                        self.values[xyz] = Self::Value::far();
-                        self.values[xyz].set_sign(k);
                     }
+
+                    self.values[xyz] = Self::Value::far();
+                    self.values[xyz].set_sign(k);
                 }
             }
         }
-
-        // self.value_mask = !self.child_mask;
     }
     
     fn fill_with_sign(&mut self, sign: ValueSign) {
@@ -596,24 +594,12 @@ where
 
     #[inline]
     fn first_value_sign(&self) -> ValueSign {
-        if self.child_mask.is_on(0) { 
-            self.child_node(0).first_value_sign()
-        } else {
-            self.values[0].sign()
-        }
-
-        // self.values[0].sign()
+        self.values[0].sign()
     }
 
     #[inline]
     fn last_value_sign(&self) -> ValueSign {
-        if self.child_mask.is_on(SIZE - 1) { 
-            self.child_node(SIZE - 1).last_value_sign()
-        } else {
-            self.values[SIZE - 1].sign()
-        }
-
-        // self.values[SIZE - 1].sign()
+        self.values[SIZE - 1].sign()
     }
 }
 
@@ -642,9 +628,15 @@ where
 
             if other.is_inside_tile(offset) {
                 self.make_child_inside(offset);
-            } else if self.is_outside_tile(offset) {
+                continue;
+            } 
+            
+            if self.is_outside_tile(offset) {
                 self.take_child(&mut other, offset);
-            } else if other.child_mask.is_on(offset) {
+                continue;
+            } 
+            
+            if other.child_mask.is_on(offset) {
                 self.child_node_mut(offset).union(other.child_owned(offset));
 
                 if self.child_node(offset).is_empty() {
