@@ -124,12 +124,12 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
     }
 
     #[inline]
-    pub fn is_on(&mut self, index: usize) -> bool {
+    pub fn is_on(&self, index: usize) -> bool {
         self.at(index)
     }
 
     #[inline]
-    pub fn is_off(&mut self, index: usize) -> bool {
+    pub fn is_off(&self, index: usize) -> bool {
         !self.at(index)
     }
 
