@@ -26,11 +26,11 @@ impl SdfBuilder {
     pub fn cuboid(&self, min: Vec3f, max: Vec3f) -> Sdf {
         let band_width = 1;
         let offset = band_width as f32 * self.voxel_size;
-        let box3 = Box3::new(min, max);
         let grid_min = min.add_scalar(-offset);
         let grid_max = max.add_scalar(offset);
+        let box3 = Box3::new(min, max);
 
-        Sdf::from_fn(self.voxel_size, grid_min, grid_max, 1, |p| {
+        Sdf::from_fn(self.voxel_size, grid_min, grid_max, band_width, |p| {
             if box3.contains_point(&p) {
                 -(p.x - min.x)
                     .min(max.x - p.x)
