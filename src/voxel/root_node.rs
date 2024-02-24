@@ -118,12 +118,10 @@ impl<TChild: TreeNode> Accessor for RootNode<TChild> {
     #[inline]
     fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
         let root_key = Self::root_key(index);
-
-        if let Some(child) = self.root.get(&root_key) {
-            child.at(index)
-        } else {
-            None
-        }
+        self.root
+            .get(&root_key)
+            .map(|child| child.at(index))
+            .flatten()
     }
 
     #[inline]
@@ -208,6 +206,15 @@ where
 
     fn last_value_sign(&self) -> Sign {
         unimplemented!("Unsupported operation")
+    }
+
+    #[inline]
+    fn sign_at(&self, index: &Vec3i) -> Sign {
+        let root_key = Self::root_key(index);
+        self.root
+            .get(&root_key)
+            .map(|child| child.sign_at(index))
+            .unwrap_or(Sign::Positive)
     }
 }
 
@@ -312,7 +319,7 @@ mod tests {
     use crate::{
         dynamic_vdb,
         helpers::aliases::Vec3i,
-        voxel::{utils::region, Accessor, FloodFill, Signed, TreeNode, Sign},
+        voxel::{utils::region, Accessor, FloodFill, TreeNode, Sign},
     };
 
     #[test]
@@ -334,7 +341,7 @@ mod tests {
         tree.flood_fill();
 
         for i in region(o1, o2.add_scalar(2)) {
-            assert!(tree.at(&i).is_some_and(|v| v.sign() == Sign::Negative));
+            assert_eq!(tree.sign_at(&i), Sign::Negative);
         }
     }
 }

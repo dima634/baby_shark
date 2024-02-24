@@ -565,10 +565,10 @@ where
                         k = self.child_node(xyz).last_value_sign();
                     } else if self.value_mask.is_on(xyz) {
                         k = self.values[xyz].sign();
+                    } else {
+                        self.values[xyz] = Self::Value::far();
+                        self.values[xyz].set_sign(k);
                     }
-
-                    self.values[xyz] = Self::Value::far();
-                    self.values[xyz].set_sign(k);
                 }
             }
         }
@@ -594,12 +594,31 @@ where
 
     #[inline]
     fn first_value_sign(&self) -> Sign {
-        self.values[0].sign()
+        if self.child_mask.is_on(0) {
+            self.child_node(0).first_value_sign()
+        } else {
+            self.values[0].sign()
+        }
     }
 
     #[inline]
     fn last_value_sign(&self) -> Sign {
-        self.values[SIZE - 1].sign()
+        let offset = SIZE - 1;
+        if self.child_mask.is_on(offset) {
+            self.child_node(offset).last_value_sign()
+        } else {
+            self.values[offset].sign()
+        }
+    }
+
+    #[inline]
+    fn sign_at(&self, index: &Vec3i) -> Sign {
+        let offset = Self::offset(index);
+        if self.child_mask.is_on(offset) {
+            self.child_node(offset).sign_at(index)
+        } else {
+            self.values[offset].sign()
+        }
     }
 }
 
@@ -762,39 +781,20 @@ mod tests {
         type Internal = static_vdb!(f32, 2, 1);
         type Leaf = <Internal as TreeNode>::Child;
 
-        struct TestSignVisitor {
-            sign: Sign,
-        }
-
-        impl Visitor<Leaf> for TestSignVisitor {
-            fn tile(&mut self, tile: Tile<f32>) {
-                assert_eq!(tile.value.sign(), self.sign, "Tile sign is wrong");
-            }
-
-            fn dense(&mut self, dense: &Leaf) {
-                if self.sign == Sign::Positive {
-                    assert!(dense.is_outside(), "Dense node is not outside");
-                } else {
-                    assert!(dense.is_inside(), "Dense node is not inside");
-                }
-            }
-        }
-
         // One voxel with positive sign
         let mut node = Internal::empty(Vec3i::zeros());
         node.insert(&Vec3i::new(3, 2, 1), 1.0);
         node.flood_fill();
-        node.visit_leafs(&mut TestSignVisitor {
-            sign: Sign::Positive,
-        });
+       
+        box_indices(0, Internal::resolution() as isize)
+            .for_each(|i| assert_eq!(node.sign_at(&i), Sign::Positive));
 
         // One voxel with negative sign
         let mut node = Internal::empty(Vec3i::zeros());
         node.insert(&Vec3i::new(3, 3, 3), -1.0);
         node.flood_fill();
-        node.visit_leafs(&mut TestSignVisitor {
-            sign: Sign::Negative,
-        });
+        box_indices(0, Internal::resolution() as isize)
+            .for_each(|i| assert_eq!(node.sign_at(&i), Sign::Negative));
 
         // Node split in half with narrow stripe of leaf nodes
         let mut node = Internal::empty(Vec3i::zeros());
@@ -810,24 +810,10 @@ mod tests {
 
         node.flood_fill();
 
-        let assert_child_sign_eq = |node: &Internal, idx: &Vec3i, sign: Sign| {
-            let offset = Internal::offset(idx);
-
-            if node.child_mask.is_on(offset) {
-                if sign == Sign::Positive {
-                    assert!(node.child_node(offset).is_outside());
-                } else {
-                    assert!(node.child_node(offset).is_inside());
-                }
-            } else {
-                assert_eq!(node.values[offset].sign(), sign);
-            }
-        };
-
         box_indices(0, x_neg + 1)
-            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Negative));
+            .for_each(|i| assert_eq!(node.sign_at(&i), Sign::Negative));
         box_indices(x_pos, Internal::resolution() as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Positive));
+            .for_each(|i| assert_eq!(node.sign_at(&i), Sign::Positive));
 
         // Node split in half with tiles
         let mut tiled_node = Internal::empty(Vec3i::zeros());
@@ -854,8 +840,8 @@ mod tests {
         tiled_node.flood_fill();
 
         box_indices(0, (x_neg + Leaf::resolution()) as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Negative));
+            .for_each(|i| assert_eq!(tiled_node.sign_at(&i), Sign::Negative));
         box_indices(x_pos as isize, Internal::resolution() as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Positive));
+            .for_each(|i| assert_eq!(tiled_node.sign_at(&i), Sign::Positive));
     }
 }

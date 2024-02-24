@@ -41,27 +41,6 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-where 
-    TValue: Signed,
-{
-    #[inline]
-    pub fn is_inside(&self) -> bool {
-        self.values.iter().all(|v| v.sign() == Sign::Negative)
-    }
-
-    #[inline]
-    pub fn is_outside(&self) -> bool {
-        self.values.iter().all(|v| v.sign() == Sign::Positive)
-    }
-}
-
-impl<
-        TValue: Value,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
     > Accessor for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
     type Value = TValue;
@@ -277,6 +256,11 @@ impl<
     #[inline]
     fn last_value_sign(&self) -> super::Sign {
         self.values[SIZE - 1].sign()
+    }
+
+    #[inline]
+    fn sign_at(&self, index: &Vec3i) -> Sign {
+        self.values[Self::offset(index)].sign()
     }
 }
 

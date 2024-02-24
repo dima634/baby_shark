@@ -121,6 +121,7 @@ where
     fn fill_with_sign(&mut self, sign: Sign);
     fn first_value_sign(&self) -> Sign;
     fn last_value_sign(&self) -> Sign;
+    fn sign_at(&self, index: &Vec3i) -> Sign;
 }
 
 trait Csg
