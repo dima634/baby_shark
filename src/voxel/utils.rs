@@ -1,6 +1,5 @@
-use std::{cmp::Ordering, ops::Range};
-
 use crate::helpers::aliases::Vec3i;
+use std::{cmp::Ordering, ops::Range};
 
 #[inline]
 pub fn box_indices(start: isize, end: isize) -> impl Iterator<Item = Vec3i> {
@@ -93,16 +92,16 @@ impl Iterator for GridIter {
     }
 }
 
-//         7 ________ 6 
-//         /|       /|  
-//       /  |     /  |  
-//   4 /_______ /    |  
-//    |     |  |5    |  
-//    |    3|__|_____|2 
-//    |    /   |    /   
-//    |  /     |  /     
-//    |/_______|/       
-//   0          1       
+//         7 ________ 6
+//         /|       /|
+//       /  |     /  |
+//   4 /_______ /    |
+//    |     |  |5    |
+//    |    3|__|_____|2
+//    |    /   |    /
+//    |  /     |  /
+//    |/_______|/
+//   0          1
 //
 pub const CUBE_OFFSETS: [Vec3i; 8] = [
     Vec3i::new(0, 0, 0),
@@ -117,13 +116,10 @@ pub const CUBE_OFFSETS: [Vec3i; 8] = [
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
-    use nalgebra::Vector3;
-
-    use crate::helpers::aliases::Vec3i;
-
     use super::{region_boundary, GridIter};
+    use crate::helpers::aliases::Vec3i;
+    use nalgebra::Vector3;
+    use std::collections::BTreeSet;
 
     #[test]
     fn test_grid_iter() {

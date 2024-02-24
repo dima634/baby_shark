@@ -1,7 +1,7 @@
-use std::sync::Mutex;
-
-use rayon::prelude::*;
-
+use super::{
+    sdf::{Sdf, SdfGrid},
+    Grid,
+};
 use crate::{
     geometry::{
         primitives::{box3::Box3, triangle3::Triangle3},
@@ -12,8 +12,8 @@ use crate::{
     spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers,
     voxel::{ParVisitor, Tile, TreeNode, Visitor},
 };
-
-use super::{sdf::{Sdf, SdfGrid}, Grid};
+use rayon::prelude::*;
+use std::sync::Mutex;
 
 pub struct MeshToSdf {
     band_width: isize,

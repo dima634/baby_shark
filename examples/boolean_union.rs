@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use baby_shark::{io::stl::StlWriter, mesh::polygon_soup::data_structure::PolygonSoup, voxel::{meshing::MarchingCubesMesher, sdf::{self, Sdf}}};
+use baby_shark::{io::stl::StlWriter, mesh::polygon_soup::data_structure::PolygonSoup, voxel::{meshing::MarchingCubesMesher, sdf::{self}}};
 use nalgebra_glm::Vec3;
 
 

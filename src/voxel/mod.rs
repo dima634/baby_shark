@@ -2,7 +2,6 @@ pub mod mesh_to_sdf;
 pub mod meshing;
 pub mod sdf;
 
-mod value;
 mod init;
 mod internal_node;
 mod leaf_node;
@@ -10,13 +9,14 @@ mod root_node;
 #[cfg(test)]
 mod tests;
 mod utils;
-
-use std::ops::{Neg, Sub};
+mod value;
 
 use crate::helpers::aliases::Vec3i;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
+use std::ops::{Neg, Sub};
+pub use value::*;
 
 trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
