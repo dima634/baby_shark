@@ -2,7 +2,7 @@ use std::{mem::MaybeUninit, ops::Neg};
 
 use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 
-use super::{utils::{partial_max, partial_min}, Accessor, Csg, FloodFill, GridValue, ParVisitor, Signed, TreeNode, ValueSign};
+use super::{utils::{partial_max, partial_min}, Accessor, Csg, FloodFill, Value, ParVisitor, Signed, TreeNode, Sign};
 
 #[derive(Debug)]
 pub(super) struct LeafNode<
@@ -18,7 +18,7 @@ pub(super) struct LeafNode<
 }
 
 impl<
-        TValue: GridValue,
+        TValue: Value,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -36,7 +36,7 @@ impl<
 }
 
 impl<
-        TValue: GridValue,
+        TValue: Value,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -47,17 +47,17 @@ where
 {
     #[inline]
     pub fn is_inside(&self) -> bool {
-        self.values.iter().all(|v| v.sign() == ValueSign::Negative)
+        self.values.iter().all(|v| v.sign() == Sign::Negative)
     }
 
     #[inline]
     pub fn is_outside(&self) -> bool {
-        self.values.iter().all(|v| v.sign() == ValueSign::Positive)
+        self.values.iter().all(|v| v.sign() == Sign::Positive)
     }
 }
 
 impl<
-        TValue: GridValue,
+        TValue: Value,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -102,7 +102,7 @@ impl<
 }
 
 impl<
-        TValue: GridValue,
+        TValue: Value,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -117,7 +117,7 @@ impl<
 
     type Child = Self;
     type Leaf = Self;
-    type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
+    type As<TNewValue: Value> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
     fn empty(origin: Vec3i) -> Box<Self> {
@@ -179,7 +179,7 @@ impl<
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: GridValue,
+        TNewValue: Value,
         TCast: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = LeafNode {
@@ -259,7 +259,7 @@ impl<
         // self.value_mask.on_all();
     }
 
-    fn fill_with_sign(&mut self, sign: ValueSign) {
+    fn fill_with_sign(&mut self, sign: Sign) {
         for i in 0..self.values.len() {
             if self.value_mask.is_off(i) {
                 self.values[i] = Self::Value::far();
@@ -270,12 +270,12 @@ impl<
     }
 
     #[inline]
-    fn first_value_sign(&self) -> super::ValueSign {
+    fn first_value_sign(&self) -> super::Sign {
         self.values[0].sign()
     }
 
     #[inline]
-    fn last_value_sign(&self) -> super::ValueSign {
+    fn last_value_sign(&self) -> super::Sign {
         self.values[SIZE - 1].sign()
     }
 }

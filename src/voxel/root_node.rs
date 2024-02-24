@@ -8,7 +8,7 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 use crate::helpers::aliases::Vec3i;
 
-use super::{Accessor, Csg, FloodFill, GridValue, ParVisitor, Signed, Tile, TreeNode, ValueSign, Visitor};
+use super::{Accessor, Csg, FloodFill, Value, ParVisitor, Signed, Tile, TreeNode, Sign, Visitor};
 
 #[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
@@ -45,7 +45,7 @@ where
 
     type Child = TChild;
     type Leaf = TChild::Leaf;
-    type As<TValue: GridValue> = RootNode<TChild::As<TValue>>;
+    type As<TValue: Value> = RootNode<TChild::As<TValue>>;
 
     #[inline]
     fn empty(_: Vector3<isize>) -> Box<Self> {
@@ -85,7 +85,7 @@ where
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: GridValue,
+        TNewValue: Value,
         TCast: Fn(Self::Value) -> TNewValue,
     {
         let root = self
@@ -181,7 +181,7 @@ where
             let b_sign = self.root[b].first_value_sign();
 
             // Is inside?
-            if a_sign != ValueSign::Negative || b_sign != ValueSign::Negative {
+            if a_sign != Sign::Negative || b_sign != Sign::Negative {
                 continue;
             }
 
@@ -191,22 +191,22 @@ where
             while tile_origin.z < b.z() {
                 let key = Self::root_key(&tile_origin);
                 let mut node = TChild::empty(key.0);
-                node.fill_with_sign(ValueSign::Negative);
+                node.fill_with_sign(Sign::Negative);
                 self.root.insert(key, node);
                 tile_origin.z += child_res;
             }
         }
     }
     
-    fn fill_with_sign(&mut self, _: ValueSign) {
+    fn fill_with_sign(&mut self, _: Sign) {
         unimplemented!("Unsupported operation")
     }
 
-    fn first_value_sign(&self) -> ValueSign {
+    fn first_value_sign(&self) -> Sign {
         unimplemented!("Unsupported operation")
     }
 
-    fn last_value_sign(&self) -> ValueSign {
+    fn last_value_sign(&self) -> Sign {
         unimplemented!("Unsupported operation")
     }
 }
@@ -312,7 +312,7 @@ mod tests {
     use crate::{
         dynamic_vdb,
         helpers::aliases::Vec3i,
-        voxel::{utils::region, Accessor, FloodFill, Signed, TreeNode, ValueSign},
+        voxel::{utils::region, Accessor, FloodFill, Signed, TreeNode, Sign},
     };
 
     #[test]
@@ -334,7 +334,7 @@ mod tests {
         tree.flood_fill();
 
         for i in region(o1, o2.add_scalar(2)) {
-            assert!(tree.at(&i).is_some_and(|v| v.sign() == ValueSign::Negative));
+            assert!(tree.at(&i).is_some_and(|v| v.sign() == Sign::Negative));
         }
     }
 }

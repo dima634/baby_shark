@@ -18,22 +18,22 @@ use internal_node::*;
 use leaf_node::*;
 use root_node::*;
 
-trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
+trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ValueSign {
+enum Sign {
     Positive,
     Negative,
 }
 
-trait Signed: GridValue {
-    fn set_sign(&mut self, sign: ValueSign);
-    fn sign(&self) -> ValueSign;
+trait Signed: Value {
+    fn set_sign(&mut self, sign: Sign);
+    fn sign(&self) -> Sign;
     fn far() -> Self;
 }
 
 trait Accessor {
-    type Value: GridValue; // Remove Copy?
+    type Value: Value; // Remove Copy?
 
     fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
     fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
@@ -63,7 +63,7 @@ trait TreeNode: Accessor + Send + Sync + Sized {
 
     type Leaf: TreeNode<Value = Self::Value>;
     type Child: TreeNode<Value = Self::Value, Leaf = Self::Leaf>;
-    type As<TValue: GridValue>: TreeNode<
+    type As<TValue: Value>: TreeNode<
         Value = TValue,
         Child = <Self::Child as TreeNode>::As<TValue>,
         Leaf = <Self::Leaf as TreeNode>::As<TValue>,
@@ -96,7 +96,7 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     ///
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: GridValue,
+        TNewValue: Value,
         TCast: Fn(Self::Value) -> TNewValue;
 
     /// Number of voxels in one dimension
@@ -118,9 +118,9 @@ where
     Self::Value: Signed,
 {
     fn flood_fill(&mut self);
-    fn fill_with_sign(&mut self, sign: ValueSign);
-    fn first_value_sign(&self) -> ValueSign;
-    fn last_value_sign(&self) -> ValueSign;
+    fn fill_with_sign(&mut self, sign: Sign);
+    fn first_value_sign(&self) -> Sign;
+    fn last_value_sign(&self) -> Sign;
 }
 
 trait Csg

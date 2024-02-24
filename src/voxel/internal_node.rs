@@ -2,7 +2,7 @@ use std::{alloc::Layout, mem::MaybeUninit, ops::Neg};
 
 use crate::{data_structures::bitset::BitSet, helpers::aliases::{Vec3i, Vec3u}};
 
-use super::{Accessor, Csg, FloodFill, GridValue, ParVisitor, Signed, Tile, TreeNode, ValueSign};
+use super::{Accessor, Csg, FloodFill, Value, ParVisitor, Signed, Tile, TreeNode, Sign};
 
 #[derive(Debug)]
 pub(super) struct InternalNode<
@@ -166,12 +166,12 @@ where
 {
     #[inline]
     fn is_inside_tile(&self, offset: usize) -> bool {
-        self.child_mask.is_off(offset) && self.values[offset].sign() == ValueSign::Negative
+        self.child_mask.is_off(offset) && self.values[offset].sign() == Sign::Negative
     }
 
     #[inline]
     fn is_outside_tile(&self, offset: usize) -> bool {
-        self.child_mask.is_off(offset) && self.values[offset].sign() == ValueSign::Positive
+        self.child_mask.is_off(offset) && self.values[offset].sign() == Sign::Positive
     }
 
     #[inline]
@@ -200,7 +200,7 @@ where
         self.childs[offset] = None;
         self.value_mask.on(offset);
         let mut value = TChild::Value::far();
-        value.set_sign(ValueSign::Negative);
+        value.set_sign(Sign::Negative);
         self.values[offset] = value;
     }
     
@@ -333,7 +333,7 @@ where
 
     type Child = TChild;
     type Leaf = TChild::Leaf;
-    type As<TNewValue: GridValue> = InternalNode<
+    type As<TNewValue: Value> = InternalNode<
         TNewValue,
         TChild::As<TNewValue>,
         BRANCHING,
@@ -423,7 +423,7 @@ where
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: super::GridValue,
+        TNewValue: super::Value,
         TCast: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = InternalNode {
@@ -574,7 +574,7 @@ where
         }
     }
     
-    fn fill_with_sign(&mut self, sign: ValueSign) {
+    fn fill_with_sign(&mut self, sign: Sign) {
         if self.value_mask.is_full() {
             return;
         }
@@ -593,12 +593,12 @@ where
     }
 
     #[inline]
-    fn first_value_sign(&self) -> ValueSign {
+    fn first_value_sign(&self) -> Sign {
         self.values[0].sign()
     }
 
     #[inline]
-    fn last_value_sign(&self) -> ValueSign {
+    fn last_value_sign(&self) -> Sign {
         self.values[SIZE - 1].sign()
     }
 }
@@ -763,7 +763,7 @@ mod tests {
         type Leaf = <Internal as TreeNode>::Child;
 
         struct TestSignVisitor {
-            sign: ValueSign,
+            sign: Sign,
         }
 
         impl Visitor<Leaf> for TestSignVisitor {
@@ -772,7 +772,7 @@ mod tests {
             }
 
             fn dense(&mut self, dense: &Leaf) {
-                if self.sign == ValueSign::Positive {
+                if self.sign == Sign::Positive {
                     assert!(dense.is_outside(), "Dense node is not outside");
                 } else {
                     assert!(dense.is_inside(), "Dense node is not inside");
@@ -785,7 +785,7 @@ mod tests {
         node.insert(&Vec3i::new(3, 2, 1), 1.0);
         node.flood_fill();
         node.visit_leafs(&mut TestSignVisitor {
-            sign: ValueSign::Positive,
+            sign: Sign::Positive,
         });
 
         // One voxel with negative sign
@@ -793,7 +793,7 @@ mod tests {
         node.insert(&Vec3i::new(3, 3, 3), -1.0);
         node.flood_fill();
         node.visit_leafs(&mut TestSignVisitor {
-            sign: ValueSign::Negative,
+            sign: Sign::Negative,
         });
 
         // Node split in half with narrow stripe of leaf nodes
@@ -810,11 +810,11 @@ mod tests {
 
         node.flood_fill();
 
-        let assert_child_sign_eq = |node: &Internal, idx: &Vec3i, sign: ValueSign| {
+        let assert_child_sign_eq = |node: &Internal, idx: &Vec3i, sign: Sign| {
             let offset = Internal::offset(idx);
 
             if node.child_mask.is_on(offset) {
-                if sign == ValueSign::Positive {
+                if sign == Sign::Positive {
                     assert!(node.child_node(offset).is_outside());
                 } else {
                     assert!(node.child_node(offset).is_inside());
@@ -825,9 +825,9 @@ mod tests {
         };
 
         box_indices(0, x_neg + 1)
-            .for_each(|i| assert_child_sign_eq(&node, &i, ValueSign::Negative));
+            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Negative));
         box_indices(x_pos, Internal::resolution() as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, ValueSign::Positive));
+            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Positive));
 
         // Node split in half with tiles
         let mut tiled_node = Internal::empty(Vec3i::zeros());
@@ -854,8 +854,8 @@ mod tests {
         tiled_node.flood_fill();
 
         box_indices(0, (x_neg + Leaf::resolution()) as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, ValueSign::Negative));
+            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Negative));
         box_indices(x_pos as isize, Internal::resolution() as isize)
-            .for_each(|i| assert_child_sign_eq(&node, &i, ValueSign::Positive));
+            .for_each(|i| assert_child_sign_eq(&node, &i, Sign::Positive));
     }
 }
