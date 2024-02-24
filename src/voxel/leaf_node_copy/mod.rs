@@ -2,10 +2,10 @@ use std::{mem::MaybeUninit, ops::Neg};
 
 use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 
-use super::{utils::{partial_max, partial_min}, Csg, FloodFill, Value, ParVisitor, Signed, TreeNode, Sign};
+use super::{utils::{partial_max, partial_min}, Accessor, Csg, FloodFill, Value, ParVisitor, Signed, TreeNode, Sign};
 
 #[derive(Debug)]
-pub(super) struct LeafNode<
+pub struct LeafNode<
     TValue,
     const BRANCHING: usize,
     const BRANCHING_TOTAL: usize,
@@ -41,18 +41,9 @@ impl<
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
-    > TreeNode for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+    > Accessor for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
 {
-    const BRANCHING: usize = BRANCHING;
-    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = BIT_SIZE;
-
-    const IS_LEAF: bool = true;
-
     type Value = TValue;
-    type Child = Self;
-    type Leaf = Self;
-    type As<TNewValue: Value> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
     fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
@@ -87,6 +78,25 @@ impl<
     fn remove(&mut self, index: &Vec3i) {
         self.value_mask.off(Self::offset(index));
     }
+}
+
+impl<
+        TValue: Value,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+    > TreeNode for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
+{
+    const BRANCHING: usize = BRANCHING;
+    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
+    const SIZE: usize = BIT_SIZE;
+
+    const IS_LEAF: bool = true;
+
+    type Child = Self;
+    type Leaf = Self;
+    type As<TNewValue: Value> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
     fn empty(origin: Vec3i) -> Box<Self> {

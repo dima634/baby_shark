@@ -2,7 +2,7 @@ pub mod mesh_to_sdf;
 pub mod meshing;
 pub mod sdf;
 
-mod grid_value;
+mod value;
 mod init;
 mod internal_node;
 mod leaf_node;
@@ -32,15 +32,6 @@ trait Signed: Value {
     fn far() -> Self;
 }
 
-trait Accessor {
-    type Value: Value; // Remove Copy?
-
-    fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
-    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
-    fn insert(&mut self, index: &Vec3i, value: Self::Value);
-    fn remove(&mut self, index: &Vec3i);
-}
-
 trait Visitor<T: TreeNode> {
     fn tile(&mut self, tile: Tile<T::Value>);
     fn dense(&mut self, dense: &T);
@@ -51,7 +42,7 @@ trait ParVisitor<T: TreeNode>: Send + Sync {
     fn dense(&self, dense: &T);
 }
 
-trait TreeNode: Accessor + Send + Sync + Sized {
+trait TreeNode: Send + Sync + Sized {
     /// Number of tiles in one dimension on current level
     const BRANCHING: usize;
     /// Total number of tiles in one dimension
@@ -59,8 +50,9 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     /// Number of childs/voxels in node
     const SIZE: usize;
 
-    const IS_LEAF: bool;
+    const IS_LEAF: bool; // TODO: remove
 
+    type Value: Value;
     type Leaf: TreeNode<Value = Self::Value>;
     type Child: TreeNode<Value = Self::Value, Leaf = Self::Leaf>;
     type As<TValue: Value>: TreeNode<
@@ -68,6 +60,15 @@ trait TreeNode: Accessor + Send + Sync + Sized {
         Child = <Self::Child as TreeNode>::As<TValue>,
         Leaf = <Self::Leaf as TreeNode>::As<TValue>,
     >;
+
+    /// Returns ref to value at grid point `index`
+    fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
+    /// Returns mut ref value at grid point `index`
+    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
+    /// Inserts value at grid point `index`
+    fn insert(&mut self, index: &Vec3i, value: Self::Value);
+    /// Removes value at grid point `index`
+    fn remove(&mut self, index: &Vec3i);
 
     /// Creates empty node
     fn empty(origin: Vec3i) -> Box<Self>;

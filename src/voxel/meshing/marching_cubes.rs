@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{sdf::{Sdf, SdfGrid}, utils::CUBE_OFFSETS, Accessor, Tile, TreeNode, Visitor},
+    voxel::{sdf::{Sdf, SdfGrid}, utils::CUBE_OFFSETS, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;

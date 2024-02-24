@@ -2,7 +2,7 @@ use std::{alloc::Layout, mem::MaybeUninit, ops::Neg};
 
 use crate::{data_structures::bitset::BitSet, helpers::aliases::{Vec3i, Vec3u}};
 
-use super::{Accessor, Csg, FloodFill, Value, ParVisitor, Signed, Tile, TreeNode, Sign};
+use super::{Csg, FloodFill, Value, ParVisitor, Signed, Tile, TreeNode, Sign};
 
 #[derive(Debug)]
 pub(super) struct InternalNode<
@@ -213,18 +213,35 @@ where
 }
 
 impl<
-        TChild: TreeNode,
+        TChild,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
         const BIT_SIZE: usize,
         const PARALLEL: bool,
-    > Accessor
+    > TreeNode
     for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
 where
     TChild: TreeNode,
 {
+    const BRANCHING: usize = BRANCHING;
+    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
+    const SIZE: usize = SIZE;
+
+    const IS_LEAF: bool = false;
+
     type Value = TChild::Value;
+    type Child = TChild;
+    type Leaf = TChild::Leaf;
+    type As<TNewValue: Value> = InternalNode<
+        TNewValue,
+        TChild::As<TNewValue>,
+        BRANCHING,
+        BRANCHING_TOTAL,
+        SIZE,
+        BIT_SIZE,
+        PARALLEL,
+    >;
 
     #[inline]
     fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
@@ -311,37 +328,6 @@ where
             child.remove(index);
         }
     }
-}
-
-impl<
-        TChild,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-        const PARALLEL: bool,
-    > TreeNode
-    for InternalNode<TChild::Value, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
-where
-    TChild: TreeNode,
-{
-    const BRANCHING: usize = BRANCHING;
-    const BRANCHING_TOTAL: usize = BRANCHING_TOTAL;
-    const SIZE: usize = SIZE;
-
-    const IS_LEAF: bool = false;
-
-    type Child = TChild;
-    type Leaf = TChild::Leaf;
-    type As<TNewValue: Value> = InternalNode<
-        TNewValue,
-        TChild::As<TNewValue>,
-        BRANCHING,
-        BRANCHING_TOTAL,
-        SIZE,
-        BIT_SIZE,
-        PARALLEL,
-    >;
 
     fn empty(origin: Vec3i) -> Box<Self> {
         // Allocate directly on a heap, otherwise we will overflow the stack with large grids

@@ -8,7 +8,7 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 
 use crate::helpers::aliases::Vec3i;
 
-use super::{Accessor, Csg, FloodFill, Value, ParVisitor, Signed, Tile, TreeNode, Sign, Visitor};
+use super::{Csg, FloodFill, Value, ParVisitor, Signed, TreeNode, Sign, Visitor};
 
 #[derive(Debug)]
 pub(super) struct RootNode<TChild: TreeNode> {
@@ -43,9 +43,49 @@ where
 
     const IS_LEAF: bool = false;
 
+    type Value = TChild::Value;
     type Child = TChild;
     type Leaf = TChild::Leaf;
     type As<TValue: Value> = RootNode<TChild::As<TValue>>;
+
+    #[inline]
+    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
+        let root_key = Self::root_key(index);
+        self.root
+            .get(&root_key)
+            .map(|child| child.at(index))
+            .flatten()
+    }
+
+    #[inline]
+    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
+        let root_key = Self::root_key(index);
+        self.root
+            .get_mut(&root_key)
+            .map(|child| child.at_mut(index))
+            .flatten()
+    }
+
+    #[inline]
+    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
+        let root_key = Self::root_key(index);
+        self.root
+            .entry(root_key)
+            .or_insert_with(|| TChild::empty(root_key.0))
+            .insert(index, value);
+    }
+
+    fn remove(&mut self, index: &Vector3<isize>) {
+        let root_key = Self::root_key(index);
+
+        if let Some(child) = self.root.get_mut(&root_key) {
+            child.remove(index);
+
+            if child.is_empty() {
+                self.root.remove(&root_key);
+            }
+        }
+    }
 
     #[inline]
     fn empty(_: Vector3<isize>) -> Box<Self> {
@@ -109,49 +149,6 @@ where
         self.root
             .values()
             .for_each(|node| node.visit_leafs(visitor));
-    }
-}
-
-impl<TChild: TreeNode> Accessor for RootNode<TChild> {
-    type Value = TChild::Value;
-
-    #[inline]
-    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
-        let root_key = Self::root_key(index);
-        self.root
-            .get(&root_key)
-            .map(|child| child.at(index))
-            .flatten()
-    }
-
-    #[inline]
-    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
-        let root_key = Self::root_key(index);
-        self.root
-            .get_mut(&root_key)
-            .map(|child| child.at_mut(index))
-            .flatten()
-    }
-
-    #[inline]
-    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
-        let root_key = Self::root_key(index);
-        self.root
-            .entry(root_key)
-            .or_insert_with(|| TChild::empty(root_key.0))
-            .insert(index, value);
-    }
-
-    fn remove(&mut self, index: &Vector3<isize>) {
-        let root_key = Self::root_key(index);
-
-        if let Some(child) = self.root.get_mut(&root_key) {
-            child.remove(index);
-
-            if child.is_empty() {
-                self.root.remove(&root_key);
-            }
-        }
     }
 }
 
@@ -319,7 +316,7 @@ mod tests {
     use crate::{
         dynamic_vdb,
         helpers::aliases::Vec3i,
-        voxel::{utils::region, Accessor, FloodFill, TreeNode, Sign},
+        voxel::{utils::region, FloodFill, TreeNode, Sign},
     };
 
     #[test]

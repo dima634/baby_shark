@@ -3,7 +3,7 @@ use crate::static_vdb;
 use crate::voxel::utils::box_indices;
 use crate::voxel::*;
 
-use self::grid_value::Empty;
+use self::value::Empty;
 
 type StaticTree = static_vdb!(Empty, 4, 3, 2);
 type DynamicTree = dynamic_vdb!(Empty, 4, 3, 2);
