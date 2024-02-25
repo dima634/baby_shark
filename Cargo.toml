@@ -6,7 +6,7 @@ description="Geometry processing library"
 license="MIT"
 homepage = "https://github.com/dima634/baby_shark"
 repository = "https://github.com/dima634/baby_shark"
-keywords = ["mesh", "mesh-processing", "geometry", "computational-geom", "algorithms"]
+keywords = ["mesh", "mesh-processing", "geometry", "3d", "algorithms"]
 categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
     ".github/workflows/*",
