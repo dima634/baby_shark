@@ -59,10 +59,14 @@ fn main() {
 ```
 
 ## Boolean operations
+Boolean operations are a set of operations that can be performed on volumes to combine or modify their shapes. The supported boolean operations in this library are:
+
+* *Union* - combines two volumes into a single volume, resulting in a shape that includes the combined volume of both models.
+* *Subtract* - removes the volume from another, resulting in a shape that is the difference between the two models.
+* *Intersect* - returns the volume that is common to both models, resulting in a shape that includes only the overlapping region.
+
+These boolean operations can be useful in various applications, such as creating complex shapes by combining simpler shapes, removing unwanted parts from a volume, or finding the intersection between two volumes.
 Supported boolean operations are:
-* *Union* - combines two volumes into a single
-* *Subtract* - removes the volume of one mesh from another
-* *Intersect* - returns the volume that is common to both meshes
 
 Subtract           |  Union
 :-----------------:|:----------------:
