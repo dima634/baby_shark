@@ -77,6 +77,14 @@ fn main() {
 }
 ```
 
+## Boolean operations
+TODO
+
+<video alt="boolean_subtract" src="assets/readme/boolean_subtract.mp4" autoplay loop></video>
+
+### Example
+
+
 ## Mesh simplification (decimation)
 This library implements incremental edge decimation algorithm. On each iteration edge with lowest collapse cost is collapsed.
 Several stop condition are supported:
