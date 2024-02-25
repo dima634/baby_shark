@@ -1025,9 +1025,9 @@ impl<T: TreeNode<Value = f32>> Visitor<T> for CubesVisitor<'_> {
 
 struct ComputeEdgeIntersections<'a, T: TreeNode<Value = f32>> {
     grid: &'a T,
-    x_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
-    y_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
-    z_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
+    x_int: &'a mut T,
+    y_int: &'a mut T,
+    z_int: &'a mut T,
 }
 
 impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
