@@ -314,13 +314,17 @@ impl MarchingCubesMesher {
                 }
             };
 
+            let v1 = v1 * self.voxel_size;
+            let v2 = v2 * self.voxel_size;
+            let v3 = v3 * self.voxel_size;
+
             if Triangle3::is_degenerate(&v1, &v2, &v3) {
                 continue;
             }
 
-            self.vertices.push(v1 * self.voxel_size);
-            self.vertices.push(v2 * self.voxel_size);
-            self.vertices.push(v3 * self.voxel_size);
+            self.vertices.push(v1);
+            self.vertices.push(v2);
+            self.vertices.push(v3);
         }
     }
 

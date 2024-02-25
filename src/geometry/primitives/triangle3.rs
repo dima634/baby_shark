@@ -246,14 +246,14 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     #[inline]
     pub fn intersects_ray3(&self, ray: &Ray3<TScalar>) -> bool {
-        return self.intersects_ray3_at(ray).is_some();
+        self.intersects_ray3_at(ray).is_some()
     }
 
     #[inline]
     pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Vec3<TScalar> {
         let cross = (b - a).cross(&(c - a));
-        debug_assert!(cross.norm_squared() > TScalar::zero(), "Triangle3: degenerate face");
-        return cross.normalize();
+        debug_assert!(cross.norm_squared() > TScalar::zero(), "Triangle3: degenerate face {} {} {}", a, b, c);
+        cross.normalize()
     }
 
     #[inline]
@@ -264,7 +264,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     #[inline]
     pub fn area(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
-        return (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap();
+        (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap()
     }
 
     pub fn quality(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
