@@ -1,4 +1,4 @@
-use self::value::Empty;
+use self::value::empty::Empty;
 use crate::dynamic_vdb;
 use crate::static_vdb;
 use crate::voxel::utils::box_indices;

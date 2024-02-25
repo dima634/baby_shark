@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 
-use crate::voxel::{utils::CUBE_OFFSETS, Grid, Tile, TreeNode, Visitor};
+use crate::voxel::{utils::CUBE_OFFSETS, TreeNode, Tile, Visitor};
 
 pub struct ActiveVoxelsMesher {
     vertices: Vec<Vector3<isize>>,
@@ -8,10 +8,8 @@ pub struct ActiveVoxelsMesher {
 }
 
 impl ActiveVoxelsMesher {
-    ///
-    /// Returns a list where each tree consecutive vertices form a triangle.
-    ///
-    pub fn mesh(&mut self, grid: &impl Grid) -> Vec<Vector3<isize>> {
+    /// Returns a list where each tree consecutive vertices form a triangle
+    pub(super) fn mesh(&mut self, grid: &impl TreeNode) -> Vec<Vector3<isize>> {
         self.vertices.clear();
 
         let mut visitor = ActiveVoxelsVisitor { grid, mesher: self };
@@ -27,7 +25,7 @@ impl ActiveVoxelsMesher {
         }
     }
 
-    fn test_voxel(&mut self, voxel: Vector3<isize>, grid: &impl Grid) {
+    fn test_voxel(&mut self, voxel: Vector3<isize>, grid: &impl TreeNode) {
         if grid.at(&voxel).is_none() {
             return;
         }
@@ -131,7 +129,7 @@ struct ActiveVoxelsVisitor<'a, T: TreeNode> {
     mesher: &'a mut ActiveVoxelsMesher,
 }
 
-impl<T: Grid> Visitor<T::Leaf> for ActiveVoxelsVisitor<'_, T> {
+impl<T: TreeNode> Visitor<T::Leaf> for ActiveVoxelsVisitor<'_, T> {
     fn tile(&mut self, tile: Tile<<T>::Value>) {
         // Test only boundary voxels
         for i in 0..tile.size {

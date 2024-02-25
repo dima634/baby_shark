@@ -16,7 +16,6 @@ use internal_node::*;
 use leaf_node::*;
 use root_node::*;
 use std::ops::{Neg, Sub};
-pub use value::*;
 
 trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
@@ -142,9 +141,5 @@ struct Tile<T> {
     pub size: usize,
     pub value: T,
 }
-
-trait Grid: TreeNode {}
-
-impl<T: TreeNode> Grid for T {}
 
 // https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

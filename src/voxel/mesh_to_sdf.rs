@@ -1,7 +1,6 @@
-use super::{
-    sdf::{Sdf, SdfGrid},
-    Grid,
-};
+use self::sdf::{Sdf, SdfGrid};
+
+use super::*;
 use crate::{
     geometry::{
         primitives::{box3::Box3, triangle3::Triangle3},
@@ -236,13 +235,13 @@ impl Default for MeshToSdf {
     }
 }
 
-struct ComputeSignsVisitor<'a, TGrid: Grid<Value = f32>> {
+struct ComputeSignsVisitor<'a, TGrid: TreeNode<Value = f32>> {
     distance_field: Mutex<Box<TGrid>>,
     winding_numbers: &'a WindingNumbers,
     voxel_size: f32,
 }
 
-impl<'a, TGrid: Grid<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
         if self.distance_field.is_poisoned() {
             return;
@@ -281,7 +280,7 @@ impl<'a, TGrid: Grid<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
     }
 }
 
-impl<'a, TGrid: Grid<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }
@@ -292,7 +291,7 @@ impl<'a, TGrid: Grid<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisit
     }
 }
 
-impl<'a, TGrid: Grid<Value = f32>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&mut self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }

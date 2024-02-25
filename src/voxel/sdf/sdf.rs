@@ -1,11 +1,5 @@
-use std::path::Path;
-
-use crate::io::stl::StlWriter;
-use crate::mesh::polygon_soup::data_structure::PolygonSoup;
 use crate::{dynamic_vdb, helpers::aliases::Vec3f};
 use crate::voxel::*;
-
-use self::meshing::ActiveVoxelsMesher;
 
 pub type SdfGrid = dynamic_vdb!(f32, par 5, 4, 3);
 
@@ -74,15 +68,8 @@ impl Sdf {
         self
     }
 
-    pub(crate) fn grid(&self) -> &SdfGrid { // HIDE
+    pub(in crate::voxel) fn grid(&self) -> &SdfGrid { // HIDE
         &self.grid
-    }
-
-    pub fn save_active(&self) {
-        let mut active = ActiveVoxelsMesher::new();
-        let active_voxels = PolygonSoup::from_vertices(active.mesh(self.grid.as_ref()).into_iter().map(|p| p.cast::<f32>()).collect());
-        let writer = StlWriter::new();
-        writer.write_stl_to_file(&active_voxels, Path::new("active.stl")).expect("Failed to write active.stl");
     }
 }
 

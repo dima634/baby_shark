@@ -1,5 +1,7 @@
-pub mod sdf;
-pub mod builder;
+mod sdf;
+mod builder;
 
 pub use sdf::Sdf;
-pub use sdf::SdfGrid;
+pub use builder::SdfBuilder;
+
+pub(super) use sdf::SdfGrid;
