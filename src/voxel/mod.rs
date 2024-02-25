@@ -1,7 +1,7 @@
-pub mod mesh_to_sdf;
+pub mod mesh_to_volume;
 pub mod meshing;
 pub mod prelude;
-pub mod sdf;
+pub mod volume;
 
 mod init;
 mod internal_node;

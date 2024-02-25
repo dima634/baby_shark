@@ -15,14 +15,14 @@ fn main() {
         .read_stl_from_file(Path::new("./assets/bunny.stl"))
         .expect("Read mesh");
 
-    // Convert bunny mesh to solid
-    let mut mesh_to_sdf = MeshToSdf::default()
+    // Convert bunny mesh to volume
+    let mut mesh_to_sdf = MeshToVolume::default()
         .with_voxel_size(voxel_size)
         .with_narrow_band_width(1);
     let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
     // Slice bunny with vertical boxes
-    let builder = SdfBuilder::default().with_voxel_size(voxel_size);
+    let builder = VolumeBuilder::default().with_voxel_size(voxel_size);
 
     for x in (-25..26).step_by(3) {
         let x = x as f32;
@@ -30,7 +30,7 @@ fn main() {
         bunny_solid = bunny_solid.subtract(slice_box);
     }
 
-    // Convert solid to mesh and write to STL
+    // Convert volume to mesh and write to STL
     let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
     let vertices = mesher.mesh(bunny_solid);
     let mesh = PolygonSoup::from_vertices(vertices);

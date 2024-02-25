@@ -1,14 +1,14 @@
 use crate::{dynamic_vdb, helpers::aliases::Vec3f};
 use crate::voxel::*;
 
-pub type SdfGrid = dynamic_vdb!(f32, par 5, 4, 3);
+pub type VolumeGrid = dynamic_vdb!(f32, par 5, 4, 3);
 
 #[derive(Debug)]
-pub struct Sdf {
-    grid: Box<SdfGrid>,
+pub struct Volume {
+    grid: Box<VolumeGrid>,
 }
 
-impl Sdf {
+impl Volume {
     ///
     /// Creates new SDF grid by evaluating given function on each grid point.
     /// Inside is negative.
@@ -20,7 +20,7 @@ impl Sdf {
         narrow_band_width: usize,
         func: TFn,
     ) -> Self {
-        let mut grid = SdfGrid::empty(Vec3i::zeros());
+        let mut grid = VolumeGrid::empty(Vec3i::zeros());
 
         let narrow_band_width = (narrow_band_width + 1) as f32 * voxel_size;
         let min = (min / voxel_size).map(|x| x.floor() as isize);
@@ -68,14 +68,14 @@ impl Sdf {
         self
     }
 
-    pub(in crate::voxel) fn grid(&self) -> &SdfGrid { // HIDE
+    pub(in crate::voxel) fn grid(&self) -> &VolumeGrid { // HIDE
         &self.grid
     }
 }
 
-impl From<Box<SdfGrid>> for Sdf {
+impl From<Box<VolumeGrid>> for Volume {
     #[inline]
-    fn from(grid: Box<SdfGrid>) -> Self {
+    fn from(grid: Box<VolumeGrid>) -> Self {
         Self { grid }
     }
 }

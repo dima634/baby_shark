@@ -1,4 +1,4 @@
-use self::sdf::{Sdf, SdfGrid};
+use self::volume::{Volume, VolumeGrid};
 
 use super::*;
 use crate::{
@@ -14,16 +14,16 @@ use crate::{
 use rayon::prelude::*;
 use std::sync::Mutex;
 
-pub struct MeshToSdf {
+pub struct MeshToVolume {
     band_width: isize,
     voxel_size: f32,
     inverse_voxel_size: f32,
-    distance_field: Box<SdfGrid>,
+    distance_field: Box<VolumeGrid>,
     subdivided_mesh: Vec<Triangle3<f32>>,
     winding_numbers: WindingNumbers,
 }
 
-impl MeshToSdf {
+impl MeshToVolume {
     #[inline]
     pub fn with_narrow_band_width(mut self, width: isize) -> Self {
         self.set_narrow_band_width(width);
@@ -49,7 +49,7 @@ impl MeshToSdf {
         self
     }
 
-    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Sdf> {
+    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Volume> {
         if mesh.faces().count() == 0 {
             return None;
         }
@@ -66,7 +66,7 @@ impl MeshToSdf {
             return None;
         }
 
-        let mut sdf = SdfGrid::empty(Vec3i::zeros());
+        let mut sdf = VolumeGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.distance_field);
 
         Some(sdf.into())
@@ -196,7 +196,7 @@ impl MeshToSdf {
     }
 
     fn compute_sings(&mut self) -> bool {
-        let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
+        let signs = Mutex::new(VolumeGrid::empty(Vec3i::zeros()));
         let mut visitor = ComputeSignsVisitor {
             distance_field: signs,
             winding_numbers: &self.winding_numbers,
@@ -220,14 +220,14 @@ impl MeshToSdf {
     }
 }
 
-impl Default for MeshToSdf {
+impl Default for MeshToVolume {
     #[inline]
     fn default() -> Self {
         let voxel_size = 1.0;
         Self {
             voxel_size,
             band_width: 1,
-            distance_field: SdfGrid::empty(Vec3i::zeros()),
+            distance_field: VolumeGrid::empty(Vec3i::zeros()),
             subdivided_mesh: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             winding_numbers: WindingNumbers::from_triangles(vec![]),

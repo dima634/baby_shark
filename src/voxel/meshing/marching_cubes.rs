@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{sdf::{Sdf, SdfGrid}, utils::CUBE_OFFSETS, Tile, TreeNode, Visitor},
+    voxel::{volume::{Volume, VolumeGrid}, utils::CUBE_OFFSETS, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
@@ -20,9 +20,9 @@ pub struct MarchingCubesMesher {
     cube: Cube,
     case: i8,
     config: usize,
-    x_int: Box<<SdfGrid as TreeNode>::As<f32>>,
-    y_int: Box<<SdfGrid as TreeNode>::As<f32>>,
-    z_int: Box<<SdfGrid as TreeNode>::As<f32>>,
+    x_int: Box<VolumeGrid>,
+    y_int: Box<VolumeGrid>,
+    z_int: Box<VolumeGrid>,
 }
 
 impl MarchingCubesMesher {
@@ -38,7 +38,7 @@ impl MarchingCubesMesher {
         self
     }
 
-    pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vec3f> {
+    pub fn mesh(&mut self, sdf: Volume) -> Vec<Vec3f> {
         self.clear();
 
         let mut compute_intersections = ComputeEdgeIntersections {
@@ -56,8 +56,6 @@ impl MarchingCubesMesher {
         };
 
         sdf.grid().visit_leafs(&mut cubes_visitor);
-
-        // println!("Edges: {:?}", self.edges.values());
 
         self.vertices.clone()
     }
@@ -964,15 +962,15 @@ impl Default for MarchingCubesMesher {
             case: 0,
             config: 0,
             voxel_size: 1.0,
-            x_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
-            y_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
-            z_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
+            x_int: VolumeGrid::empty(Vec3::zeros()),
+            y_int: VolumeGrid::empty(Vec3::zeros()),
+            z_int: VolumeGrid::empty(Vec3::zeros()),
         }
     }
 }
 
 struct CubesVisitor<'a> {
-    grid: &'a SdfGrid,
+    grid: &'a VolumeGrid,
     mc: &'a mut MarchingCubesMesher,
 }
 
@@ -1169,7 +1167,7 @@ impl Index<usize> for Cube {
 }
 
 impl Cube {
-    fn from_voxel(voxel: Vec3i, grid: &SdfGrid) -> Option<Self> {
+    fn from_voxel(voxel: Vec3i, grid: &VolumeGrid) -> Option<Self> {
         let mut cube: Self = Default::default();
 
         let vertex_indices = CUBE_OFFSETS.map(|off| voxel + off);

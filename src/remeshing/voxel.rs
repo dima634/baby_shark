@@ -1,7 +1,7 @@
 use crate::{
     algo::merge_points::merge_points,
     mesh::traits::Mesh,
-    voxel::{mesh_to_sdf::MeshToSdf, meshing::MarchingCubesMesher},
+    voxel::{mesh_to_volume::MeshToVolume, meshing::MarchingCubesMesher},
 };
 
 ///
@@ -32,7 +32,7 @@ use crate::{
 /// ```
 ///
 pub struct VoxelRemesher {
-    mesh_to_sdf: MeshToSdf,
+    mesh_to_sdf: MeshToVolume,
     marching_cubes: MarchingCubesMesher,
 }
 
@@ -57,7 +57,7 @@ impl VoxelRemesher {
 impl Default for VoxelRemesher {
     fn default() -> Self {
         Self {
-            mesh_to_sdf: MeshToSdf::default().with_narrow_band_width(0),
+            mesh_to_sdf: MeshToVolume::default().with_narrow_band_width(0),
             marching_cubes: MarchingCubesMesher::default(),
         }
     }
