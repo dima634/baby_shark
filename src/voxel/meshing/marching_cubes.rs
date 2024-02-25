@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{utils::CUBE_OFFSETS, Accessor, Sdf, SdfGrid, Tile, TreeNode, Visitor},
+    voxel::{volume::{Volume, VolumeGrid}, utils::CUBE_OFFSETS, Tile, TreeNode, Visitor},
 };
 
 use super::lookup_table::*;
@@ -20,9 +20,9 @@ pub struct MarchingCubesMesher {
     cube: Cube,
     case: i8,
     config: usize,
-    x_int: Box<<SdfGrid as TreeNode>::As<f32>>,
-    y_int: Box<<SdfGrid as TreeNode>::As<f32>>,
-    z_int: Box<<SdfGrid as TreeNode>::As<f32>>,
+    x_int: Box<VolumeGrid>,
+    y_int: Box<VolumeGrid>,
+    z_int: Box<VolumeGrid>,
 }
 
 impl MarchingCubesMesher {
@@ -38,7 +38,9 @@ impl MarchingCubesMesher {
         self
     }
 
-    pub fn mesh(&mut self, sdf: Sdf) -> Vec<Vec3f> {
+    pub fn mesh(&mut self, sdf: Volume) -> Vec<Vec3f> {
+        self.clear();
+
         let mut compute_intersections = ComputeEdgeIntersections {
             grid: sdf.grid(),
             x_int: self.x_int.as_mut(),
@@ -55,9 +57,14 @@ impl MarchingCubesMesher {
 
         sdf.grid().visit_leafs(&mut cubes_visitor);
 
-        // println!("Edges: {:?}", self.edges.values());
-
         self.vertices.clone()
+    }
+
+    fn clear(&mut self) {
+        self.vertices.clear();
+        self.x_int.clear();
+        self.y_int.clear();
+        self.z_int.clear();
     }
 
     fn handle_cube(&mut self, cube: Option<Cube>) {
@@ -305,13 +312,17 @@ impl MarchingCubesMesher {
                 }
             };
 
+            let v1 = v1 * self.voxel_size;
+            let v2 = v2 * self.voxel_size;
+            let v3 = v3 * self.voxel_size;
+
             if Triangle3::is_degenerate(&v1, &v2, &v3) {
                 continue;
             }
 
-            self.vertices.push(v1 * self.voxel_size);
-            self.vertices.push(v2 * self.voxel_size);
-            self.vertices.push(v3 * self.voxel_size);
+            self.vertices.push(v1);
+            self.vertices.push(v2);
+            self.vertices.push(v3);
         }
     }
 
@@ -933,7 +944,6 @@ impl MarchingCubesMesher {
             self.intersection(Edge { v1: 1, v2: 5 }),
             self.intersection(Edge { v1: 2, v2: 6 }),
             self.intersection(Edge { v1: 3, v2: 7 }),
-            self.intersection(Edge { v1: 0, v2: 0 }),
         ];
 
         let count = intersections.iter().filter(|e| e.is_some()).count();
@@ -952,15 +962,15 @@ impl Default for MarchingCubesMesher {
             case: 0,
             config: 0,
             voxel_size: 1.0,
-            x_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
-            y_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
-            z_int: <SdfGrid as TreeNode>::As::<f32>::empty(Vec3::zeros()),
+            x_int: VolumeGrid::empty(Vec3::zeros()),
+            y_int: VolumeGrid::empty(Vec3::zeros()),
+            z_int: VolumeGrid::empty(Vec3::zeros()),
         }
     }
 }
 
 struct CubesVisitor<'a> {
-    grid: &'a SdfGrid,
+    grid: &'a VolumeGrid,
     mc: &'a mut MarchingCubesMesher,
 }
 
@@ -1017,30 +1027,39 @@ impl<T: TreeNode<Value = f32>> Visitor<T> for CubesVisitor<'_> {
 
 struct ComputeEdgeIntersections<'a, T: TreeNode<Value = f32>> {
     grid: &'a T,
-    x_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
-    y_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
-    z_int: &'a mut <SdfGrid as TreeNode>::As<f32>,
+    x_int: &'a mut T,
+    y_int: &'a mut T,
+    z_int: &'a mut T,
 }
 
 impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
-    fn compute_intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
-        if self.x_int.at(v2).is_some() {
-            return;
-        }
-
+    fn intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
         let (v1_val, v2_val) = match (self.grid.at(v1), self.grid.at(v2)) {
             (Some(v1), Some(v2)) => (*v1, *v2),
             _ => return,
         };
 
+        self.compute_intersection(v1, v1_val, v2_val, dir);
+    }
+
+    fn intersection_tile(&mut self, v1: &Vec3i, v2: &Vec3i, v1_val: f32, dir: EdgeDir) {
+        let v2_val = match self.grid.at(v2) {
+            Some(v2) => *v2,
+            _ => return,
+        };
+
+        self.compute_intersection(v1, v1_val, v2_val, dir);
+    }
+
+    fn compute_intersection(&mut self, v1: &Vec3i, v1_val: f32, v2_val: f32, dir: EdgeDir) {
         if v1_val * v2_val > 0.0 {
             return;
         }
 
-        let v1_val_a = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let v2_val_a = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let l = v1_val_a + v2_val_a;
-        let t = v1_val_a / l;
+        let v1_abs = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let v2_abs = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let l = v1_abs + v2_abs;
+        let t = v1_abs / l;
 
         match dir {
             EdgeDir::X => {
@@ -1060,8 +1079,27 @@ impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
 }
 
 impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections<'a, T> {
-    fn tile(&mut self, _tile: Tile<T::Value>) {
-        todo!("Marching cubes: support for tiles");
+    fn tile(&mut self, tile: Tile<T::Value>) {
+        // Test only boundary voxels
+        for i in 0..tile.size {
+            for j in 0..tile.size {
+                let right = tile.origin + Vec3::new(tile.size - 1, i, j).cast();
+                let mut right2 = right;
+                right2.x += 1;
+
+                let front = tile.origin + Vec3::new(i, tile.size - 1, j).cast();
+                let mut front2 = front;
+                front2.y += 1;
+
+                let top = tile.origin + Vec3::new(i, j, tile.size - 1).cast();
+                let mut top2 = top;
+                top2.z += 1;
+
+                self.intersection_tile(&right, &right2, tile.value, EdgeDir::X);
+                self.intersection_tile(&front, &front2, tile.value, EdgeDir::Y);
+                self.intersection_tile(&top, &top2, tile.value, EdgeDir::Z);
+            }
+        }
     }
 
     fn dense(&mut self, dense: &T::Leaf) {
@@ -1076,15 +1114,15 @@ impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections
 
                     let mut v1 = v;
                     v1.x += 1;
-                    self.compute_intersection(&v, &v1, EdgeDir::X);
+                    self.intersection(&v, &v1, EdgeDir::X);
 
                     let mut v2 = v;
                     v2.y += 1;
-                    self.compute_intersection(&v, &v2, EdgeDir::Y);
+                    self.intersection(&v, &v2, EdgeDir::Y);
 
                     let mut v3 = v;
                     v3.z += 1;
-                    self.compute_intersection(&v, &v3, EdgeDir::Z);
+                    self.intersection(&v, &v3, EdgeDir::Z);
                 }
             }
         }
@@ -1129,7 +1167,7 @@ impl Index<usize> for Cube {
 }
 
 impl Cube {
-    fn from_voxel(voxel: Vec3i, grid: &SdfGrid) -> Option<Self> {
+    fn from_voxel(voxel: Vec3i, grid: &VolumeGrid) -> Option<Self> {
         let mut cube: Self = Default::default();
 
         let vertex_indices = CUBE_OFFSETS.map(|off| voxel + off);

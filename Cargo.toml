@@ -1,12 +1,12 @@
 [package]
 name = "baby_shark"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 description="Geometry processing library"
 license="MIT"
 homepage = "https://github.com/dima634/baby_shark"
 repository = "https://github.com/dima634/baby_shark"
-keywords = ["mesh", "mesh-processing", "geometry", "computational-geom", "algorithms"]
+keywords = ["mesh", "mesh-processing", "geometry", "3d", "algorithms"]
 categories = ["mathematics", "graphics", "data-structures"]
 exclude = [
     ".github/workflows/*",
@@ -37,10 +37,4 @@ svg = "0.13.1"
 
 [dev-dependencies]
 test-case = "3.0.0"
-criterion = "0.5.1"
-delaunator = "1.0.2"
 rand = "0.8.5"
-
-[[bench]]
-name = "triangulation2"
-harness = false

@@ -92,9 +92,10 @@ impl<TScalar: Number> Box3<TScalar> {
 
     #[inline]
     pub fn volume(&self) -> TScalar {
-        return self.size_x() * self.size_y() * self.size_z();
+        self.size_x() * self.size_y() * self.size_z()
     }
 
+    /// Returns squared distance from `point` to box. Points inside of box are considered to have distance 0.
     pub fn squared_distance(&self, point: &Vec3<TScalar>) -> TScalar {
         let mut sq_distance = TScalar::zero();
 
@@ -110,7 +111,7 @@ impl<TScalar: Number> Box3<TScalar> {
             }
         }
 
-        return sq_distance;
+        sq_distance
     }
 
     #[inline]

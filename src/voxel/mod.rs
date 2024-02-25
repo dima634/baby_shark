@@ -1,8 +1,8 @@
-pub mod mesh_to_sdf;
+pub mod mesh_to_volume;
 pub mod meshing;
-pub mod sdf;
+pub mod prelude;
+pub mod volume;
 
-mod grid_value;
 mod init;
 mod internal_node;
 mod leaf_node;
@@ -10,25 +10,25 @@ mod root_node;
 #[cfg(test)]
 mod tests;
 mod utils;
-
-use std::ops::Sub;
-
-pub use sdf::*;
+mod value;
 
 use crate::helpers::aliases::Vec3i;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
+use std::ops::{Neg, Sub};
+trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
-trait GridValue: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Sign {
+    Positive,
+    Negative,
+}
 
-trait Accessor {
-    type Value: GridValue; // Remove Copy?
-
-    fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
-    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
-    fn insert(&mut self, index: &Vec3i, value: Self::Value);
-    fn remove(&mut self, index: &Vec3i);
+trait Signed: Value {
+    fn set_sign(&mut self, sign: Sign);
+    fn sign(&self) -> Sign;
+    fn far() -> Self;
 }
 
 trait Visitor<T: TreeNode> {
@@ -41,7 +41,7 @@ trait ParVisitor<T: TreeNode>: Send + Sync {
     fn dense(&self, dense: &T);
 }
 
-trait TreeNode: Accessor + Send + Sync + Sized {
+trait TreeNode: Send + Sync + Sized {
     /// Number of tiles in one dimension on current level
     const BRANCHING: usize;
     /// Total number of tiles in one dimension
@@ -49,21 +49,32 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     /// Number of childs/voxels in node
     const SIZE: usize;
 
-    const IS_LEAF: bool;
+    const IS_LEAF: bool; // TODO: remove
 
+    type Value: Value;
     type Leaf: TreeNode<Value = Self::Value>;
     type Child: TreeNode<Value = Self::Value, Leaf = Self::Leaf>;
-    type As<TValue: GridValue>: TreeNode<
+    type As<TValue: Value>: TreeNode<
         Value = TValue,
         Child = <Self::Child as TreeNode>::As<TValue>,
         Leaf = <Self::Leaf as TreeNode>::As<TValue>,
     >;
+
+    /// Returns ref to value at grid point `index`
+    fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
+    /// Returns mut ref value at grid point `index`
+    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
+    /// Inserts value at grid point `index`
+    fn insert(&mut self, index: &Vec3i, value: Self::Value);
+    /// Removes value at grid point `index`
+    fn remove(&mut self, index: &Vec3i);
 
     /// Creates empty node
     fn empty(origin: Vec3i) -> Box<Self>;
     fn origin(&self) -> Vec3i;
     fn is_empty(&self) -> bool;
     fn fill(&mut self, value: Self::Value);
+    fn clear(&mut self);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 
@@ -85,7 +96,7 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     ///
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: GridValue,
+        TNewValue: Value,
         TCast: Fn(Self::Value) -> TNewValue;
 
     /// Number of voxels in one dimension
@@ -101,14 +112,34 @@ trait TreeNode: Accessor + Send + Sync + Sized {
     }
 }
 
+trait FloodFill
+where
+    Self: TreeNode,
+    Self::Value: Signed,
+{
+    fn flood_fill(&mut self);
+    fn fill_with_sign(&mut self, sign: Sign);
+    fn first_value_sign(&self) -> Sign;
+    fn last_value_sign(&self) -> Sign;
+    fn sign_at(&self, index: &Vec3i) -> Sign;
+}
+
+trait Csg
+where
+    Self: TreeNode + FloodFill,
+    Self::Value: Signed + Neg<Output = Self::Value>,
+{
+    fn union(&mut self, other: Box<Self>);
+    fn subtract(&mut self, other: Box<Self>);
+    fn intersect(&mut self, other: Box<Self>);
+    fn flip_signs(&mut self);
+}
+
+#[derive(Debug)]
 struct Tile<T> {
     pub origin: Vec3i,
     pub size: usize,
     pub value: T,
 }
-
-trait Grid: TreeNode {}
-
-impl<T: TreeNode> Grid for T {}
 
 // https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

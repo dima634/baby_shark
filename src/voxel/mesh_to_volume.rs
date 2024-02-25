@@ -1,7 +1,6 @@
-use std::sync::Mutex;
+use self::volume::{Volume, VolumeGrid};
 
-use rayon::prelude::*;
-
+use super::*;
 use crate::{
     geometry::{
         primitives::{box3::Box3, triangle3::Triangle3},
@@ -12,19 +11,19 @@ use crate::{
     spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers,
     voxel::{ParVisitor, Tile, TreeNode, Visitor},
 };
+use rayon::prelude::*;
+use std::sync::Mutex;
 
-use super::{Accessor, Grid, Sdf, SdfGrid};
-
-pub struct MeshToSdf {
+pub struct MeshToVolume {
     band_width: isize,
     voxel_size: f32,
     inverse_voxel_size: f32,
-    distance_field: Box<SdfGrid>,
+    distance_field: Box<VolumeGrid>,
     subdivided_mesh: Vec<Triangle3<f32>>,
     winding_numbers: WindingNumbers,
 }
 
-impl MeshToSdf {
+impl MeshToVolume {
     #[inline]
     pub fn with_narrow_band_width(mut self, width: isize) -> Self {
         self.set_narrow_band_width(width);
@@ -50,7 +49,7 @@ impl MeshToSdf {
         self
     }
 
-    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Sdf> {
+    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Volume> {
         if mesh.faces().count() == 0 {
             return None;
         }
@@ -67,7 +66,7 @@ impl MeshToSdf {
             return None;
         }
 
-        let mut sdf = SdfGrid::empty(Vec3i::zeros());
+        let mut sdf = VolumeGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.distance_field);
 
         Some(sdf.into())
@@ -197,7 +196,7 @@ impl MeshToSdf {
     }
 
     fn compute_sings(&mut self) -> bool {
-        let signs = Mutex::new(SdfGrid::empty(Vec3i::zeros()));
+        let signs = Mutex::new(VolumeGrid::empty(Vec3i::zeros()));
         let mut visitor = ComputeSignsVisitor {
             distance_field: signs,
             winding_numbers: &self.winding_numbers,
@@ -217,17 +216,18 @@ impl MeshToSdf {
 
     fn clear(&mut self) {
         self.subdivided_mesh.clear();
+        self.distance_field.clear();
     }
 }
 
-impl Default for MeshToSdf {
+impl Default for MeshToVolume {
     #[inline]
     fn default() -> Self {
         let voxel_size = 1.0;
         Self {
             voxel_size,
             band_width: 1,
-            distance_field: SdfGrid::empty(Vec3i::zeros()),
+            distance_field: VolumeGrid::empty(Vec3i::zeros()),
             subdivided_mesh: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
             winding_numbers: WindingNumbers::from_triangles(vec![]),
@@ -235,13 +235,13 @@ impl Default for MeshToSdf {
     }
 }
 
-struct ComputeSignsVisitor<'a, TGrid: Grid<Value = f32>> {
+struct ComputeSignsVisitor<'a, TGrid: TreeNode<Value = f32>> {
     distance_field: Mutex<Box<TGrid>>,
     winding_numbers: &'a WindingNumbers,
     voxel_size: f32,
 }
 
-impl<'a, TGrid: Grid<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
     fn compute_sings_in_node(&self, node: &TGrid::Leaf) {
         if self.distance_field.is_poisoned() {
             return;
@@ -280,7 +280,7 @@ impl<'a, TGrid: Grid<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
     }
 }
 
-impl<'a, TGrid: Grid<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }
@@ -291,7 +291,7 @@ impl<'a, TGrid: Grid<Value = f32>> ParVisitor<TGrid::Leaf> for ComputeSignsVisit
     }
 }
 
-impl<'a, TGrid: Grid<Value = f32>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
+impl<'a, TGrid: TreeNode<Value = f32>> Visitor<TGrid::Leaf> for ComputeSignsVisitor<'a, TGrid> {
     fn tile(&mut self, _tile: Tile<TGrid::Value>) {
         debug_assert!(false, "Mesh to SDF: tile encountered. This is not possible because we are not pruning the tree.");
     }

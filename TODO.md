@@ -99,4 +99,31 @@ TPMS:
         // p.y
 
         p.x.cos() + p.y.cos() + p.z.cos()
+
+         // pub fn iwp(&self, min: Vec3f, max: Vec3f) -> Sdf {
+    //     let cell_size = 0.1_f32;
+    //     let bbox = Box3::new(min.add_scalar(0.5), max.add_scalar(-0.5));
+
+    //     Sdf::from_fn(self.voxel_size, min, max, 1, |p| {
+    //         let x = p.x / cell_size; // 2.0 * PI * p.x / cell_size;
+    //         let y = p.y / cell_size; // 2.0 * PI * p.y / cell_size;
+    //         let z = p.z / cell_size; // 2.0 * PI * p.z / cell_size;
+
+    //         // let v = -(
+    //         //     x.cos() * y.cos() + y.cos() * z.cos() + x.cos() * z.cos() - 
+    //         //     0.5 * ((x * 2.0).cos() + (y * 2.0).cos() + (z * 2.0).cos() - density)
+    //         // );
+    //         // println!("{v}");
+    //         // v
+
+    //         // (x.sin() * y.cos() + y.sin() * z.cos() + z.sin() * x.cos() - density)
+    //         let v = -(x.cos() + y.cos() + z.cos() - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos()) - 1.0);
+
+    //         if !bbox.contains_point(&p) {
+    //             bbox.squared_distance(&p).sqrt()
+    //         } else {
+    //             v * cell_size
+    //         }
+    //     })
+    // }
 ```

@@ -1,90 +1,8 @@
+use super::*;
 use std::mem::MaybeUninit;
 
-use nalgebra::Vector3;
-
-use crate::data_structures::bitset::BitSet;
-
-use super::{Accessor, GridValue, ParVisitor, TreeNode};
-
-#[derive(Debug)]
-pub(super) struct LeafNode<
-    TValue,
-    const BRANCHING: usize,
-    const BRANCHING_TOTAL: usize,
-    const SIZE: usize,
-    const BIT_SIZE: usize,
-> {
-    values: [TValue; SIZE],
-    value_mask: BitSet<SIZE, BIT_SIZE>,
-    origin: Vector3<isize>,
-}
-
 impl<
-        TValue: GridValue,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-{
-    #[inline]
-    fn offset(index: &Vector3<isize>) -> usize {
-        let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1)
-            << Self::BRANCHING + Self::BRANCHING)
-            + ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING)
-            + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
-
-        offset as usize
-    }
-}
-
-impl<
-        TValue: GridValue,
-        const BRANCHING: usize,
-        const BRANCHING_TOTAL: usize,
-        const SIZE: usize,
-        const BIT_SIZE: usize,
-    > Accessor for LeafNode<TValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>
-{
-    type Value = TValue;
-
-    #[inline]
-    fn at(&self, index: &Vector3<isize>) -> Option<&Self::Value> {
-        let offset = Self::offset(index);
-
-        if self.value_mask.at(offset) {
-            Some(&self.values[offset])
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn at_mut(&mut self, index: &Vector3<isize>) -> Option<&mut Self::Value> {
-        let offset = Self::offset(index);
-
-        if self.value_mask.at(offset) {
-            Some(&mut self.values[offset])
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn insert(&mut self, index: &Vector3<isize>, value: Self::Value) {
-        let offset = Self::offset(index);
-        self.value_mask.on(offset);
-        self.values[offset] = value;
-    }
-
-    #[inline]
-    fn remove(&mut self, index: &Vector3<isize>) {
-        self.value_mask.off(Self::offset(index));
-    }
-}
-
-impl<
-        TValue: GridValue,
+        TValue: Value,
         const BRANCHING: usize,
         const BRANCHING_TOTAL: usize,
         const SIZE: usize,
@@ -97,12 +15,47 @@ impl<
 
     const IS_LEAF: bool = true;
 
+    type Value = TValue;
     type Child = Self;
     type Leaf = Self;
-    type As<TNewValue: GridValue> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
+    type As<TNewValue: Value> = LeafNode<TNewValue, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE>;
 
     #[inline]
-    fn empty(origin: Vector3<isize>) -> Box<Self> {
+    fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
+        let offset = Self::offset(index);
+
+        if self.value_mask.at(offset) {
+            Some(&self.values[offset])
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value> {
+        let offset = Self::offset(index);
+
+        if self.value_mask.at(offset) {
+            Some(&mut self.values[offset])
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn insert(&mut self, index: &Vec3i, value: Self::Value) {
+        let offset = Self::offset(index);
+        self.value_mask.on(offset);
+        self.values[offset] = value;
+    }
+
+    #[inline]
+    fn remove(&mut self, index: &Vec3i) {
+        self.value_mask.off(Self::offset(index));
+    }
+
+    #[inline]
+    fn empty(origin: Vec3i) -> Box<Self> {
         Box::new(Self {
             origin,
             value_mask: BitSet::zeroes(),
@@ -116,7 +69,7 @@ impl<
     }
 
     #[inline]
-    fn origin(&self) -> Vector3<isize> {
+    fn origin(&self) -> Vec3i {
         self.origin
     }
 
@@ -126,12 +79,16 @@ impl<
         self.values = [value; SIZE];
     }
 
+    fn clear(&mut self) {
+        self.value_mask.off_all();
+    }
+
     fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
         if self.is_empty() || !self.value_mask.is_full() {
             return None;
         }
 
-        let first_value_offset = self.value_mask.iter().position(|v| v)?;
+        let first_value_offset = self.value_mask.find_first_on()?;
         let first_value = self.values[first_value_offset];
 
         // Check if all values are within tolerance
@@ -157,7 +114,7 @@ impl<
 
     fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
     where
-        TNewValue: GridValue,
+        TNewValue: Value,
         TCast: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = LeafNode {
@@ -185,12 +142,4 @@ impl<
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         visitor.dense(self);
     }
-}
-
-pub const fn leaf_node_size(branching: usize) -> usize {
-    1 << branching * 3
-}
-
-pub const fn leaf_node_bit_size(branching: usize) -> usize {
-    leaf_node_size(branching) / usize::BITS as usize
 }

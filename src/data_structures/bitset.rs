@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 #[derive(Debug, Clone, Copy)]
 pub struct BitSet<const BITS: usize, const STORAGE_SIZE: usize> {
@@ -97,6 +97,21 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
         }
     }
 
+    pub fn find_first_on(&self) -> Option<usize> {
+        let mut offset = 0;
+        for i in 0..STORAGE_SIZE {
+            if self.storage[i] == 0 {
+                offset += USIZE_BITS;
+                continue;
+            }
+
+            let zeroes = self.storage[i].leading_zeros();
+            return Some(offset + zeroes as usize);
+        }
+
+        None
+    }
+
     #[inline]
     pub fn off(&mut self, index: usize) {
         self.set(index, false);
@@ -109,12 +124,12 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet<BITS, STORAGE_SIZE> {
     }
 
     #[inline]
-    pub fn is_on(&mut self, index: usize) -> bool {
+    pub fn is_on(&self, index: usize) -> bool {
         self.at(index)
     }
 
     #[inline]
-    pub fn is_off(&mut self, index: usize) -> bool {
+    pub fn is_off(&self, index: usize) -> bool {
         !self.at(index)
     }
 
@@ -208,6 +223,21 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitXor for BitSet<BITS, STORA
 
         for i in 0..STORAGE_SIZE {
             storage[i] = self.storage[i] ^ rhs.storage[i];
+        }
+
+        Self { storage }
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> Not for BitSet<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        let mut storage: [usize; STORAGE_SIZE] =
+            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+
+        for i in 0..STORAGE_SIZE {
+            storage[i] = !self.storage[i];
         }
 
         Self { storage }
@@ -328,6 +358,25 @@ mod tests {
     fn test_is_empty() {
         assert!(BitSet::<1, 1>::zeroes().is_empty());
         assert!(BitSet::<USIZE_BITS, 1>::zeroes().is_empty());
+    }
+
+    #[test]
+    fn test_find_first_on() {
+        let set = BitSet::<10, 1>::zeroes();
+        assert_eq!(set.find_first_on(), None);
+
+        let set = BitSet::<10, 1>::ones();
+        assert_eq!(set.find_first_on(), Some(0));
+
+        let mut set = BitSet::<10, 1>::zeroes();
+        set.on(3);
+        assert_eq!(set.find_first_on(), Some(3));
+
+        set.on(4);
+        assert_eq!(set.find_first_on(), Some(3));
+        
+        set.on(2);
+        assert_eq!(set.find_first_on(), Some(2));
     }
 
     #[test]
