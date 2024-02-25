@@ -10,21 +10,21 @@ fn main() {
         .with_voxel_size(voxel_size);
 
     let create_sphere = || {
-        let sphere1 = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+        let sphere1 = sdf::SdfBuilder::with_voxel_size(voxel_size)
             //.cuboid(Vec3::zeros(), Vec3::new(1.0, 1.0, 1.0));
             .sphere(1.5, Vec3::new(1.0, 1.0, 1.0));
 
-        let sphere2 = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+        let sphere2 = sdf::SdfBuilder::with_voxel_size(voxel_size)
             //.cuboid(Vec3::new(0.5, 0.5, 0.5), Vec3::new(1.5, 1.5, 1.5));
             .sphere(1.5, Vec3::new(1.5, 1.0, 1.0));
 
         (sphere1, sphere2)
     };
     let create_cubes = || {
-        let sphere1 = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+        let sphere1 = sdf::SdfBuilder::with_voxel_size(voxel_size)
             .cuboid(Vec3::new(-3.0, -3.0, -3.0), Vec3::new(1.0, 1.0, 1.0));
 
-        let sphere2 = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+        let sphere2 = sdf::SdfBuilder::with_voxel_size(voxel_size)
             .cuboid(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(2.5, 2.5, 2.5));
 
         (sphere1, sphere2)
@@ -96,9 +96,9 @@ fn main() {
     let union_mesh = PolygonSoup::from_vertices(mesher.mesh(union));
     writer.write_stl_to_file(&union_mesh, Path::new("cubes_inter.stl")).expect("Failed to write union.stl");
 
-    let s = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+    let s = sdf::SdfBuilder::with_voxel_size(voxel_size)
         .sphere(1.0, Vec3::new(0.4, 0.4, 0.4));
-    let c = sdf::builder::SdfBuilder::with_voxel_size(voxel_size)
+    let c = sdf::SdfBuilder::with_voxel_size(voxel_size)
         .cuboid(Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, 1.0));
     let union = c.subtract(s);
     let union_mesh = PolygonSoup::from_vertices(mesher.mesh(union));

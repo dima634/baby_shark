@@ -1031,24 +1031,33 @@ struct ComputeEdgeIntersections<'a, T: TreeNode<Value = f32>> {
 }
 
 impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
-    fn compute_intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
-        if self.x_int.at(v2).is_some() {
-            return;
-        }
-
+    fn intersection(&mut self, v1: &Vec3i, v2: &Vec3i, dir: EdgeDir) {
         let (v1_val, v2_val) = match (self.grid.at(v1), self.grid.at(v2)) {
             (Some(v1), Some(v2)) => (*v1, *v2),
             _ => return,
         };
 
+        self.compute_intersection(v1, v1_val, v2_val, dir);
+    }
+
+    fn intersection_tile(&mut self, v1: &Vec3i, v2: &Vec3i, v1_val: f32, dir: EdgeDir) {
+        let v2_val = match self.grid.at(v2) {
+            Some(v2) => *v2,
+            _ => return,
+        };
+
+        self.compute_intersection(v1, v1_val, v2_val, dir);
+    }
+
+    fn compute_intersection(&mut self, v1: &Vec3i, v1_val: f32, v2_val: f32, dir: EdgeDir) {
         if v1_val * v2_val > 0.0 {
             return;
         }
 
-        let v1_val_a = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let v2_val_a = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let l = v1_val_a + v2_val_a;
-        let t = v1_val_a / l;
+        let v1_abs = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let v2_abs = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let l = v1_abs + v2_abs;
+        let t = v1_abs / l;
 
         match dir {
             EdgeDir::X => {
@@ -1084,9 +1093,9 @@ impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections
                 let mut top2 = top;
                 top2.z += 1;
 
-                self.compute_intersection(&right, &right2, EdgeDir::X);
-                self.compute_intersection(&front, &front2, EdgeDir::Y);
-                self.compute_intersection(&top, &top2, EdgeDir::Z);
+                self.intersection_tile(&right, &right2, tile.value, EdgeDir::X);
+                self.intersection_tile(&front, &front2, tile.value, EdgeDir::Y);
+                self.intersection_tile(&top, &top2, tile.value, EdgeDir::Z);
             }
         }
     }
@@ -1103,15 +1112,15 @@ impl<'a, T: TreeNode<Value = f32>> Visitor<T::Leaf> for ComputeEdgeIntersections
 
                     let mut v1 = v;
                     v1.x += 1;
-                    self.compute_intersection(&v, &v1, EdgeDir::X);
+                    self.intersection(&v, &v1, EdgeDir::X);
 
                     let mut v2 = v;
                     v2.y += 1;
-                    self.compute_intersection(&v, &v2, EdgeDir::Y);
+                    self.intersection(&v, &v2, EdgeDir::Y);
 
                     let mut v3 = v;
                     v3.z += 1;
-                    self.compute_intersection(&v, &v3, EdgeDir::Z);
+                    self.intersection(&v, &v3, EdgeDir::Z);
                 }
             }
         }

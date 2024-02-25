@@ -9,6 +9,7 @@ pub struct ActiveVoxelsMesher {
 
 impl ActiveVoxelsMesher {
     /// Returns a list where each tree consecutive vertices form a triangle
+    #[allow(dead_code)]
     pub(super) fn mesh(&mut self, grid: &impl TreeNode) -> Vec<Vector3<isize>> {
         self.vertices.clear();
 
@@ -18,6 +19,7 @@ impl ActiveVoxelsMesher {
         std::mem::take(&mut self.vertices)
     }
 
+    #[inline]
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
