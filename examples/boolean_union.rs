@@ -19,16 +19,16 @@ fn main() {
     let mut mesh_to_sdf = MeshToVolume::default()
         .with_voxel_size(voxel_size)
         .with_narrow_band_width(1);
-    let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
+    let mut bunny_volume = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
     // Union with sphere
     let builder = VolumeBuilder::default().with_voxel_size(voxel_size);
     let sphere = builder.sphere(12.0, Vec3::new(-18.189699, -8.620899, 32.004601));
-    bunny_solid = bunny_solid.union(sphere);
+    bunny_volume = bunny_volume.union(sphere);
 
     // Convert volume to mesh and write to STL
     let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
-    let vertices = mesher.mesh(bunny_solid);
+    let vertices = mesher.mesh(bunny_volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()

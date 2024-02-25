@@ -75,15 +75,15 @@ Subtract           |  Union
 ### Example
 ```rust
 // See examples/boolean_operations.rs for full example
-let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
+let mut bunny_volume = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
 // Slice bunny with vertical boxes
-let builder = sdf::SdfBuilder::default().with_voxel_size(voxel_size);
+let builder = VolumeBuilder::default().with_voxel_size(voxel_size);
 
 for x in (-25..26).step_by(3) {
     let x = x as f32;
     let slice_box = builder.cuboid(Vec3::new(x, -20.0, 0.0), Vec3::new(x + 1.0, 20.0, 50.0));
-    bunny_solid = bunny_solid.subtract(slice_box);
+    bunny_volume = bunny_volume.subtract(slice_box);
 }
 ```
 

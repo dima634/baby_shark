@@ -19,7 +19,7 @@ fn main() {
     let mut mesh_to_sdf = MeshToVolume::default()
         .with_voxel_size(voxel_size)
         .with_narrow_band_width(1);
-    let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
+    let mut bunny_volume = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
     // Slice bunny with vertical boxes
     let builder = VolumeBuilder::default().with_voxel_size(voxel_size);
@@ -27,12 +27,12 @@ fn main() {
     for x in (-25..26).step_by(3) {
         let x = x as f32;
         let slice_box = builder.cuboid(Vec3::new(x, -20.0, 0.0), Vec3::new(x + 1.0, 20.0, 50.0));
-        bunny_solid = bunny_solid.subtract(slice_box);
+        bunny_volume = bunny_volume.subtract(slice_box);
     }
 
     // Convert volume to mesh and write to STL
     let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
-    let vertices = mesher.mesh(bunny_solid);
+    let vertices = mesher.mesh(bunny_volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
