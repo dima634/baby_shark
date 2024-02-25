@@ -1,17 +1,20 @@
 use crate::helpers::aliases::Vec3i;
-use std::{cmp::Ordering, ops::Range};
+use std::cmp::Ordering;
 
+#[cfg(test)]
 #[inline]
 pub fn box_indices(start: isize, end: isize) -> impl Iterator<Item = Vec3i> {
     region(Vec3i::new(start, start, start), Vec3i::new(end, end, end))
 }
 
+#[cfg(test)]
 pub fn region(start: Vec3i, end: Vec3i) -> impl Iterator<Item = Vec3i> {
     (start.x..end.x).flat_map(move |x| {
         (start.y..end.y).flat_map(move |y| (start.z..end.z).map(move |z| Vec3i::new(x, y, z)))
     })
 }
 
+#[cfg(test)]
 pub fn region_boundary(start: Vec3i, end: Vec3i) -> impl Iterator<Item = Vec3i> {
     region(start, Vec3i::new(start.x + 1, end.y, end.z))
         .chain(region(Vec3i::new(end.x - 1, start.y, start.z), end))
@@ -57,41 +60,6 @@ pub fn partial_max<T: PartialOrd>(a: T, b: T) -> T {
     }
 }
 
-pub struct GridIter {
-    log2: isize,
-    two_log2: isize,
-    range: Range<isize>,
-}
-
-impl GridIter {
-    pub fn from_origin_and_size(start: isize, log2: isize) -> Self {
-        let dim = 1 << log2;
-        let dim_squared = dim * dim;
-        let range = start..(dim_squared * dim);
-        let two_log2 = log2 + log2;
-
-        Self {
-            log2,
-            two_log2,
-            range,
-        }
-    }
-}
-
-impl Iterator for GridIter {
-    type Item = Vec3i;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let next_flat = self.range.next()?;
-
-        let x = next_flat & self.log2;
-        let y = (next_flat >> self.log2) & self.log2;
-        let z = next_flat >> self.two_log2;
-
-        Some(Vec3i::new(x, y, z))
-    }
-}
-
 //         7 ________ 6
 //         /|       /|
 //       /  |     /  |
@@ -116,25 +84,9 @@ pub const CUBE_OFFSETS: [Vec3i; 8] = [
 
 #[cfg(test)]
 mod tests {
-    use super::{region_boundary, GridIter};
+    use super::region_boundary;
     use crate::helpers::aliases::Vec3i;
-    use nalgebra::Vector3;
     use std::collections::BTreeSet;
-
-    #[test]
-    fn test_grid_iter() {
-        let mut it = GridIter::from_origin_and_size(0, 1);
-
-        assert_eq!(it.next(), Some(Vector3::new(0, 0, 0)));
-        assert_eq!(it.next(), Some(Vector3::new(1, 0, 0)));
-        assert_eq!(it.next(), Some(Vector3::new(0, 1, 0)));
-        assert_eq!(it.next(), Some(Vector3::new(1, 1, 0)));
-        assert_eq!(it.next(), Some(Vector3::new(0, 0, 1)));
-        assert_eq!(it.next(), Some(Vector3::new(1, 0, 1)));
-        assert_eq!(it.next(), Some(Vector3::new(0, 1, 1)));
-        assert_eq!(it.next(), Some(Vector3::new(1, 1, 1)));
-        assert_eq!(it.next(), None);
-    }
 
     #[test]
     fn test_region_boundary() {
