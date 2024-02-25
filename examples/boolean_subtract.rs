@@ -1,7 +1,7 @@
 use baby_shark::{
     io::stl::{StlReader, StlWriter},
     mesh::polygon_soup::data_structure::PolygonSoup,
-    voxel::{mesh_to_sdf::MeshToSdf, meshing::MarchingCubesMesher, sdf},
+    voxel::prelude::*,
 };
 use nalgebra_glm::Vec3;
 use std::path::Path;
@@ -22,7 +22,7 @@ fn main() {
     let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
     // Slice bunny with vertical boxes
-    let builder = sdf::SdfBuilder::default().with_voxel_size(voxel_size);
+    let builder = SdfBuilder::default().with_voxel_size(voxel_size);
 
     for x in (-25..26).step_by(3) {
         let x = x as f32;

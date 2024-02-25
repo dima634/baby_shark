@@ -1,5 +1,6 @@
 pub mod mesh_to_sdf;
 pub mod meshing;
+pub mod prelude;
 pub mod sdf;
 
 mod init;
@@ -16,7 +17,6 @@ use internal_node::*;
 use leaf_node::*;
 use root_node::*;
 use std::ops::{Neg, Sub};
-
 trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

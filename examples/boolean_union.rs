@@ -1,7 +1,7 @@
 use baby_shark::{
     io::stl::{StlReader, StlWriter},
     mesh::polygon_soup::data_structure::PolygonSoup,
-    voxel::{mesh_to_sdf::MeshToSdf, meshing::MarchingCubesMesher, sdf},
+    voxel::prelude::*,
 };
 use nalgebra_glm::Vec3;
 use std::path::Path;
@@ -22,7 +22,7 @@ fn main() {
     let mut bunny_solid = mesh_to_sdf.convert(&bunny_mesh).unwrap();
 
     // Union with sphere
-    let builder = sdf::SdfBuilder::default().with_voxel_size(voxel_size);
+    let builder = SdfBuilder::default().with_voxel_size(voxel_size);
     let sphere = builder.sphere(12.0, Vec3::new(-18.189699, -8.620899, 32.004601));
     bunny_solid = bunny_solid.union(sphere);
 
