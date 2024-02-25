@@ -2,14 +2,21 @@ use crate::{geometry::primitives::box3::Box3, helpers::aliases::Vec3f};
 
 use super::Sdf;
 
+/// Helper for building primitives
 pub struct SdfBuilder {
     voxel_size: f32,
 }
 
 impl SdfBuilder {
     #[inline]
-    pub fn with_voxel_size(voxel_size: f32) -> Self {
-        SdfBuilder { voxel_size }
+    pub fn with_voxel_size(mut self, voxel_size: f32) -> Self {
+        self.set_voxel_size(voxel_size);
+        self
+    }
+
+    #[inline]
+    pub fn set_voxel_size(&mut self, voxel_size: f32) {
+        self.voxel_size = voxel_size;
     }
 
     pub fn sphere(&self, radius: f32, origin: Vec3f) -> Sdf {
@@ -42,5 +49,12 @@ impl SdfBuilder {
                 box3.squared_distance(&p).sqrt()
             }
         })
+    }
+}
+
+impl Default for SdfBuilder {
+    #[inline]
+    fn default() -> Self {
+        Self { voxel_size: 1.0 }
     }
 }
