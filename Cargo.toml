@@ -37,10 +37,4 @@ svg = "0.13.1"
 
 [dev-dependencies]
 test-case = "3.0.0"
-criterion = "0.5.1"
-delaunator = "1.0.2"
 rand = "0.8.5"
-
-[[bench]]
-name = "triangulation2"
-harness = false
