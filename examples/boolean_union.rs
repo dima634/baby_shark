@@ -28,7 +28,7 @@ fn main() {
 
     // Convert volume to mesh and write to STL
     let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
-    let vertices = mesher.mesh(bunny_volume);
+    let vertices = mesher.mesh(&bunny_volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()

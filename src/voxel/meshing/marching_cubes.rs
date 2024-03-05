@@ -38,7 +38,7 @@ impl MarchingCubesMesher {
         self
     }
 
-    pub fn mesh(&mut self, sdf: Volume) -> Vec<Vec3f> {
+    pub fn mesh(&mut self, sdf: &Volume) -> Vec<Vec3f> {
         self.clear();
 
         let mut compute_intersections = ComputeEdgeIntersections {
@@ -1056,10 +1056,7 @@ impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
             return;
         }
 
-        let v1_abs = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let v2_abs = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let l = v1_abs + v2_abs;
-        let t = v1_abs / l;
+        let t = v1_val / (v1_val - v2_val);
 
         match dir {
             EdgeDir::X => {
