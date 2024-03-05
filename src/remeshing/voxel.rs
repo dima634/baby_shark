@@ -46,7 +46,7 @@ impl VoxelRemesher {
 
     pub fn remesh<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<T> {
         let distance_field = self.mesh_to_sdf.convert(mesh)?;
-        let faces = self.marching_cubes.mesh(distance_field);
+        let faces = self.marching_cubes.mesh(&distance_field);
         let indexed_faces = merge_points(&faces);
         let mesh = T::from_vertices_and_indices(&indexed_faces.points, &indexed_faces.indices);
 
@@ -65,12 +65,11 @@ impl Default for VoxelRemesher {
 
 #[cfg(test)]
 mod tests {
+    use super::VoxelRemesher;
     use crate::{
         helpers::aliases::Vec3,
         mesh::{builder, polygon_soup::data_structure::PolygonSoup, traits::Mesh},
     };
-
-    use super::VoxelRemesher;
 
     #[test]
     fn test_voxel_remeshing() {

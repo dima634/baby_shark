@@ -17,6 +17,7 @@ use internal_node::*;
 use leaf_node::*;
 use root_node::*;
 use std::ops::{Neg, Sub};
+
 trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
