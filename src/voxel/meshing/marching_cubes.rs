@@ -3,16 +3,20 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{volume::{Volume, VolumeGrid}, utils::CUBE_OFFSETS, Tile, TreeNode, Visitor},
+    voxel::{
+        utils::CUBE_OFFSETS,
+        volume::{Volume, VolumeGrid},
+        Signed, Tile, TreeNode, Visitor,
+    },
 };
 
 use super::lookup_table::*;
 
 ///
 /// Corrected marching cubes 33.
-/// 
+///
 /// Based on article: ["Practical considerations on Marching Cubes 33 topological correctness"](https://www.sci.utah.edu/~etiene/pdf/mc33.pdf)
-/// 
+///
 pub struct MarchingCubesMesher {
     vertices: Vec<Vec3f>,
     voxel_size: f32,
@@ -38,7 +42,7 @@ impl MarchingCubesMesher {
         self
     }
 
-    pub fn mesh(&mut self, sdf: Volume) -> Vec<Vec3f> {
+    pub fn mesh(&mut self, sdf: &Volume) -> Vec<Vec3f> {
         self.clear();
 
         let mut compute_intersections = ComputeEdgeIntersections {
@@ -1052,14 +1056,20 @@ impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersections<'a, T> {
     }
 
     fn compute_intersection(&mut self, v1: &Vec3i, v1_val: f32, v2_val: f32, dir: EdgeDir) {
-        if v1_val * v2_val > 0.0 {
+        if v1_val.sign() == v2_val.sign() {
             return;
         }
 
-        let v1_abs = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let v2_abs = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
-        let l = v1_abs + v2_abs;
-        let t = v1_abs / l;
+        let v1_val = v1_val.abs().max(MIN_ABS_VERTEX_VALUE);
+        let v2_val = v2_val.abs().max(MIN_ABS_VERTEX_VALUE);
+
+        let t = v1_val / (v1_val + v2_val);
+        debug_assert!(
+            t.is_finite(),
+            "Marching cubes: t is not finite, v1 = {}, v2 = {}",
+            v1_val,
+            v2_val
+        );
 
         match dir {
             EdgeDir::X => {

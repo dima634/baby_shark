@@ -20,9 +20,6 @@
 - [ ] Add assertions for BRANCHING (>=2 for leaf, decreasing for tree), SIZE
 - [ ] Root is not tree node?
 - [ ] Visualization
-- [ ] Insert
-    - [x] Full node
-    - [x] There should not be a pruning on insert
 - [ ] Cached accessor
     - Typed list to avoid vtable calls https://crates.io/crates/frunk#hlist
     - Fix issue with caching
@@ -35,15 +32,12 @@
     - Only on DEPTH - 1 level? skip rest. THIS ONE. Only active tiles/leaf should be considered. How to avoid duplicates?
     - AAAHHHHHHH create a separate tree containing intersected voxels (make borders active) and iterate over it
     - Make border active???
-- [x] Internal node size: vec of union
 - [ ] Marching cubes: intersection grid
 - [ ] Ability to pick between BTree and HashMap for root node
-- [x] Prune on demand (within tolerance?)
 - [ ] Type list: change to enum. Each enum value is type at {idx} of list. Will compiler optimize match expr? Implement the same ways as TreeNode
 - [ ] Cubes meshing: optimize by testing only boundary of tile nodes
 - [ ] Remove redundant total branching from leaf node
 - [ ] Internal node: merge childs and values into union to reduce memory footprint
-- [x] Artifacts during meshing
 - [ ] Leaf node: bit mask for inside/outside
 - [ ] Mesh to SDF: implement union for tree nodes to speed up stuff???
 - [ ] Marching cubes: verify cases handling, especially subconfig usage
@@ -53,6 +47,12 @@
 ### RUST unstable
  - [ ] VDB: const expressions with generics
  - [ ] VDB: tree traverse using coroutines/generators
+
+
+# RELEASES TODO
+* Dual contouring docs
+* Default constructor for grid
+* Remove sub from grid value
 
 
 TPMS:
