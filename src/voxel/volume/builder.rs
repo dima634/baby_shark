@@ -1,6 +1,5 @@
-use crate::{geometry::primitives::box3::Box3, helpers::aliases::Vec3f};
-
 use super::Volume;
+use crate::{geometry::primitives::box3::Box3, helpers::aliases::Vec3f};
 
 /// Helper for building primitives
 pub struct VolumeBuilder {
@@ -38,7 +37,7 @@ impl VolumeBuilder {
         let box3 = Box3::new(min, max);
 
         Volume::from_fn(self.voxel_size, grid_min, grid_max, band_width, |p| {
-            if box3.contains_point(&p) {
+            if box3.contains_point(p) {
                 -(p.x - min.x)
                     .min(max.x - p.x)
                     .min(p.y - min.y)
@@ -46,7 +45,7 @@ impl VolumeBuilder {
                     .min(p.z - min.z)
                     .min(max.z - p.z)
             } else {
-                box3.squared_distance(&p).sqrt()
+                box3.squared_distance(p).sqrt()
             }
         })
     }

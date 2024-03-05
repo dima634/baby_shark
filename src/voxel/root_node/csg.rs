@@ -42,7 +42,7 @@ where
         let nodes_outside_intersection = self_keys.symmetric_difference(&other_keys);
 
         for key in nodes_outside_intersection {
-            self.root.remove(&key);
+            self.root.remove(key);
         }
 
         let keys = self.root.keys().copied().collect::<BTreeSet<_>>();

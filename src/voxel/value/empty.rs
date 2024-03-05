@@ -1,7 +1,7 @@
 use crate::voxel::Value;
 use std::ops::Sub;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Empty;
 
 impl Value for Empty {}

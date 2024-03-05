@@ -1,6 +1,5 @@
+use crate::voxel::{utils::CUBE_OFFSETS, Tile, TreeNode, Visitor};
 use nalgebra::Vector3;
-
-use crate::voxel::{utils::CUBE_OFFSETS, TreeNode, Tile, Visitor};
 
 pub struct ActiveVoxelsMesher {
     vertices: Vec<Vector3<isize>>,
@@ -17,14 +16,6 @@ impl ActiveVoxelsMesher {
 
         grid.visit_leafs(&mut visitor);
         std::mem::take(&mut self.vertices)
-    }
-
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            vertices: Vec::new(),
-            box_vertices: CUBE_OFFSETS,
-        }
     }
 
     fn test_voxel(&mut self, voxel: Vector3<isize>, grid: &impl TreeNode) {
@@ -122,6 +113,16 @@ impl ActiveVoxelsMesher {
             ];
 
             self.vertices.extend_from_slice(&faces);
+        }
+    }
+}
+
+impl Default for ActiveVoxelsMesher {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            vertices: Vec::new(),
+            box_vertices: CUBE_OFFSETS,
         }
     }
 }

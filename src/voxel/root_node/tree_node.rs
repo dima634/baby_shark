@@ -21,8 +21,7 @@ where
         let root_key = Self::root_key(index);
         self.root
             .get(&root_key)
-            .map(|child| child.at(index))
-            .flatten()
+            .and_then(|child| child.at(index))
     }
 
     #[inline]
@@ -30,8 +29,7 @@ where
         let root_key = Self::root_key(index);
         self.root
             .get_mut(&root_key)
-            .map(|child| child.at_mut(index))
-            .flatten()
+            .and_then(|child| child.at_mut(index))
     }
 
     #[inline]

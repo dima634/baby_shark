@@ -83,7 +83,7 @@ impl MeshToVolume {
         //    p2--------p3
 
         if num_subs < 2.0 {
-            self.subdivided_mesh.push(tri.clone());
+            self.subdivided_mesh.push(*tri);
             return;
         }
 
@@ -151,7 +151,7 @@ impl MeshToVolume {
                         for z in min.z..=max.z {
                             let z_world = z as f32 * self.voxel_size;
                             let grid_point = Vec3f::new(x_world, y_world, z_world);
-                            let closest = tri.closest_point(&grid_point.into());
+                            let closest = tri.closest_point(&grid_point);
                             let dist = (closest - grid_point).norm();
                             distances.push(dist);
 
@@ -181,11 +181,11 @@ impl MeshToVolume {
                         let cur_dist = self
                             .distance_field
                             .at(&idx)
-                            .map(|v| *v)
+                            .copied()
                             .unwrap_or(f32::INFINITY);
 
                         if dist[i] < cur_dist {
-                            self.distance_field.insert(&idx, dist[i].into());
+                            self.distance_field.insert(&idx, dist[i]);
                         }
 
                         i += 1;
@@ -197,13 +197,13 @@ impl MeshToVolume {
 
     fn compute_sings(&mut self) -> bool {
         let signs = Mutex::new(VolumeGrid::empty(Vec3i::zeros()));
-        let mut visitor = ComputeSignsVisitor {
+        let visitor = ComputeSignsVisitor {
             distance_field: signs,
             winding_numbers: &self.winding_numbers,
             voxel_size: self.voxel_size,
         };
 
-        self.distance_field.visit_leafs_par(&mut visitor);
+        self.distance_field.visit_leafs_par(&visitor);
 
         match visitor.distance_field.into_inner() {
             Ok(df) => {
@@ -271,7 +271,7 @@ impl<'a, TGrid: TreeNode<Value = f32>> ComputeSignsVisitor<'a, TGrid> {
                     }
 
                     match self.distance_field.lock() {
-                        Ok(mut df) => df.insert(&idx, dist.into()),
+                        Ok(mut df) => df.insert(&idx, dist),
                         Err(_) => return,
                     }
                 }

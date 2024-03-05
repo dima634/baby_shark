@@ -29,6 +29,7 @@ pub struct MarchingCubesMesher {
     z_int: Box<VolumeGrid>,
 }
 
+#[allow(clippy::manual_range_contains)]
 impl MarchingCubesMesher {
     #[inline]
     pub fn with_voxel_size(mut self, size: f32) -> Self {
@@ -81,7 +82,7 @@ impl MarchingCubesMesher {
         self.config = cube_config as usize;
 
         match self.case {
-            0 => return,
+            0 => (),
             1 => self.add_faces(&TILING_EDGES_1[self.config]),
             2 => self.add_faces(&TILING_EDGES_2[self.config]),
             3 => {
@@ -379,19 +380,14 @@ impl MarchingCubesMesher {
             let x2 = (a_t2 - d_t2) / (a_t2 + c_t2 - b_t2 - d_t2);
             let y2 = (a_t2 - b_t2) / (a_t2 + c_t2 - b_t2 - d_t2);
 
-            if x1 < 1.0
+            !(x1 < 1.0
                 && x1 > 0.0
                 && x2 < 1.0
                 && x2 > 0.0
                 && y1 < 1.0
                 && y1 > 0.0
                 && y2 < 1.0
-                && y2 > 0.0
-            {
-                false
-            } else {
-                true
-            }
+                && y2 > 0.0)
         } else {
             true
         }
@@ -951,7 +947,7 @@ impl MarchingCubesMesher {
         ];
 
         let count = intersections.iter().filter(|e| e.is_some()).count();
-        let sum: Vec3f = intersections.into_iter().filter_map(|e| e).sum();
+        let sum: Vec3f = intersections.into_iter().flatten().sum();
 
         self.v12 = sum / count as f32
     }
@@ -1182,12 +1178,8 @@ impl Cube {
 
         let vertex_indices = CUBE_OFFSETS.map(|off| voxel + off);
 
-        for i in 0..vertex_indices.len() {
-            let index = vertex_indices[i];
-            let mut value: f32 = match grid.at(&index) {
-                Some(v) => (*v).into(),
-                None => return None,
-            };
+        for (i, index) in vertex_indices.into_iter().enumerate() {
+            let mut value: f32 = grid.at(&index).copied()?;
 
             if value.abs() < MIN_ABS_VERTEX_VALUE {
                 value = MIN_ABS_VERTEX_VALUE.copysign(value);

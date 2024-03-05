@@ -53,7 +53,7 @@
 * Dual contouring docs
 * Default constructor for grid
 * Remove sub from grid value
-
+* Voxel remeshing, add options for feature-preserving meshing
 
 TPMS:
 ```rust

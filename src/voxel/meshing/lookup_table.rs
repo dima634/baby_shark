@@ -3033,6 +3033,7 @@ const fn convert_tiling<const D1: usize, const D2: usize>(
 const fn convert_tiling2<const D1: usize, const D2: usize, const D3: usize>(
     tiling: &[[[i8; D1]; D2]; D3],
 ) -> [[[Edge; D1]; D2]; D3] {
+    #[allow(clippy::uninit_assumed_init)]
     let mut new_tiling: [[[Edge; D1]; D2]; D3] = unsafe { MaybeUninit::uninit().assume_init() };
 
     let mut i = 0;

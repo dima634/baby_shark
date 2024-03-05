@@ -207,7 +207,7 @@ where
             childs: std::array::from_fn(|_| None),
             child_mask: self.child_mask,
             value_mask: self.value_mask,
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // We  will fill it later
+            values: [Default::default(); SIZE],
         };
 
         for i in 0..SIZE {

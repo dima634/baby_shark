@@ -343,21 +343,20 @@ impl<'a, T: TreeNode<Value = f32>> ParVisitor<T::Leaf> for ComputeEdgeIntersecti
             }
         }
 
-        match (self.x_int.lock(), self.y_int.lock(), self.z_int.lock()) {
-            (Ok(mut x), Ok(mut y), Ok(mut z)) => {
-                for (idx, point) in x_inters {
-                    x.insert(&idx, point);
-                }
+        let intersection_grids = (self.x_int.lock(), self.y_int.lock(), self.z_int.lock());
 
-                for (idx, point) in y_inters {
-                    y.insert(&idx, point);
-                }
-
-                for (idx, point) in z_inters {
-                    z.insert(&idx, point);
-                }
+        if let (Ok(mut x), Ok(mut y), Ok(mut z)) = intersection_grids {
+            for (idx, point) in x_inters {
+                x.insert(&idx, point);
             }
-            _ => return,
+
+            for (idx, point) in y_inters {
+                y.insert(&idx, point);
+            }
+
+            for (idx, point) in z_inters {
+                z.insert(&idx, point);
+            }
         };
     }
 }
@@ -414,11 +413,11 @@ fn find_feature_point(points: &Vec<IntPoint>) -> Vec3f {
         // force that acts on mass
         let mut force = Vec3f::zeros();
 
-        for j in 0..points.len() {
-            let x_point = points[j].point;
-            let x_normal = points[j].normal;
+        for intersection_point in points {
+            let p = intersection_point.point;
+            let n = intersection_point.normal;
 
-            force += x_normal * -1.0 * x_normal.dot(&(c - x_point));
+            force += n * -1.0 * n.dot(&(c - p));
         }
 
         // dampen force
@@ -433,7 +432,7 @@ fn find_feature_point(points: &Vec<IntPoint>) -> Vec3f {
     c
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
 struct IntPoint {
     point: Vec3f,
     normal: Vec3f,

@@ -59,7 +59,7 @@ impl<
         Box::new(Self {
             origin,
             value_mask: BitSet::zeroes(),
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // Safe because value mask is empty
+            values: [Default::default(); SIZE],
         })
     }
 
@@ -120,7 +120,7 @@ impl<
         let mut new_node = LeafNode {
             origin: self.origin,
             value_mask: self.value_mask,
-            values: unsafe { MaybeUninit::uninit().assume_init() }, // We  will f
+            values: [Default::default(); SIZE],
         };
 
         for i in 0..SIZE {

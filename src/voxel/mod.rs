@@ -18,7 +18,7 @@ use leaf_node::*;
 use root_node::*;
 use std::ops::{Neg, Sub};
 
-trait Value: Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
+trait Value: Default + Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Sign {
