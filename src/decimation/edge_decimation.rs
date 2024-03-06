@@ -20,7 +20,7 @@ struct Contraction<TMesh: Mesh> {
 
 impl<TMesh: Mesh> Contraction<TMesh> {
     fn new(edge: TMesh::EdgeDescriptor, cost: TMesh::ScalarType) -> Self {
-        return Self { edge, cost };
+        Self { edge, cost }
     }
 }
 
@@ -29,21 +29,21 @@ impl<TMesh: Mesh> Eq for Contraction<TMesh> {}
 impl<TMesh: Mesh> PartialEq for Contraction<TMesh> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        return self.edge == other.edge;
+        self.edge == other.edge
     }
 }
 
 impl<TMesh: Mesh> Ord for Contraction<TMesh> {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        return self.partial_cmp(other).unwrap();
+        other.cost.partial_cmp(&self.cost).unwrap()
     }
 }
 
 impl<TMesh: Mesh> PartialOrd for Contraction<TMesh> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        return other.cost.partial_cmp(&self.cost);
+        Some(self.cmp(other))
     }
 }
 
@@ -74,9 +74,9 @@ pub struct QuadricError<TMesh: Mesh> {
 
 impl<TMesh: Mesh> Default for QuadricError<TMesh> {
     fn default() -> Self {
-        return Self {
+        Self {
             vertex_quadric_map: HashMap::new(),
-        };
+        }
     }
 }
 
@@ -120,7 +120,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
         let v = Vector4::new(new_position.x, new_position.y, new_position.z, TMesh::ScalarType::one());
         let v_t = v.transpose();
 
-        return (v_t * (q1 + q2) * v)[0].abs().sqrt();
+        (v_t * (q1 + q2) * v)[0].abs().sqrt()
     }
 
     #[inline]
@@ -130,7 +130,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
         edge: &<TMesh as Mesh>::EdgeDescriptor,
     ) -> Vec3<<TMesh as Mesh>::ScalarType> {
         let (v1_pos, v2_pos) = mesh.edge_positions(edge);
-        return (v1_pos + v2_pos) * TMesh::ScalarType::from_f64(0.5).unwrap();
+        (v1_pos + v2_pos) * TMesh::ScalarType::from_f64(0.5).unwrap()
     }
 
     fn collapse_edge(&mut self, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) {
@@ -182,7 +182,7 @@ where
 {
     #[inline]
     pub fn new() -> Self {
-        return Default::default();
+        Default::default()
     }
 
     ///
@@ -193,8 +193,7 @@ where
     #[inline]
     pub fn decimation_criteria(mut self, criteria: TEdgeDecimationCriteria) -> Self {
         self.decimation_criteria = criteria;
-
-        return self;
+        self
     }
 
     ///
@@ -212,7 +211,7 @@ where
             None => self.min_faces_count = 0,
         };
 
-        return self;
+        self
     }
 
     ///
@@ -221,8 +220,7 @@ where
     #[inline]
     pub fn keep_boundary(mut self, keep_boundary: bool) -> Self {
         self.keep_boundary = keep_boundary;
-
-        return self;
+        self
     }
 
     ///
@@ -371,7 +369,7 @@ where
     TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
 {
     fn default() -> Self {
-        return Self {
+        Self {
             decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
             min_face_quality: cast(0.1).unwrap(),
@@ -379,7 +377,7 @@ where
             priority_queue: BinaryHeap::new(),
             not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default(),
-        };
+        }
     }
 }
 
@@ -409,7 +407,7 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
         _mesh: &TMesh,
         _edge: &TMesh::EdgeDescriptor,
     ) -> bool {
-        return true;
+        true
     }
 }
 
@@ -427,7 +425,7 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
         _mesh: &TMesh,
         _edge: &TMesh::EdgeDescriptor,
     ) -> bool {
-        return false;
+        false
     }
 }
 
@@ -515,7 +513,7 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCrit
             .unwrap_or(self.radii_sq_error_map.last().unwrap())
             .1;
 
-        return error < max_error;
+        error < max_error
     }
 }
 
@@ -527,6 +525,6 @@ where
         let origin = Vec3::<TMesh::ScalarType>::zeros();
         let radius = TMesh::ScalarType::max_value();
         let radii_error = vec![(radius, cast(0.001).unwrap())];
-        return Self::new(origin, radii_error);
+        Self::new(origin, radii_error)
     }
 }
