@@ -3,7 +3,7 @@ use self::{
     volume::{Volume, VolumeGrid},
 };
 use super::lookup_table::EdgeDir;
-use crate::{helpers::aliases::Vec3f, voxel::*};
+use crate::{geometry::primitives::triangle3::Triangle3, helpers::aliases::Vec3f, voxel::*};
 use std::sync::Mutex;
 
 ///
@@ -59,7 +59,27 @@ impl DualContouringMesher {
         };
         grid.visit_leafs_par(&triangulate);
 
-        triangulate.faces.into_inner().ok()
+        if let Ok(vertices) = triangulate.faces.into_inner() {
+            let mut triangles = Vec::with_capacity(vertices.len());
+
+            for i in (0..vertices.len()).step_by(3) {
+                let v0 = vertices[i] * self.voxel_size;
+                let v1 = vertices[i + 1] * self.voxel_size;
+                let v2 = vertices[i + 2] * self.voxel_size;
+
+                if Triangle3::is_degenerate(&v0, &v1, &v2) {
+                    continue;
+                }
+
+                triangles.push(v0);
+                triangles.push(v1);
+                triangles.push(v2);
+            }
+
+            return Some(triangles);
+        }
+
+        None
     }
 }
 
