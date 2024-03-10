@@ -4,7 +4,7 @@ mod tree_node;
 
 use super::*;
 use crate::{
-    data_structures::bitset::BitArray,
+    data_structures::bitset::*,
     helpers::aliases::{Vec3i, Vec3u},
 };
 use std::alloc::Layout;

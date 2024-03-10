@@ -1,5 +1,5 @@
 use super::*;
-use crate::helpers::aliases::Vec3i;
+use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 
 impl<
         TValue: Signed,

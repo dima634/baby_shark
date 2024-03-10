@@ -1,5 +1,16 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
+pub trait BitSet: PartialEq + Eq + Copy + Clone + Not + BitAndAssign + BitAnd + BitOrAssign + BitOr + BitXorAssign + BitXor {
+    fn is_empty(&self) -> bool;
+    fn is_full(&self) -> bool;
+    fn on(&mut self, index: usize);
+    fn on_all(&mut self);
+    fn off(&mut self, index: usize);
+    fn off_all(&mut self);
+    fn is_on(&self, index: usize) -> bool;
+    fn is_off(&self, index: usize) -> bool;
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct BitArray<const BITS: usize, const STORAGE_SIZE: usize> {
     storage: [usize; STORAGE_SIZE],
@@ -37,32 +48,6 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        let mut value = 0;
-
-        for i in 0..STORAGE_SIZE - 1 {
-            value |= self.storage[i];
-        }
-
-        value |= self.storage[STORAGE_SIZE - 1] & Self::unused_mask();
-
-        value == 0
-    }
-
-    #[inline]
-    pub fn is_full(&self) -> bool {
-        let mut value = usize::MAX;
-
-        for i in 0..STORAGE_SIZE - 1 {
-            value &= self.storage[i];
-        }
-
-        value &= self.storage[STORAGE_SIZE - 1] | !Self::unused_mask();
-
-        value == usize::MAX
-    }
-
-    #[inline]
     pub fn at(&self, index: usize) -> bool {
         debug_assert!(index < BITS);
 
@@ -86,17 +71,6 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
         }
     }
 
-    #[inline]
-    pub fn on(&mut self, index: usize) {
-        self.set(index, true);
-    }
-
-    pub fn on_all(&mut self) {
-        for i in 0..STORAGE_SIZE {
-            self.storage[i] = usize::MAX;
-        }
-    }
-
     pub fn find_first_on(&self) -> Option<usize> {
         let mut offset = 0;
         for i in 0..STORAGE_SIZE {
@@ -110,27 +84,6 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
         }
 
         None
-    }
-
-    #[inline]
-    pub fn off(&mut self, index: usize) {
-        self.set(index, false);
-    }
-
-    pub fn off_all(&mut self) {
-        for i in 0..STORAGE_SIZE {
-            self.storage[i] = 0;
-        }
-    }
-
-    #[inline]
-    pub fn is_on(&self, index: usize) -> bool {
-        self.at(index)
-    }
-
-    #[inline]
-    pub fn is_off(&self, index: usize) -> bool {
-        !self.at(index)
     }
 
     #[inline]
@@ -151,6 +104,68 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
     #[inline]
     fn value_mask(index: usize) -> usize {
         1 >> (index % USIZE_BITS)
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet for BitArray<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        let mut value = 0;
+
+        for i in 0..STORAGE_SIZE - 1 {
+            value |= self.storage[i];
+        }
+
+        value |= self.storage[STORAGE_SIZE - 1] & Self::unused_mask();
+
+        value == 0
+    }
+
+    #[inline]
+    fn is_full(&self) -> bool {
+        let mut value = usize::MAX;
+
+        for i in 0..STORAGE_SIZE - 1 {
+            value &= self.storage[i];
+        }
+
+        value &= self.storage[STORAGE_SIZE - 1] | !Self::unused_mask();
+
+        value == usize::MAX
+    }
+
+    #[inline]
+    fn on(&mut self, index: usize) {
+        self.set(index, true);
+    }
+
+    #[inline]
+    fn on_all(&mut self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] = usize::MAX;
+        }
+    }
+
+    #[inline]
+    fn off(&mut self, index: usize) {
+        self.set(index, false);
+    }
+
+    #[inline]
+    fn off_all(&mut self) {
+        for i in 0..STORAGE_SIZE {
+            self.storage[i] = 0;
+        }
+    }
+
+    #[inline]
+    fn is_on(&self, index: usize) -> bool {
+        self.at(index)
+    }
+
+    #[inline]
+    fn is_off(&self, index: usize) -> bool {
+        !self.at(index)
     }
 }
 
@@ -299,7 +314,7 @@ const USIZE_BITS: usize = usize::BITS as usize;
 
 #[cfg(test)]
 mod tests {
-    use super::{BitArray, USIZE_BITS};
+    use super::*;
 
     #[test]
     #[should_panic]

@@ -1,4 +1,5 @@
 use super::*;
+use crate::data_structures::bitset::BitSet;
 
 impl<
         TChild,
