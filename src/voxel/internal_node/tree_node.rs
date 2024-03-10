@@ -136,8 +136,8 @@ where
 
     #[inline]
     fn fill(&mut self, value: Self::Value) {
-        self.child_mask = BitSet::zeroes();
-        self.value_mask = BitSet::ones();
+        self.child_mask = BitArray::zeroes();
+        self.value_mask = BitArray::ones();
         self.values = [value; SIZE];
     }
 

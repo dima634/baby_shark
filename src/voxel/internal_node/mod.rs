@@ -4,7 +4,7 @@ mod tree_node;
 
 use super::*;
 use crate::{
-    data_structures::bitset::BitSet,
+    data_structures::bitset::BitArray,
     helpers::aliases::{Vec3i, Vec3u},
 };
 use std::alloc::Layout;
@@ -20,8 +20,8 @@ pub(super) struct InternalNode<
     const PARALLEL: bool,
 > {
     origin: Vec3i,
-    child_mask: BitSet<SIZE, BIT_SIZE>,
-    value_mask: BitSet<SIZE, BIT_SIZE>,
+    child_mask: BitArray<SIZE, BIT_SIZE>,
+    value_mask: BitArray<SIZE, BIT_SIZE>,
     childs: [Option<Box<TChild>>; SIZE],
     values: [TValue; SIZE],
 }

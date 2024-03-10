@@ -121,7 +121,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        data_structures::bitset::BitSet,
+        data_structures::bitset::BitArray,
         helpers::aliases::{Vec3, Vec3i},
         static_vdb,
         voxel::{utils::box_indices, *},
@@ -153,8 +153,8 @@ mod tests {
 
         let origin = Vec3i::new(1, 2, 3);
         let node = Internal::empty(origin);
-        assert_eq!(node.child_mask, BitSet::zeroes());
-        assert_eq!(node.value_mask, BitSet::zeroes());
+        assert_eq!(node.child_mask, BitArray::zeroes());
+        assert_eq!(node.value_mask, BitArray::zeroes());
         assert_eq!(node.origin, origin);
         assert!(node.childs.iter().all(|c| c.is_none()));
     }

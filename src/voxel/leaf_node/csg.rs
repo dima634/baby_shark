@@ -60,11 +60,11 @@ mod tests {
 
         // Set values for node1
         node1.values = [10.0, 20.0, 30.0, 40.0, -10.0, -20.0, -30.0, -40.0];
-        node1.value_mask = BitSet::ones();
+        node1.value_mask = BitArray::ones();
 
         // Set values for node2
         node2.values = [5.0, 15.0, 25.0, 35.0, -5.0, -15.0, -25.0, -35.0];
-        node2.value_mask = BitSet::ones();
+        node2.value_mask = BitArray::ones();
 
         // Perform union operation
         node1.union(node2);
@@ -74,7 +74,7 @@ mod tests {
             node1.values,
             [5.0, 15.0, 25.0, 35.0, -10.0, -20.0, -30.0, -40.0]
         );
-        assert_eq!(node1.value_mask, BitSet::ones());
+        assert_eq!(node1.value_mask, BitArray::ones());
     }
 
     #[test]
@@ -87,11 +87,11 @@ mod tests {
 
         // Set values for node1
         node1.values = [10.0, 20.0, 30.0, 40.0, -10.0, -20.0, -30.0, -40.0];
-        node1.value_mask = BitSet::ones();
+        node1.value_mask = BitArray::ones();
 
         // Set values for node2
         node2.values = [5.0, 15.0, 25.0, 35.0, -5.0, -15.0, -25.0, -35.0];
-        node2.value_mask = BitSet::ones();
+        node2.value_mask = BitArray::ones();
 
         // Perform subtract operation
         node1.subtract(node2);
@@ -101,7 +101,7 @@ mod tests {
             node1.values,
             [10.0, 20.0, 30.0, 40.0, 5.0, 15.0, 25.0, 35.0]
         );
-        assert_eq!(node1.value_mask, BitSet::ones());
+        assert_eq!(node1.value_mask, BitArray::ones());
     }
 
     #[test]
@@ -114,11 +114,11 @@ mod tests {
 
         // Set values for node1
         node1.values = [10.0, 20.0, 30.0, 40.0, -10.0, -20.0, -30.0, -40.0];
-        node1.value_mask = BitSet::ones();
+        node1.value_mask = BitArray::ones();
 
         // Set values for node2
         node2.values = [5.0, 15.0, 25.0, 35.0, -5.0, -15.0, -25.0, -35.0];
-        node2.value_mask = BitSet::ones();
+        node2.value_mask = BitArray::ones();
 
         // Perform intersect operation
         node1.intersect(node2);
@@ -128,6 +128,6 @@ mod tests {
             node1.values,
             [10.0, 20.0, 30.0, 40.0, -5.0, -15.0, -25.0, -35.0]
         );
-        assert_eq!(node1.value_mask, BitSet::ones());
+        assert_eq!(node1.value_mask, BitArray::ones());
     }
 }

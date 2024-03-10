@@ -58,7 +58,7 @@ impl<
     fn empty(origin: Vec3i) -> Box<Self> {
         Box::new(Self {
             origin,
-            value_mask: BitSet::zeroes(),
+            value_mask: BitArray::zeroes(),
             values: [Default::default(); SIZE],
         })
     }
@@ -75,7 +75,7 @@ impl<
 
     #[inline]
     fn fill(&mut self, value: Self::Value) {
-        self.value_mask = BitSet::ones();
+        self.value_mask = BitArray::ones();
         self.values = [value; SIZE];
     }
 

@@ -3,7 +3,7 @@ mod flood_fill;
 mod tree_node;
 
 use super::*;
-use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
+use crate::{data_structures::bitset::BitArray, helpers::aliases::Vec3i};
 
 #[derive(Debug)]
 pub(super) struct LeafNode<
@@ -14,7 +14,7 @@ pub(super) struct LeafNode<
     const BIT_SIZE: usize,
 > {
     values: [TValue; SIZE],
-    value_mask: BitSet<SIZE, BIT_SIZE>,
+    value_mask: BitArray<SIZE, BIT_SIZE>,
     origin: Vec3i,
 }
 
