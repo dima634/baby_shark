@@ -197,10 +197,10 @@ where
         None
     }
 
-    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
     where
         TNewValue: super::Value,
-        TCast: Fn(Self::Value) -> TNewValue,
+        TMap: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = InternalNode {
             origin: self.origin,
@@ -213,9 +213,9 @@ where
         for i in 0..SIZE {
             if self.child_mask.at(i) {
                 let child = self.child_node(i);
-                new_node.childs[i] = Some(Box::new(child.cast(cast)));
+                new_node.childs[i] = Some(Box::new(child.clone_map(map)));
             } else if self.value_mask.at(i) {
-                new_node.values[i] = cast(self.values[i]);
+                new_node.values[i] = map(self.values[i]);
             }
         }
 

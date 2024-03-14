@@ -12,7 +12,7 @@ mod tests;
 mod utils;
 mod value;
 
-use crate::helpers::aliases::Vec3i;
+use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
@@ -95,10 +95,10 @@ trait TreeNode: Send + Sync + Sized {
     ///
     /// Creates a copy of the node with same topology but with different values
     ///
-    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
     where
         TNewValue: Value,
-        TCast: Fn(Self::Value) -> TNewValue;
+        TMap: Fn(Self::Value) -> TNewValue;
 
     /// Number of voxels in one dimension
     #[inline]
@@ -134,6 +134,15 @@ where
     fn subtract(&mut self, other: Box<Self>);
     fn intersect(&mut self, other: Box<Self>);
     fn flip_signs(&mut self);
+}
+
+trait Morph
+    where Self: TreeNode,
+{
+    type Word: BitSet; // Mask for single column of leaf node voxels
+
+    fn dilate(&mut self);
+    fn erode(&mut self);  
 }
 
 #[derive(Debug)]

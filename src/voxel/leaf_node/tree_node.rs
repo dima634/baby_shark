@@ -112,10 +112,10 @@ impl<
         unimplemented!("Unsupported operation. Leaf node should never be pruned")
     }
 
-    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
     where
         TNewValue: Value,
-        TCast: Fn(Self::Value) -> TNewValue,
+        TMap: Fn(Self::Value) -> TNewValue,
     {
         let mut new_node = LeafNode {
             origin: self.origin,
@@ -128,7 +128,7 @@ impl<
                 continue;
             }
 
-            new_node.values[i] = cast(self.values[i]);
+            new_node.values[i] = map(self.values[i]);
         }
 
         new_node

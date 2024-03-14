@@ -89,15 +89,15 @@ where
         None
     }
 
-    fn cast<TNewValue, TCast>(&self, cast: &TCast) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
     where
         TNewValue: Value,
-        TCast: Fn(Self::Value) -> TNewValue,
+        TMap: Fn(Self::Value) -> TNewValue,
     {
         let root = self
             .root
             .iter()
-            .map(|(key, child)| (*key, child.cast(cast).into()))
+            .map(|(key, child)| (*key, child.clone_map(map).into()))
             .collect();
 
         RootNode { root }
