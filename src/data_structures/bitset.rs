@@ -1,6 +1,22 @@
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::{fmt::Display, ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr}};
 
-pub trait BitSet: PartialEq + Eq + Copy + Clone + Not + BitAndAssign + BitAnd + BitOrAssign + BitOr + BitXorAssign + BitXor {
+pub trait BitSet:
+    PartialEq
+    + Eq
+    + Copy
+    + Clone
+    + Not
+    + BitAndAssign
+    + BitAnd
+    + BitOrAssign
+    + BitOr
+    + BitXorAssign
+    + BitXor
+    + Shl<u32, Output = Self>
+    + Shr<u32, Output = Self>
+    + Display
+{
+    fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
     fn is_full(&self) -> bool;
     fn on(&mut self, index: usize);
@@ -87,7 +103,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
     }
 
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = bool> + '_ {
+    pub fn iter(&self) -> BitsIter<'_, BITS, STORAGE_SIZE> {
         BitsIter {
             bit_set: self,
             bit: 0,
@@ -108,6 +124,11 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
 }
 
 impl<const BITS: usize, const STORAGE_SIZE: usize> BitSet for BitArray<BITS, STORAGE_SIZE> {
+    #[inline]
+    fn len(&self) -> usize {
+        BITS
+    }
+
     #[inline]
     fn is_empty(&self) -> bool {
         let mut value = 0;
@@ -259,6 +280,114 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> Not for BitArray<BITS, STORAG
     }
 }
 
+impl<const BITS: usize, const STORAGE_SIZE: usize> Shl<u32> for BitArray<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    fn shl(mut self, rhs: u32) -> Self::Output {
+        if rhs == 0 {
+            return self;
+        }
+
+        if STORAGE_SIZE == 1 {
+            self.storage[STORAGE_SIZE - 1] &= Self::unused_mask();
+            self.storage[0] = self.storage[0].checked_shl(rhs).unwrap_or(0);
+            return self;
+        }
+
+        let rhs = rhs as usize;
+
+        if rhs >= BITS {
+            self.off_all();
+            return self;
+        }
+
+        let shift = rhs / USIZE_BITS;
+        let offset = rhs % USIZE_BITS;
+
+        self.storage[STORAGE_SIZE - 1] &= Self::unused_mask();
+
+        if offset == 0 {
+            for i in 0..STORAGE_SIZE - shift {
+                self.storage[i] = self.storage[i + shift];
+            }
+
+            for i in 0..shift {
+                self.storage[STORAGE_SIZE - 1 - i] = 0;
+            }
+
+            return self;
+        }
+        
+        let sub_offset = USIZE_BITS - offset;
+
+        for i in 0..STORAGE_SIZE - shift - 1 {
+            self.storage[i] = self.storage[i + shift] << offset;
+            self.storage[i] |= self.storage[i + shift + 1] >> sub_offset;
+        }
+        self.storage[STORAGE_SIZE - shift - 1] = self.storage[STORAGE_SIZE - 1] << offset;
+
+        for i in 0..shift {
+            self.storage[STORAGE_SIZE - 1 - i] = 0;
+        }
+
+        self
+    }
+}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> Shr<u32> for BitArray<BITS, STORAGE_SIZE> {
+    type Output = Self;
+
+    fn shr(mut self, rhs: u32) -> Self::Output {
+        if rhs == 0 {
+            return self;
+        }
+
+        if STORAGE_SIZE == 1 {
+            self.storage[0] = self.storage[0].checked_shr(rhs).unwrap_or(0);
+            // self.storage[0] &= Self::unused_mask();
+            return self;
+        }
+
+        let rhs = rhs as usize;
+
+        if rhs >= BITS {
+            self.off_all();
+            return self;
+        }
+
+        let shift = rhs / USIZE_BITS;
+        let offset = rhs % USIZE_BITS;
+
+        // self.storage[STORAGE_SIZE - 1] &= Self::unused_mask();
+
+        if offset == 0 {
+            for i in 0..STORAGE_SIZE - shift {
+                self.storage[i + shift] = self.storage[i];
+            }
+
+            for i in 0..shift {
+                self.storage[i] = 0;
+            }
+
+            return self;
+        }
+        
+        let sub_offset = USIZE_BITS - offset;
+
+        for i in shift + 1..self.storage.len() {
+            self.storage[i] = self.storage[i - shift] >> offset;
+            self.storage[i] |= self.storage[i - shift - 1] << sub_offset;
+        }
+        self.storage[shift] = self.storage[0] >> offset;
+
+        for i in 0..shift {
+            self.storage[i] = 0;
+        }
+
+        self
+    }
+}
+
 impl<const BITS: usize, const STORAGE_SIZE: usize> PartialEq for BitArray<BITS, STORAGE_SIZE> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -276,6 +405,16 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> PartialEq for BitArray<BITS, 
 }
 
 impl<const BITS: usize, const STORAGE_SIZE: usize> Eq for BitArray<BITS, STORAGE_SIZE> {}
+
+impl<const BITS: usize, const STORAGE_SIZE: usize> Display for BitArray<BITS, STORAGE_SIZE> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for bit in self.iter() {
+            write!(f, "{}", if bit { 1 } else { 0 })?;
+        }
+
+        Ok(())
+    }
+}
 
 pub struct BitsIter<'a, const BITS: usize, const STORAGE_SIZE: usize> {
     bit_set: &'a BitArray<BITS, STORAGE_SIZE>,
@@ -310,11 +449,44 @@ impl<'a, const BITS: usize, const STORAGE_SIZE: usize> Iterator
     }
 }
 
+impl<'a, const BITS: usize, const STORAGE_SIZE: usize> DoubleEndedIterator
+    for BitsIter<'a, BITS, STORAGE_SIZE>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.bit == BITS {
+            return None;
+        }
+
+        let value = self.bit_set.at(BITS - 1 - self.bit);
+        self.bit += 1;
+
+        Some(value)
+    }
+}
+
 const USIZE_BITS: usize = usize::BITS as usize;
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    const fn bitsize(bits: usize) -> usize {
+        let full_words = bits / USIZE_BITS;
+        let remainder = bits % USIZE_BITS;
+
+        if remainder == 0 {
+            full_words
+        } else {
+            full_words + 1
+        }
+    }
+
+    macro_rules! BitArr {
+        ($bits: expr) => {
+            BitArray::<$bits, { bitsize($bits) }>
+        };
+    }
 
     #[test]
     #[should_panic]
@@ -389,7 +561,7 @@ mod tests {
 
         set.on(4);
         assert_eq!(set.find_first_on(), Some(3));
-        
+
         set.on(2);
         assert_eq!(set.find_first_on(), Some(2));
     }
@@ -420,5 +592,57 @@ mod tests {
         let mut set2 = BitArray::<10, 1>::zeroes();
         set2.on(3);
         assert_eq!(set1, set2);
+    }
+
+    #[test]
+    fn test_shift_left() {
+
+        fn shift_and_assert<T: BitSet>(mut set: T, shift: usize) {
+            set = set << shift as u32;
+            let split = set.len().checked_sub(shift).unwrap_or(0);
+
+            for i in 0..split {
+                assert!(set.is_on(i), "set = {}, shift = {}, i = {}", set, shift, i);
+            }
+
+            for i in split..set.len() {
+                assert!(set.is_off(i), "set = {}, shift = {}, i = {}", set, shift, i);
+            }
+        }
+
+        for shift in 0..256 {
+            shift_and_assert(<BitArr!(32)>::ones(), shift);
+            shift_and_assert(<BitArr!(63)>::ones(), shift);
+            shift_and_assert(<BitArr!(65)>::ones(), shift);
+            shift_and_assert(<BitArr!(111)>::ones(), shift);
+            shift_and_assert(<BitArr!(128)>::ones(), shift);
+            shift_and_assert(<BitArr!(555)>::ones(), shift);
+        }
+    }
+
+    #[test]
+    fn test_shift_right() {
+
+        fn shift_and_assert<T: BitSet>(mut set: T, shift: usize) {
+            set = set >> shift as u32;
+            let split = shift.min(set.len());
+
+            for i in 0..split {
+                assert!(set.is_off(i), "set = {}, shift = {}, i = {}", set, shift, i);
+            }
+
+            for i in split..set.len() {
+                assert!(set.is_on(i), "set = {}, shift = {}, i = {}", set, shift, i);
+            }
+        }
+
+        for shift in 0..256 {
+            shift_and_assert(<BitArr!(32)>::ones(), shift);
+            shift_and_assert(<BitArr!(63)>::ones(), shift);
+            shift_and_assert(<BitArr!(65)>::ones(), shift);
+            shift_and_assert(<BitArr!(111)>::ones(), shift);
+            shift_and_assert(<BitArr!(128)>::ones(), shift);
+            shift_and_assert(<BitArr!(555)>::ones(), shift);
+        }
     }
 }
