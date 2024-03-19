@@ -12,7 +12,7 @@ mod tests;
 mod utils;
 mod value;
 
-use crate::{data_structures::bitset::BitSet, helpers::aliases::Vec3i};
+use crate::helpers::aliases::Vec3i;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
@@ -90,7 +90,7 @@ trait TreeNode: Send + Sync + Sized {
     ///
     /// Prune all nodes where all values are within tolerance
     ///
-    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>;
+    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>; // TODO: prune_if
 
     ///
     /// Creates a copy of the node with same topology but with different values
@@ -134,15 +134,6 @@ where
     fn subtract(&mut self, other: Box<Self>);
     fn intersect(&mut self, other: Box<Self>);
     fn flip_signs(&mut self);
-}
-
-trait Morph
-    where Self: TreeNode,
-{
-    type Word: BitSet; // Mask for single column of leaf node voxels
-
-    fn dilate(&mut self);
-    fn erode(&mut self);  
 }
 
 #[derive(Debug)]

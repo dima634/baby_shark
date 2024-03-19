@@ -40,7 +40,7 @@ pub const fn leaf_node_size(branching: usize) -> usize {
     1 << branching * 3
 }
 
-pub const fn leaf_node_bit_size(branching: usize) -> usize {
+pub const fn leaf_node_bit_size(branching: usize) -> usize { // THIS IS NOT RIGHT
     let size = leaf_node_size(branching) / usize::BITS as usize;
 
     if size == 0 {
