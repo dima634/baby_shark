@@ -79,6 +79,9 @@ trait TreeNode: Send + Sync + Sized {
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
 
+    /// Returns ref to leaf at grid point `index`. Creates leaf if not exists.
+    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf>;
+
     ///
     /// Checks if node is constant within tolerance.
     /// Empty nodes are not constant.
@@ -141,6 +144,20 @@ struct Tile<T> {
     pub origin: Vec3i,
     pub size: usize,
     pub value: T,
+}
+
+enum LeafMut<'a, T: TreeNode> {
+    Node(&'a mut T),
+    Tile(T::Value),
+}
+
+impl<'a, T: TreeNode> LeafMut<'a, T> {
+    pub fn as_ref(self) -> Option<&'a T> {
+        match self {
+            Self::Node(node) => Some(node),
+            _ => None,
+        }
+    }
 }
 
 // https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

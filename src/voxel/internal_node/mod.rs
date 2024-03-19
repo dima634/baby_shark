@@ -67,7 +67,7 @@ where
     }
 
     #[inline]
-    fn child_owned(&mut self, offset: usize) -> Box<TChild> {
+    fn child_owned(&mut self, offset: usize) -> Box<TChild> { // TODO: merge with `remove_child_node`
         debug_assert!(self.child_mask.at(offset));
 
         self.child_mask.off(offset);

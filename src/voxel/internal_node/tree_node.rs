@@ -277,4 +277,21 @@ where
             }
         }
     }
+    
+    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf> {
+        let offset = Self::offset(index);
+
+        if self.child_mask.is_on(offset) {
+            let child = self.child_node_mut(offset);
+            return child.touch_leaf_at(index);
+        }
+
+        if self.value_mask.is_on(offset) {
+            return LeafMut::Tile(self.values[offset]);
+        }
+
+        self.add_child(offset);
+        let child = self.child_node_mut(offset);
+        child.touch_leaf_at(index)
+    }
 }

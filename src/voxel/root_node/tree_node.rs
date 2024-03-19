@@ -116,4 +116,12 @@ where
             .values()
             .for_each(|node| node.visit_leafs(visitor));
     }
+    
+    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf> {
+        let root_key = Self::root_key(index);
+        self.root
+            .entry(root_key)
+            .or_insert_with(|| TChild::empty(root_key.0))
+            .touch_leaf_at(index)
+    }
 }

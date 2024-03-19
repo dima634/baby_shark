@@ -142,4 +142,9 @@ impl<
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         visitor.dense(self);
     }
+    
+    #[inline]
+    fn touch_leaf_at(&mut self, _: &Vec3i) -> LeafMut<'_, Self::Leaf> {
+        LeafMut::Node(self)
+    }
 }
