@@ -54,6 +54,41 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitArray<BITS, STORAGE_SIZE> 
     }
 
     #[inline]
+    pub fn data(&self) -> &[usize; STORAGE_SIZE] {
+        &self.storage
+    }
+
+    pub fn word<'a, TWord>(&'a self, offset: usize) -> Option<&'a TWord> {
+        let word_size = core::mem::size_of::<TWord>() * u8::BITS as usize;
+        let bits_offset = offset * word_size;
+        let min_bit_len = bits_offset + word_size;
+
+        if min_bit_len > BITS {
+            return None;
+        }
+
+        unsafe {
+            let ptr = self.storage.as_ptr() as *const TWord;
+            ptr.add(offset).as_ref()
+        }
+    }
+
+    pub fn word_mut<'a, TWord>(&'a mut self, offset: usize) -> Option<&'a mut TWord> {
+        let word_size = core::mem::size_of::<TWord>() * u8::BITS as usize;
+        let bits_offset = offset * word_size;
+        let min_bit_len = bits_offset + word_size;
+
+        if min_bit_len > BITS {
+            return None;
+        }
+
+        unsafe {
+            let ptr = self.storage.as_mut_ptr() as *mut TWord;
+            ptr.add(offset).as_mut()
+        }
+    }
+
+    #[inline]
     pub const fn unused_bits() -> usize {
         STORAGE_SIZE * USIZE_BITS - BITS
     }
