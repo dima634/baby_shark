@@ -1,7 +1,5 @@
 use baby_shark::{
-    io::stl::{StlReader, StlWriter},
-    mesh::polygon_soup::data_structure::PolygonSoup,
-    voxel::prelude::*,
+    io::stl::StlWriter, mesh::polygon_soup::data_structure::PolygonSoup, voxel::prelude::*,
 };
 use nalgebra_glm::Vec3;
 use std::path::Path;
