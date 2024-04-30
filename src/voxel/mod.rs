@@ -85,7 +85,7 @@ trait TreeNode: Send + Sync + Sized {
     fn clear(&mut self);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
-    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T); // TODO: values_mut
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T);
 
     /// Returns ref to leaf at grid point `index`. Creates leaf if not exists.
     fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf>;
