@@ -7,10 +7,13 @@ mod init;
 mod internal_node;
 mod leaf_node;
 mod root_node;
-#[cfg(test)]
-mod tests;
 mod utils;
 mod value;
+mod fast_sweep;
+mod visitors;
+
+#[cfg(test)]
+mod tests;
 
 use crate::helpers::aliases::Vec3i;
 use internal_node::*;
@@ -32,9 +35,13 @@ trait Signed: Value {
     fn far() -> Self;
 }
 
-trait Visitor<T: TreeNode> {
-    fn tile(&mut self, tile: Tile<T::Value>);
-    fn dense(&mut self, dense: &T);
+trait Visitor<TLeaf: TreeNode> {
+    fn tile(&mut self, tile: Tile<TLeaf::Value>);
+    fn dense(&mut self, dense: &TLeaf);
+}
+
+trait ValueVisitorMut<T> {
+    fn value(&mut self, value: &mut T);
 }
 
 trait ParVisitor<T: TreeNode>: Send + Sync {
@@ -78,9 +85,12 @@ trait TreeNode: Send + Sync + Sized {
     fn clear(&mut self);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T); // TODO: values_mut
 
     /// Returns ref to leaf at grid point `index`. Creates leaf if not exists.
     fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf>;
+    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf>;
+    fn values(&self) -> impl Iterator<Item = Option<Self::Value>>; // Why option?
 
     ///
     /// Checks if node is constant within tolerance.
@@ -98,10 +108,15 @@ trait TreeNode: Send + Sync + Sized {
     ///
     /// Creates a copy of the node with same topology but with different values
     ///
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue;
+    
+    #[inline]
+    fn clone(&self) -> Box<Self::As<Self::Value>> {
+        self.clone_map(&|x| x)
+    }
 
     /// Number of voxels in one dimension
     #[inline]

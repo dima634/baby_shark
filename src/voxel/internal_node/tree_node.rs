@@ -196,23 +196,27 @@ where
         None
     }
 
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: super::Value,
         TMap: Fn(Self::Value) -> TNewValue,
     {
-        let mut new_node = InternalNode {
-            origin: self.origin,
-            childs: std::array::from_fn(|_| None),
-            child_mask: self.child_mask,
-            value_mask: self.value_mask,
-            values: [Default::default(); SIZE],
-        };
+        // let mut new_node = InternalNode {
+        //     origin: self.origin,
+        //     childs: std::array::from_fn(|_| None),
+        //     child_mask: self.child_mask,
+        //     value_mask: self.value_mask,
+        //     values: [Default::default(); SIZE],
+        // };
+
+        let mut new_node = unsafe { Self::As::<TNewValue>::alloc_on_heap(self.origin) };
+        new_node.child_mask = self.child_mask;
+        new_node.value_mask = self.value_mask;
 
         for i in 0..SIZE {
             if self.child_mask.at(i) {
                 let child = self.child_node(i);
-                new_node.childs[i] = Some(Box::new(child.clone_map(map)));
+                new_node.childs[i] = Some(child.clone_map(map));
             } else if self.value_mask.at(i) {
                 new_node.values[i] = map(self.values[i]);
             }
@@ -293,5 +297,47 @@ where
         self.add_child(offset);
         let child = self.child_node_mut(offset);
         child.touch_leaf_at(index)
+    }
+    
+    fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
+        let child_values = (0..SIZE)
+            .filter_map(|idx| if self.child_mask.is_on(idx) {
+                Some(self.child_node(idx).values())
+            } else {
+                None
+            })
+            .flatten();
+
+        let self_values = (0..SIZE)
+            .filter_map(|idx| if self.child_mask.is_off(idx) &&  self.value_mask.is_on(idx) {
+                Some(Some(self.values[idx]))
+            } else {
+                None
+            });
+
+        self_values.chain(child_values)
+    }
+    
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
+        for i in 0..SIZE {
+            if self.child_mask.is_on(i) {
+                let child = self.child_node_mut(i);
+                child.visit_values_mut(visitor);
+            } else if self.value_mask.is_on(i) {
+                visitor.value(&mut self.values[i]);
+            }
+        }
+    }
+    
+    #[inline]
+    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
+        let offset = Self::offset(index);
+
+        if self.child_mask.is_on(offset) {
+            let child = self.child_node(offset);
+            return child.leaf_at(index);
+        }
+        
+        None
     }
 }

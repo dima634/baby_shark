@@ -112,7 +112,7 @@ impl<
         unimplemented!("Unsupported operation. Leaf node should never be pruned")
     }
 
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue,
@@ -131,7 +131,7 @@ impl<
             new_node.values[i] = map(self.values[i]);
         }
 
-        new_node
+        Box::new(new_node)
     }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
@@ -146,5 +146,27 @@ impl<
     #[inline]
     fn touch_leaf_at(&mut self, _: &Vec3i) -> LeafMut<'_, Self::Leaf> {
         LeafMut::Node(self)
+    }
+    
+    fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
+        (0..SIZE)
+            .map(|idx| if self.value_mask.is_on(idx) {
+                Some(self.values[idx])
+            } else {
+                None
+            })
+    }
+    
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
+        for i in 0..SIZE {
+            if self.value_mask.is_on(i) {
+                visitor.value(&mut self.values[i]);
+            }
+        }
+    }
+    
+    #[inline]
+    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
+        Some(self)
     }
 }

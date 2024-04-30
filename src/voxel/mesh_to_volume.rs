@@ -69,7 +69,7 @@ impl MeshToVolume {
         let mut sdf = VolumeGrid::empty(Vec3i::zeros());
         std::mem::swap(&mut sdf, &mut self.distance_field);
 
-        Some(sdf.into())
+        Some(Volume::new(sdf, self.voxel_size))
     }
 
     fn subdivide_triangle(&mut self, tri: &Triangle3<f32>) {

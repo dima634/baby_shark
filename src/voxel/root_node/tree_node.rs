@@ -89,7 +89,7 @@ where
         None
     }
 
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue,
@@ -100,7 +100,7 @@ where
             .map(|(key, child)| (*key, child.clone_map(map).into()))
             .collect();
 
-        RootNode { root }
+        Box::new(RootNode { root })
     }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
@@ -123,5 +123,20 @@ where
             .entry(root_key)
             .or_insert_with(|| TChild::empty(root_key.0))
             .touch_leaf_at(index)
+    }
+    
+    fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
+        self.root.values().flat_map(|node| node.values())
+    }
+    
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
+        self.root.values_mut().for_each(|node| node.visit_values_mut(visitor));
+    }
+    
+    #[inline]
+    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
+        let root_key = Self::root_key(index);
+        let child = self.root.get(&root_key)?;
+        child.leaf_at(index)
     }
 }

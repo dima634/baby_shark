@@ -60,6 +60,15 @@ pub fn partial_max<T: PartialOrd>(a: T, b: T) -> T {
     }
 }
 
+#[inline]
+pub fn option_min<T: PartialOrd>(a: Option<T>, b: Option<T>) -> Option<T> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(partial_min(a, b)),
+        (Some(v), None) | (None, Some(v)) => Some(v),
+        (None, None) => None,
+    }
+}
+
 //         7 ________ 6
 //         /|       /|
 //       /  |     /  |

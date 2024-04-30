@@ -22,6 +22,21 @@ pub fn sort3_by<TValue, TBy: PartialOrd, TGetBy: Fn(&TValue) -> TBy>(a: &mut TVa
     }
 }
 
+/// Sorts three values in ascending order
+pub fn sort3<TValue: PartialOrd>(a: &mut TValue, b: &mut TValue, c: &mut TValue) {
+    if a > c {
+        swap(a, c);
+    }
+
+    if a > b {
+        swap(a, b);
+    }
+
+    if b > c {
+        swap(b, c);
+    }
+}
+
 #[macro_export]
 macro_rules! const_map_fn {
     ($name:ident, $src:ty, $dest:ty, $map:path) => {
