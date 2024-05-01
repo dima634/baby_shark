@@ -56,22 +56,52 @@ fn sweep<TTree: TreeNode<Value = f32> + FloodFill + Csg, TLeafOrigin: LeafOrigin
         // println!("{:?}", origin);
         // println!("Nodes: {:?}", nodes.len());
 
-        grid.touch_leaf_at(origin.point());
+        let o = origin.point();
+        let left = Vec3i::new(o.x - size, o.y, o.z);
+        let right = Vec3i::new(o.x + size, o.y, o.z);
+        let front = Vec3i::new(o.x, o.y - size, o.z);
+        let back = Vec3i::new(o.x, o.y + size, o.z);
+        let top = Vec3i::new(o.x, o.y, o.z + size);
+        let bottom = Vec3i::new(o.x, o.y, o.z - size);
 
-        let (sweep_x, sweep_y, sweep_z) = sweep_direction.sweeps(origin.point(), size);
-        for x in sweep_x {
-            for y in sweep_y {
-                for z in sweep_z {
-                    let idx = Vec3i::new(x, y, z);
-                    sweep_at(&idx, grid, fixed, h, limit);
-                }
-            }
-        }
+        let left = grid.touch_leaf_at(&left).as_ref().unwrap().clone();
+        let right = grid.touch_leaf_at(&right).as_ref().unwrap().clone();
+        let front = grid.touch_leaf_at(&front).as_ref().unwrap().clone();
+        let back = grid.touch_leaf_at(&back).as_ref().unwrap().clone();
+        let top = grid.touch_leaf_at(&top).as_ref().unwrap().clone();
+        let bottom = grid.touch_leaf_at(&bottom).as_ref().unwrap().clone();
+        let center = grid.touch_leaf_at(o).as_mut().unwrap();
+
+        // let (sweep_x, sweep_y, sweep_z) = sweep_direction.sweeps(origin.point(), size);
+        // for x in sweep_x {
+        //     for y in sweep_y {
+        //         for z in sweep_z {
+        //             let idx = Vec3i::new(x, y, z);
+        //             sweep_stencil(&idx, grid, fixed, h, limit);
+        //         }
+        //     }
+        // }
 
         // let node = match grid.leaf_at(origin.point()) {
         //     Some(node) => node,
         //     None => continue,
         // };
+
+        let stencil = SweepStencil::<TTree::Leaf, TTree::Leaf> {
+            left: left.as_ref(),
+            right: right.as_ref(),
+            front: front.as_ref(),
+            back: back.as_ref(),
+            top: top.as_ref(),
+            bottom: bottom.as_ref(),
+            center,
+            min: *o,
+            max: o + Vec3i::new(size, size, size),
+        };
+
+        let aaa = fixed.leaf_at(origin.point());
+
+        sweep_stencil::<TTree::Leaf, TTree::Leaf>(stencil, aaa, h, limit, sweep_direction);
 
         insert_neighboring_nodes::<TTree, TLeafOrigin>(&mut nodes, &origin, limit, grid);
     }
@@ -208,14 +238,47 @@ impl Iterator for RangeIter {
     }
 }
 
-fn sweep_at(
+fn sweep_stencil<TTree: TreeNode<Value = f32>, TTree1: TreeNode<Value = f32>>(
+    mut stencil: SweepStencil<'_, TTree, TTree1>,
+    frozen: Option<&impl TreeNode<Value = Empty>>,
+    grid_spacing: f32,
+    limit: f32,
+    sweep_direction: SweepDirection,
+) {
+    let size = TTree::Leaf::resolution() as isize;
+
+    // Independent voxels should be last
+    // let independent_voxels = stencil.center.origin() + Vec3i::new(1, 1, 1);
+    // let center_clone = stencil.center.clone();
+    // let mut stencil = SweepStencil {
+    //     top: center_clone.as_ref(),
+    //     bottom: center_clone.as_ref(),
+    //     left: center_clone.as_ref(),
+    //     right: center_clone.as_ref(),
+    //     front: center_clone.as_ref(),
+    //     back: center_clone.as_ref(),
+    //     center: stencil.center,
+    // };
+    let (sweep_x, sweep_y, sweep_z) = sweep_direction.sweeps(&stencil.center.origin(), size);
+
+    for x in sweep_x {
+        for y in sweep_y {
+            for z in sweep_z {
+                let idx = Vec3i::new(x, y, z);
+                sweep_voxel(&idx, &mut stencil, frozen, grid_spacing, limit);
+            }
+        }
+    }
+}
+
+fn sweep_voxel<TLeaf: TreeNode<Value = f32>, TLeafMut: TreeNode<Value = f32>>(
     idx: &Vec3i,
-    sdf: &mut impl TreeNode<Value = f32>,
-    fixed: &impl TreeNode<Value = Empty>,
-    h: f32,
+    stencil: &mut SweepStencil<TLeaf, TLeafMut>,
+    frozen: Option<&impl TreeNode<Value = Empty>>,
+    grid_spacing: f32,
     limit: f32,
 ) {
-    if let Some(_) = fixed.at(&idx) {
+    if frozen.is_some_and(|node| node.at(idx).is_some()) {
         return;
     }
 
@@ -226,15 +289,24 @@ fn sweep_at(
     let z_p = Vec3i::new(idx.x, idx.y, idx.z + 1);
     let z_n = Vec3i::new(idx.x, idx.y, idx.z - 1);
 
+    // let (d1, d2, d3) = (
+    //     option_min(stencil.top.at(&x_p), stencil.bottom.at(&x_n))
+    //         .copied()
+    //         .unwrap_or(f32::far()),
+    //     option_min(stencil.right.at(&y_p), stencil.left.at(&y_n))
+    //         .copied()
+    //         .unwrap_or(f32::far()),
+    //     option_min(stencil.top.at(&z_p), stencil.bottom.at(&z_n))
+    //         .copied()
+    //         .unwrap_or(f32::far()),
+    // );
+
     let (d1, d2, d3) = (
-        option_min(sdf.at(&x_p), sdf.at(&x_n))
-            .copied()
+        option_min(stencil.at(&x_p), stencil.at(&x_n))
             .unwrap_or(f32::far()),
-        option_min(sdf.at(&y_p), sdf.at(&y_n))
-            .copied()
+        option_min(stencil.at(&y_p), stencil.at(&y_n))
             .unwrap_or(f32::far()),
-        option_min(sdf.at(&z_p), sdf.at(&z_n))
-            .copied()
+        option_min(stencil.at(&z_p), stencil.at(&z_n))
             .unwrap_or(f32::far()),
     );
 
@@ -247,16 +319,16 @@ fn sweep_at(
         return;
     }
 
-    let d_new = compute_distance(d1, d2, d3, h);
+    let d_new = compute_distance(d1, d2, d3, grid_spacing);
 
     if d_new > limit {
         return;
     }
 
-    let d_old = sdf.at(&idx).copied().unwrap_or(f32::far());
+    let d_old = stencil.center.at(&idx).copied().unwrap_or(f32::far());
 
     if d_new < d_old {
-        sdf.insert(&idx, d_new);
+        stencil.center.insert(&idx, d_new);
     }
 }
 
@@ -398,13 +470,54 @@ fn insert_neighboring_nodes<TTree, TLeafOrigin>(
     }
 }
 
-struct SweepStencil<TTree: TreeNode> {
-    top: TTree::Leaf,
-    bottom: TTree::Leaf,
-    left: TTree::Leaf,
-    right: TTree::Leaf,
-    front: TTree::Leaf,
-    back: TTree::Leaf,
+struct SweepStencil<'a, TLeaf, TLeafMut>
+where
+    TLeaf: TreeNode,
+    TLeafMut: TreeNode,
+{
+    top: &'a TLeaf,
+    bottom: &'a TLeaf,
+    left: &'a TLeaf,
+    right: &'a TLeaf,
+    front: &'a TLeaf,
+    back: &'a TLeaf,
+    center: &'a mut TLeafMut,
+    min: Vec3i,
+    max: Vec3i,
+}
+
+impl<'a, TLeaf, TLeafMut> SweepStencil<'a, TLeaf, TLeafMut>
+where
+    TLeaf: TreeNode<Value = f32>,
+    TLeafMut: TreeNode<Value = f32>,
+{
+    fn at(&self, idx: &Vec3i) -> Option<f32> {
+        if idx.z < self.min.z {
+            return self.bottom.at(idx).copied();
+        }
+
+        if idx.z >= self.max.z {
+            return self.top.at(idx).copied();
+        }
+
+        if idx.y < self.min.y {
+            return self.front.at(idx).copied();
+        }
+
+        if idx.y >= self.max.y {
+            return self.back.at(idx).copied();
+        }
+
+        if idx.x < self.min.x {
+            return self.left.at(idx).copied();
+        }
+
+        if idx.x >= self.max.x {
+            return self.right.at(idx).copied();
+        }
+
+        self.center.at(idx).copied()
+    }
 }
 
 struct CollectLeafIndicesVisitor<TTree: TreeNode, TLeafOrigin: LeafOrigin> {
