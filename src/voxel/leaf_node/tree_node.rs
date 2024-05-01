@@ -133,6 +133,14 @@ impl<
 
         Box::new(new_node)
     }
+    
+    fn clone(&self) -> Box<Self> {
+        Box::new(LeafNode {
+            origin: self.origin,
+            value_mask: self.value_mask,
+            values: self.values,
+        })
+    }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
         visitor.dense(self);
@@ -166,7 +174,7 @@ impl<
     }
     
     #[inline]
-    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
+    fn leaf_at(&self, _: &Vec3i) -> Option<&Self::Leaf> {
         Some(self)
     }
 }

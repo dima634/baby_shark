@@ -224,6 +224,22 @@ where
 
         new_node
     }
+    
+    fn clone(&self) -> Box<Self> {
+        let mut new_node = unsafe { Self::alloc_on_heap(self.origin) };
+        new_node.child_mask = self.child_mask;
+        new_node.value_mask = self.value_mask;
+        new_node.values = self.values;
+
+        for i in 0..SIZE {
+            if self.child_mask.at(i) {
+                let child = self.child_node(i);
+                new_node.childs[i] = Some(child.clone());
+            }
+        }
+        
+        new_node
+    }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
         use rayon::prelude::*;

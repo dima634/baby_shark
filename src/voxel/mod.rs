@@ -113,10 +113,7 @@ trait TreeNode: Send + Sync + Sized {
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue;
     
-    #[inline]
-    fn clone(&self) -> Box<Self::As<Self::Value>> {
-        self.clone_map(&|x| x)
-    }
+    fn clone(&self) -> Box<Self>;
 
     /// Number of voxels in one dimension
     #[inline]
@@ -168,6 +165,13 @@ enum LeafMut<'a, T: TreeNode> {
 
 impl<'a, T: TreeNode> LeafMut<'a, T> {
     pub fn as_ref(self) -> Option<&'a T> {
+        match self {
+            Self::Node(node) => Some(node),
+            _ => None,
+        }
+    }
+
+    pub fn as_mut(self) -> Option<&'a mut T> {
         match self {
             Self::Node(node) => Some(node),
             _ => None,

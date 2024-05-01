@@ -102,6 +102,16 @@ where
 
         Box::new(RootNode { root })
     }
+    
+    fn clone(&self) -> Box<Self> {
+        let root = self
+            .root
+            .iter()
+            .map(|(key, child)| (*key, (*child).clone()))
+            .collect();
+
+        Box::new(RootNode { root })
+    }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
         self.root
