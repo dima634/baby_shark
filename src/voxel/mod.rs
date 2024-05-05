@@ -108,6 +108,8 @@ trait TreeNode: Send + Sync + Sized {
     ///
     fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>; // TODO: prune_if
 
+    fn prune_empty_nodes(&mut self);
+
     ///
     /// Creates a copy of the node with same topology but with different values
     ///

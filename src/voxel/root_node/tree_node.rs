@@ -164,4 +164,11 @@ where
             .or_insert_with(|| TChild::empty(root_key.0))
             .insert_leaf_at(leaf);
     }
+    
+    fn prune_empty_nodes(&mut self) {
+        self.root.retain(|_, node| {
+            node.prune_empty_nodes();
+            !node.is_empty()
+        });
+    }
 }

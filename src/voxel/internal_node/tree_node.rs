@@ -398,4 +398,17 @@ where
             }
         }
     }
+    
+    fn prune_empty_nodes(&mut self) {
+        for offset in 0..SIZE {
+            if self.child_mask.is_on(offset) {
+                let child = self.child_node_mut(offset);
+                child.prune_empty_nodes();
+                
+                if child.is_empty() {
+                    self.remove_child_node(offset);
+                }
+            }
+        }
+    }
 }

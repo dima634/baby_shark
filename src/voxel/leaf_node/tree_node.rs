@@ -185,4 +185,9 @@ impl<
     fn insert_leaf_at(&mut self, _: Box<Self::Leaf>) {
         unimplemented!("Unsupported operation. Leaf node has no childs");
     }
+    
+    #[inline]
+    fn prune_empty_nodes(&mut self) {
+        // Do nothing for leaf nodes
+    }
 }
