@@ -226,7 +226,7 @@ impl Default for MeshToVolume {
         let voxel_size = 1.0;
         Self {
             voxel_size,
-            band_width: 1,
+            band_width: 0,
             distance_field: VolumeGrid::empty(Vec3i::zeros()),
             subdivided_mesh: Vec::new(),
             inverse_voxel_size: 1.0 / voxel_size,
