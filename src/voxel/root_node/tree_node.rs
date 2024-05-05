@@ -149,4 +149,19 @@ where
         let child = self.root.get(&root_key)?;
         child.leaf_at(index)
     }
+    
+    fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>> {
+        let root_key = Self::root_key(index);
+        let child = self.root.get_mut(&root_key)?;
+        child.take_leaf_at(index)
+    }
+    
+    fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>) {
+        let index = leaf.origin();
+        let root_key = Self::root_key(&index);
+        self.root
+            .entry(root_key)
+            .or_insert_with(|| TChild::empty(root_key.0))
+            .insert_leaf_at(leaf);
+    }
 }

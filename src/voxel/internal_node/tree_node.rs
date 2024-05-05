@@ -356,4 +356,46 @@ where
         
         None
     }
+    
+    fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>> {
+        let offset = Self::offset(index);
+
+        if self.child_mask.is_on(offset) {
+            let child = self.child_node_mut(offset);
+
+            if Self::Child::IS_LEAF {
+                let child = self.remove_child_node(offset);
+                unsafe {
+                    return std::mem::transmute(child);
+                }
+            } else {
+                return child.take_leaf_at(index);
+            }
+        }
+
+        None
+    }
+    
+    fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>) {
+        let index = leaf.origin();
+        let offset = Self::offset(&index);
+        
+        if Self::Child::IS_LEAF {
+            self.child_mask.on(offset);
+            self.value_mask.off(offset);
+            self.childs[offset] = Some(unsafe { std::mem::transmute(leaf) });
+        } else {
+            if self.child_mask.is_on(offset) {
+                let child = self.child_node_mut(offset);
+                child.insert_leaf_at(leaf);
+            } else {
+                self.child_mask.on(offset);
+                self.value_mask.off(offset);
+                let child_origin = self.offset_to_global_index(offset);
+                let mut child_node = TChild::empty(child_origin);
+                child_node.insert_leaf_at(leaf);
+                self.childs[offset] = Some(child_node);
+            }
+        }
+    }
 }

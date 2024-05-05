@@ -59,11 +59,11 @@ where
     }
 
     #[inline]
-    fn remove_child_node(&mut self, offset: usize) {
+    fn remove_child_node(&mut self, offset: usize) -> Option<Box<TChild>> {
         debug_assert!(self.child_mask.at(offset));
 
         self.child_mask.off(offset);
-        self.childs[offset] = None;
+        self.childs[offset].take()
     }
 
     #[inline]

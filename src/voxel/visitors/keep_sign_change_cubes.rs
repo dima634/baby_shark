@@ -1,11 +1,11 @@
 use crate::{helpers::aliases::Vec3i, voxel::{utils::CUBE_OFFSETS, Signed, TreeNode, Visitor}};
 
-pub struct SelectSignChangeCubes<'tree, T: TreeNode> {
+pub struct KeepSignChangeCubes<'tree, T: TreeNode> {
     tree: &'tree T,
     sign_changes: Box<T>,
 }
 
-impl<'tree, T: TreeNode> SelectSignChangeCubes<'tree, T> {
+impl<'tree, T: TreeNode> KeepSignChangeCubes<'tree, T> {
     pub fn new(tree: &'tree T) -> Self {
         Self {
             tree,
@@ -18,12 +18,12 @@ impl<'tree, T: TreeNode> SelectSignChangeCubes<'tree, T> {
     }
 }
 
-impl<'tree, TTree> Visitor<TTree::Leaf> for SelectSignChangeCubes<'tree, TTree>
+impl<'tree, TTree> Visitor<TTree::Leaf> for KeepSignChangeCubes<'tree, TTree>
 where
     TTree: TreeNode,
     TTree::Value: Signed
 {
-    fn tile(&mut self, tile: crate::voxel::Tile<<TTree::Leaf as TreeNode>::Value>) {
+    fn tile(&mut self, _: crate::voxel::Tile<<TTree::Leaf as TreeNode>::Value>) {
         todo!()
     }
 

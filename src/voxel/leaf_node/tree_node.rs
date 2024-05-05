@@ -177,4 +177,12 @@ impl<
     fn leaf_at(&self, _: &Vec3i) -> Option<&Self::Leaf> {
         Some(self)
     }
+    
+    fn take_leaf_at(&mut self, _: &Vec3i) -> Option<Box<Self::Leaf>> {
+        unimplemented!("Unsupported operation. Leaf node has no childs");
+    }
+    
+    fn insert_leaf_at(&mut self, _: Box<Self::Leaf>) {
+        unimplemented!("Unsupported operation. Leaf node has no childs");
+    }
 }

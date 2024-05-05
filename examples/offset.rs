@@ -1,9 +1,8 @@
 use baby_shark::{
     io::stl::{StlReader, StlWriter},
     mesh::polygon_soup::data_structure::PolygonSoup,
-    voxel::{meshing::ActiveVoxelsMesher, prelude::*},
+    voxel::prelude::*,
 };
-use nalgebra_glm::Vec3;
 use std::path::Path;
 
 fn main() {
@@ -29,19 +28,17 @@ fn main() {
 
     // Convert volume to mesh and write to STL
     let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
-    let vertices = mesher.mesh(&bunny_volume);//.expect("Should offset");
+    let vertices = mesher.mesh(&bunny_volume); //.expect("Should offset");
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
         .write_stl_to_file(&mesh, Path::new("original.stl"))
         .expect("Write mesh");
 
+    let offset_by = 1.0;
+    bunny_volume = bunny_volume.offset(offset_by);
 
-
-    bunny_volume = bunny_volume.offset(1.0);
-    
-
-    let vertices = mesher.mesh(&bunny_volume);//.expect("Should offset");
+    let vertices = mesher.mesh(&bunny_volume); //.expect("Should offset");
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
