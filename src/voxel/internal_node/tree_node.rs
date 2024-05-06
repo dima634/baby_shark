@@ -146,56 +146,6 @@ where
         self.childs.fill_with(|| None);
     }
 
-    fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
-        unimplemented!("Unsupported operation. Internal node should never be constant");
-    }
-
-    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value> {
-        if self.is_empty() {
-            return None;
-        }
-
-        for offset in 0..SIZE {
-            if !self.child_mask.at(offset) {
-                continue;
-            }
-
-            let child = self.child_node_mut(offset);
-
-            if child.is_empty() {
-                self.remove_child_node(offset);
-                continue;
-            }
-
-            let pruned = if TChild::IS_LEAF {
-                child.is_constant(tolerance)
-            } else {
-                child.prune(tolerance)
-            };
-
-            if let Some(value) = pruned {
-                self.replace_node_with_tile(offset, value);
-            }
-        }
-
-        if !self.value_mask.is_full() {
-            return None;
-        }
-
-        let first_value = self.values[0];
-        let is_constant = self
-            .values
-            .iter()
-            .skip(1)
-            .all(|value| (*value - first_value) <= tolerance);
-
-        if is_constant {
-            return Some(first_value);
-        }
-
-        None
-    }
-
     fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: super::Value,

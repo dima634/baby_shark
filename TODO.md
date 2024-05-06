@@ -127,10 +127,3 @@ TPMS:
     //     })
     // }
 ```
-
-
-Sweep testing:
-1. Leaf access only, stencil with ifs = 1.6s
-2. Access through root = 3.2s, V1
-3. Access through root, fixed through leaf = 2.7s
-

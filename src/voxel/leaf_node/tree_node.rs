@@ -83,35 +83,6 @@ impl<
         self.value_mask.off_all();
     }
 
-    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
-        if self.is_empty() || !self.value_mask.is_full() {
-            return None;
-        }
-
-        let first_value_offset = self.value_mask.find_first_on()?;
-        let first_value = self.values[first_value_offset];
-
-        // Check if all values are within tolerance
-        for offset in (first_value_offset + 1)..SIZE {
-            if !self.value_mask.at(offset) {
-                continue;
-            }
-
-            let value = self.values[offset];
-
-            if (value - first_value) > tolerance {
-                return None;
-            }
-        }
-
-        Some(first_value)
-    }
-
-    #[inline]
-    fn prune(&mut self, _: Self::Value) -> Option<Self::Value> {
-        unimplemented!("Unsupported operation. Leaf node should never be pruned")
-    }
-
     fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,

@@ -95,19 +95,6 @@ trait TreeNode: Send + Sync + Sized {
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>>;
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>); // TODO: No need to pass index
 
-    ///
-    /// Checks if node is constant within tolerance.
-    /// Empty nodes are not constant.
-    ///
-    /// Returns `None` if node is not constant, otherwise returns constant value
-    ///
-    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value>;
-
-    ///
-    /// Prune all nodes where all values are within tolerance
-    ///
-    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>; // TODO: prune_if
-
     fn prune_empty_nodes(&mut self);
 
     ///

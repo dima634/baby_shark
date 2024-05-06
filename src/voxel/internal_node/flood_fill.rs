@@ -219,7 +219,6 @@ mod tests {
             }
         }
 
-        tiled_node.prune(0.1);
         tiled_node.flood_fill();
 
         box_indices(0, (x_neg + Leaf::resolution()) as isize)

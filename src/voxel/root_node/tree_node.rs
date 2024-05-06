@@ -19,9 +19,7 @@ where
     #[inline]
     fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
         let root_key = Self::root_key(index);
-        self.root
-            .get(&root_key)
-            .and_then(|child| child.at(index))
+        self.root.get(&root_key).and_then(|child| child.at(index))
     }
 
     #[inline]
@@ -71,22 +69,9 @@ where
         unimplemented!("Unsupported operation. Dynamic root node can't be filled");
     }
 
+    #[inline]
     fn clear(&mut self) {
         self.root.clear();
-    }
-
-    fn is_constant(&self, _: Self::Value) -> Option<Self::Value> {
-        unimplemented!("Unsupported operation. Dynamic root node can't be constant");
-    }
-
-    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value> {
-        for node in self.root.values_mut() {
-            node.prune(tolerance);
-        }
-
-        // TODO: Remove empty nodes
-
-        None
     }
 
     fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
@@ -102,7 +87,7 @@ where
 
         Box::new(RootNode { root })
     }
-    
+
     fn clone(&self) -> Box<Self> {
         let root = self
             .root
@@ -126,7 +111,7 @@ where
             .values()
             .for_each(|node| node.visit_leafs(visitor));
     }
-    
+
     fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf> {
         let root_key = Self::root_key(index);
         self.root
@@ -134,28 +119,30 @@ where
             .or_insert_with(|| TChild::empty(root_key.0))
             .touch_leaf_at(index)
     }
-    
+
     fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
         self.root.values().flat_map(|node| node.values())
     }
-    
+
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
-        self.root.values_mut().for_each(|node| node.visit_values_mut(visitor));
+        self.root
+            .values_mut()
+            .for_each(|node| node.visit_values_mut(visitor));
     }
-    
+
     #[inline]
     fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
         let root_key = Self::root_key(index);
         let child = self.root.get(&root_key)?;
         child.leaf_at(index)
     }
-    
+
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>> {
         let root_key = Self::root_key(index);
         let child = self.root.get_mut(&root_key)?;
         child.take_leaf_at(index)
     }
-    
+
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>) {
         let index = leaf.origin();
         let root_key = Self::root_key(&index);
@@ -164,7 +151,7 @@ where
             .or_insert_with(|| TChild::empty(root_key.0))
             .insert_leaf_at(leaf);
     }
-    
+
     fn prune_empty_nodes(&mut self) {
         self.root.retain(|_, node| {
             node.prune_empty_nodes();

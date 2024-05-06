@@ -1,14 +1,9 @@
 pub mod builder;
 
 use self::fast_sweep::FastSweeping;
-use self::visitors::value_mut_visitor::ValueMutVisitor;
+use self::visitors::{KeepSignChangeCubes, ValueMutVisitor};
 use crate::voxel::*;
 use crate::{dynamic_vdb, helpers::aliases::Vec3f};
-use std::fs::File;
-use std::marker::PhantomData;
-use std::path::Path;
-use volume::visitors::keep_sign_change_cubes::KeepSignChangeCubes;
-use volume::visitors::min_max_index_visitor::MinMaxIdxVisitor;
 
 pub(super) type VolumeGrid = dynamic_vdb!(f32, par 5, 4, 3);
 
@@ -89,17 +84,11 @@ impl Volume {
         let new_grid = iso_level.sign_changes();
         self.grid = new_grid;
 
-        let time = std::time::Instant::now();
-
         let mut extension_distance = distance.abs() + self.voxel_size + self.voxel_size;
         extension_distance.set_sign(distance.sign());
 
         let mut sweep = FastSweeping::new(self.voxel_size, extension_distance);
         sweep.fast_sweep(self.grid.as_mut());
-
-        println!("Fast sweeping took: {:?}", time.elapsed());
-
-        // volume_to_nrrd(&self.grid, Path::new("offset.nrrd"));
 
         let mut offset = ValueMutVisitor::<VolumeGrid, _>::from_fn(|v| *v -= distance);
         self.grid.visit_values_mut(&mut offset);
@@ -121,4 +110,3 @@ impl Clone for Volume {
         }
     }
 }
-

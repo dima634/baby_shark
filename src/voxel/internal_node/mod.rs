@@ -75,15 +75,6 @@ where
     }
 
     #[inline]
-    fn replace_node_with_tile(&mut self, offset: usize, value: TChild::Value) {
-        debug_assert!(self.child_mask.at(offset));
-
-        self.remove_child_node(offset);
-        self.value_mask.on(offset);
-        self.values[offset] = value;
-    }
-
-    #[inline]
     fn child_node(&self, offset: usize) -> &TChild {
         let child = &self.childs[offset];
         debug_assert!(self.child_mask.at(offset));
