@@ -248,42 +248,6 @@ where
         }
     }
     
-    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf> {
-        let offset = Self::offset(index);
-
-        if self.child_mask.is_on(offset) {
-            let child = self.child_node_mut(offset);
-            return child.touch_leaf_at(index);
-        }
-
-        if self.value_mask.is_on(offset) {
-            return LeafMut::Tile(self.values[offset]);
-        }
-
-        self.add_child(offset);
-        let child = self.child_node_mut(offset);
-        child.touch_leaf_at(index)
-    }
-    
-    fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
-        let child_values = (0..SIZE)
-            .filter_map(|idx| if self.child_mask.is_on(idx) {
-                Some(self.child_node(idx).values())
-            } else {
-                None
-            })
-            .flatten();
-
-        let self_values = (0..SIZE)
-            .filter_map(|idx| if self.child_mask.is_off(idx) &&  self.value_mask.is_on(idx) {
-                Some(Some(self.values[idx]))
-            } else {
-                None
-            });
-
-        self_values.chain(child_values)
-    }
-    
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
         for i in 0..SIZE {
             if self.child_mask.is_on(i) {

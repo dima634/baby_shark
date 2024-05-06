@@ -122,20 +122,6 @@ impl<
         visitor.dense(self);
     }
     
-    #[inline]
-    fn touch_leaf_at(&mut self, _: &Vec3i) -> LeafMut<'_, Self::Leaf> {
-        LeafMut::Node(self)
-    }
-    
-    fn values(&self) -> impl Iterator<Item = Option<Self::Value>> {
-        (0..SIZE)
-            .map(|idx| if self.value_mask.is_on(idx) {
-                Some(self.values[idx])
-            } else {
-                None
-            })
-    }
-    
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
         for i in 0..SIZE {
             if self.value_mask.is_on(i) {

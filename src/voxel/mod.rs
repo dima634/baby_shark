@@ -88,9 +88,7 @@ trait TreeNode: Send + Sync + Sized {
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T);
 
     /// Returns ref to leaf at grid point `index`. Creates leaf if not exists.
-    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf>;
     fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf>;
-    fn values(&self) -> impl Iterator<Item = Option<Self::Value>>; // TODO: Why option?
 
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>>;
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>); // TODO: No need to pass index
