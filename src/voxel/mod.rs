@@ -19,6 +19,7 @@ use crate::helpers::aliases::Vec3i;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
+use volume::*;
 use std::ops::{Neg, Sub};
 
 trait Value:

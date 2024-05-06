@@ -1,7 +1,7 @@
 pub mod builder;
 
 use self::fast_sweep::FastSweeping;
-use self::visitors::{KeepSignChangeCubes, ValueMutVisitor};
+use self::visitors::ValueMutVisitor;
 use crate::voxel::*;
 use crate::{dynamic_vdb, helpers::aliases::Vec3f};
 
@@ -79,10 +79,7 @@ impl Volume {
     }
 
     pub fn offset(mut self, distance: f32) -> Self {
-        let mut iso_level = KeepSignChangeCubes::new(self.grid.as_ref());
-        self.grid.visit_leafs(&mut iso_level);
-        let new_grid = iso_level.sign_changes();
-        self.grid = new_grid;
+        self.grid.prune_if(|val| val.abs() <= self.voxel_size);
 
         let mut extension_distance = distance.abs() + self.voxel_size + self.voxel_size;
         extension_distance.set_sign(distance.sign());
