@@ -326,19 +326,19 @@ where
         }
     }
 
-    fn prune_if<TPred>(&mut self, pred: TPred)
+    fn remove_if<TPred>(&mut self, pred: TPred)
     where
         TPred: Fn(&Self::Value) -> bool + Copy,
     {
         for i in 0..SIZE {
             if self.child_mask.is_on(i) {
                 let child = self.child_node_mut(i);
-                child.prune_if(pred);
+                child.remove_if(pred);
 
                 if child.is_empty() {
                     self.remove_child_node(i);
                 }
-            } else if self.value_mask.is_on(i) && !pred(&self.values[i]) {
+            } else if self.value_mask.is_on(i) && pred(&self.values[i]) {
                 self.value_mask.off(i);
             }
         }

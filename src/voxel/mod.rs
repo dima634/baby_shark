@@ -97,7 +97,7 @@ trait TreeNode: Send + Sync + Sized {
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>>;
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>); // TODO: No need to pass index
 
-    fn prune_if<TPred>(&mut self, pred: TPred)
+    fn remove_if<TPred>(&mut self, pred: TPred)
     where
         TPred: Fn(&Self::Value) -> bool + Copy;
     fn remove_empty_nodes(&mut self);

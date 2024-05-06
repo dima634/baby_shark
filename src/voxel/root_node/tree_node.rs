@@ -147,12 +147,12 @@ where
         });
     }
 
-    fn prune_if<TPred>(&mut self, pred: TPred)
+    fn remove_if<TPred>(&mut self, pred: TPred)
     where
         TPred: Fn(&Self::Value) -> bool + Copy,
     {
         self.root.retain(|_, node| {
-            node.prune_if(pred);
+            node.remove_if(pred);
             !node.is_empty()
         });
     }

@@ -148,12 +148,12 @@ impl<
         // Do nothing for leaf nodes
     }
 
-    fn prune_if<TPred>(&mut self, pred: TPred)
+    fn remove_if<TPred>(&mut self, pred: TPred)
     where
         TPred: Fn(&Self::Value) -> bool + Copy,
     {
         for i in 0..SIZE {
-            if self.value_mask.is_on(i) && !pred(&self.values[i]) {
+            if self.value_mask.is_on(i) && pred(&self.values[i]) {
                 self.value_mask.off(i);
             }
         }

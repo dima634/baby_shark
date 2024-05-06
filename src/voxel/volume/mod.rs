@@ -79,7 +79,7 @@ impl Volume {
     }
 
     pub fn offset(mut self, distance: f32) -> Self {
-        self.grid.prune_if(|val| val.abs() <= self.voxel_size);
+        self.grid.remove_if(|val| val.abs() > self.voxel_size);
 
         let mut extension_distance = distance.abs() + self.voxel_size + self.voxel_size;
         extension_distance.set_sign(distance.sign());
