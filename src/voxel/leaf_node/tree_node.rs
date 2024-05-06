@@ -104,7 +104,7 @@ impl<
 
         Box::new(new_node)
     }
-    
+
     fn clone(&self) -> Box<Self> {
         Box::new(LeafNode {
             origin: self.origin,
@@ -121,7 +121,7 @@ impl<
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         visitor.dense(self);
     }
-    
+
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
         for i in 0..SIZE {
             if self.value_mask.is_on(i) {
@@ -129,22 +129,33 @@ impl<
             }
         }
     }
-    
+
     #[inline]
     fn leaf_at(&self, _: &Vec3i) -> Option<&Self::Leaf> {
         Some(self)
     }
-    
+
     fn take_leaf_at(&mut self, _: &Vec3i) -> Option<Box<Self::Leaf>> {
         unimplemented!("Unsupported operation. Leaf node has no childs");
     }
-    
+
     fn insert_leaf_at(&mut self, _: Box<Self::Leaf>) {
         unimplemented!("Unsupported operation. Leaf node has no childs");
     }
-    
+
     #[inline]
     fn prune_empty_nodes(&mut self) {
         // Do nothing for leaf nodes
+    }
+
+    fn prune_if<TPred>(&mut self, pred: TPred)
+    where
+        TPred: Fn(&Self::Value) -> bool + Copy,
+    {
+        for i in 0..SIZE {
+            if self.value_mask.is_on(i) && !pred(&self.values[i]) {
+                self.value_mask.off(i);
+            }
+        }
     }
 }

@@ -3,13 +3,13 @@ pub mod meshing;
 pub mod prelude;
 pub mod volume;
 
+mod fast_sweep;
 mod init;
 mod internal_node;
 mod leaf_node;
 mod root_node;
 mod utils;
 mod value;
-mod fast_sweep;
 mod visitors;
 
 #[cfg(test)]
@@ -21,7 +21,10 @@ use leaf_node::*;
 use root_node::*;
 use std::ops::{Neg, Sub};
 
-trait Value: Default + Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
+trait Value:
+    Default + Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self>
+{
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Sign {
@@ -93,6 +96,9 @@ trait TreeNode: Send + Sync + Sized {
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>>;
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>); // TODO: No need to pass index
 
+    fn prune_if<TPred>(&mut self, pred: TPred)
+    where
+        TPred: Fn(&Self::Value) -> bool + Copy;
     fn prune_empty_nodes(&mut self);
 
     ///
@@ -102,7 +108,7 @@ trait TreeNode: Send + Sync + Sized {
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue;
-    
+
     fn clone(&self) -> Box<Self>;
 
     /// Number of voxels in one dimension

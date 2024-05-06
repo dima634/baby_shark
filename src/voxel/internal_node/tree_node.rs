@@ -174,7 +174,7 @@ where
 
         new_node
     }
-    
+
     fn clone(&self) -> Box<Self> {
         let mut new_node = unsafe { Self::alloc_on_heap(self.origin) };
         new_node.child_mask = self.child_mask;
@@ -187,7 +187,7 @@ where
                 new_node.childs[i] = Some(child.clone());
             }
         }
-        
+
         new_node
     }
 
@@ -247,7 +247,7 @@ where
             }
         }
     }
-    
+
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
         for i in 0..SIZE {
             if self.child_mask.is_on(i) {
@@ -258,7 +258,7 @@ where
             }
         }
     }
-    
+
     #[inline]
     fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
         let offset = Self::offset(index);
@@ -267,10 +267,10 @@ where
             let child = self.child_node(offset);
             return child.leaf_at(index);
         }
-        
+
         None
     }
-    
+
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>> {
         let offset = Self::offset(index);
 
@@ -289,11 +289,11 @@ where
 
         None
     }
-    
+
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>) {
         let index = leaf.origin();
         let offset = Self::offset(&index);
-        
+
         if Self::Child::IS_LEAF {
             self.child_mask.on(offset);
             self.value_mask.off(offset);
@@ -312,16 +312,34 @@ where
             }
         }
     }
-    
+
     fn prune_empty_nodes(&mut self) {
         for offset in 0..SIZE {
             if self.child_mask.is_on(offset) {
                 let child = self.child_node_mut(offset);
                 child.prune_empty_nodes();
-                
+
                 if child.is_empty() {
                     self.remove_child_node(offset);
                 }
+            }
+        }
+    }
+
+    fn prune_if<TPred>(&mut self, pred: TPred)
+    where
+        TPred: Fn(&Self::Value) -> bool + Copy,
+    {
+        for i in 0..SIZE {
+            if self.child_mask.is_on(i) {
+                let child = self.child_node_mut(i);
+                child.prune_if(pred);
+
+                if child.is_empty() {
+                    self.remove_child_node(i);
+                }
+            } else if self.value_mask.is_on(i) && !pred(&self.values[i]) {
+                self.value_mask.off(i);
             }
         }
     }
