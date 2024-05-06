@@ -144,7 +144,7 @@ impl<
     }
 
     #[inline]
-    fn prune_empty_nodes(&mut self) {
+    fn remove_empty_nodes(&mut self) {
         // Do nothing for leaf nodes
     }
 

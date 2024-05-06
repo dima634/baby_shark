@@ -59,7 +59,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
         let mut queue = queue.into();
         self.sweep::<Origin_NX_NY_NZ>(sdf, &mut queue);
 
-        sdf.prune_empty_nodes();
+        sdf.remove_empty_nodes();
     }
 
     fn sweep<TLeafOrigin: LeafOrigin>(&self, sdf: &mut TTree, queue: &mut Queue<TLeafOrigin>) {

@@ -140,9 +140,9 @@ where
             .insert_leaf_at(leaf);
     }
 
-    fn prune_empty_nodes(&mut self) {
+    fn remove_empty_nodes(&mut self) {
         self.root.retain(|_, node| {
-            node.prune_empty_nodes();
+            node.remove_empty_nodes();
             !node.is_empty()
         });
     }
