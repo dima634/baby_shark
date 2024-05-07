@@ -8,7 +8,7 @@ use std::{
 };
 
 pub struct FastSweeping<TTree: TreeNode<Value = f32>> {
-    limit: f32,
+    limit_abs: f32,
     sweep_sign: Sign,
     grid_spacing: f32,
     frozen: Box<TTree::As<Empty>>,
@@ -19,9 +19,9 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
     pub fn new(grid_spacing: f32, limit: f32) -> Self {
         let frozen = TreeNode::empty(Vec3i::zeros());
         Self {
-            limit,
             grid_spacing,
             frozen,
+            limit_abs: limit.abs(),
             sweep_sign: limit.sign(),
             _tree: PhantomData,
         }
@@ -59,6 +59,9 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
         let mut queue = queue.into();
         self.sweep::<Origin_NX_NY_NZ>(sdf, &mut queue);
 
+        // Algorithm can leave empty nodes in the tree
+        // Somehow it is causing problems with flood filling
+        // So we remove them, it is hacky but it works
         sdf.remove_empty_nodes();
     }
 
@@ -131,24 +134,20 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
         let z_p = Vec3i::new(idx.x, idx.y, idx.z + 1);
         let z_n = Vec3i::new(idx.x, idx.y, idx.z - 1);
 
-        // let distances = (
-        //     option_min(stencil.at(&x_p), stencil.at(&x_n)),
-        //     option_min(stencil.at(&y_p), stencil.at(&y_n)),
-        //     option_min(stencil.at(&z_p), stencil.at(&z_n)),
-        // );
-        let cmp = |a: &&f32, b: &&f32| match a.abs().partial_cmp(&b.abs()) {
+        let cmp_abs = |a: &&f32, b: &&f32| match a.abs().partial_cmp(&b.abs()) {
             Some(ord) => ord,
             None => core::cmp::Ordering::Less,
         };
 
         let distances = (
-            option_min_by(stencil.at(&x_p), stencil.at(&x_n), cmp),
-            option_min_by(stencil.at(&y_p), stencil.at(&y_n), cmp),
-            option_min_by(stencil.at(&z_p), stencil.at(&z_n), cmp),
+            option_min_by(stencil.at(&x_p), stencil.at(&x_n), cmp_abs),
+            option_min_by(stencil.at(&y_p), stencil.at(&y_n), cmp_abs),
+            option_min_by(stencil.at(&z_p), stencil.at(&z_n), cmp_abs),
         );
 
         match distances {
             (Some(v), _, _) | (_, Some(v), _) | (_, _, Some(v)) => {
+                // Outward/Inward
                 if v.sign() != self.sweep_sign {
                     return;
                 }
@@ -162,18 +161,23 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
             distances.2.copied().unwrap_or(f32::far()),
         );
 
-        let mut d_new = compute_distance(d1.abs(), d2.abs(), d3.abs(), self.grid_spacing);
+        let d_new_abs = compute_distance(d1.abs(), d2.abs(), d3.abs(), self.grid_spacing);
+        debug_assert!(
+            d_new_abs >= 0.0,
+            "Should be positive: d_new_abs = {}",
+            d_new_abs
+        );
+
+        let mut d_new = d_new_abs;
         d_new.set_sign(self.sweep_sign);
 
-        if d_new.abs() > self.limit.abs() {
+        if d_new_abs > self.limit_abs {
             return;
         }
 
-        // let mut far = f32::far();
-        // far.set_sign(self.sweep_sign);
         let d_old = stencil.center.at(&idx).copied().unwrap_or(f32::far());
 
-        if d_new.abs() < d_old.abs() {
+        if d_new_abs < d_old.abs() {
             stencil.center.insert(&idx, d_new);
         }
     }
@@ -206,7 +210,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
                 if stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit.abs())
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
                 {
                     insert_z = true;
                     break;
@@ -229,7 +233,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
                 if stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit.abs())
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
                 {
                     insert_y = true;
                     break;
@@ -252,7 +256,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
                 if stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit.abs())
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
                 {
                     insert_x = true;
                     break;
@@ -261,18 +265,18 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
         }
 
         if insert_x {
-            let next_x = Vec3i::new(x_next, origin.y, origin.z);
-            queue.push(next_x.into());
+            let node_origin = Vec3i::new(x_next, origin.y, origin.z);
+            queue.push(node_origin.into());
         }
 
         if insert_y {
-            let next_y = Vec3i::new(origin.x, y_next, origin.z);
-            queue.push(next_y.into());
+            let node_origin = Vec3i::new(origin.x, y_next, origin.z);
+            queue.push(node_origin.into());
         }
 
         if insert_z {
-            let next_z = Vec3i::new(origin.x, origin.y, z_next);
-            queue.push(next_z.into());
+            let node_origin = Vec3i::new(origin.x, origin.y, z_next);
+            queue.push(node_origin.into());
         }
 
         sdf.insert_leaf_at(stencil.top);
