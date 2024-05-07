@@ -151,14 +151,6 @@ where
         TNewValue: super::Value,
         TMap: Fn(Self::Value) -> TNewValue,
     {
-        // let mut new_node = InternalNode {
-        //     origin: self.origin,
-        //     childs: std::array::from_fn(|_| None),
-        //     child_mask: self.child_mask,
-        //     value_mask: self.value_mask,
-        //     values: [Default::default(); SIZE],
-        // };
-
         let mut new_node = unsafe { Self::As::<TNewValue>::alloc_on_heap(self.origin) };
         new_node.child_mask = self.child_mask;
         new_node.value_mask = self.value_mask;
