@@ -203,17 +203,16 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
 
         let mut insert_z = false;
 
-        for x in 0..size {
+        'outer: for x in 0..size {
             for y in 0..size {
-                let idx = Vec3i::new(x, y, z);
-
-                if stencil
+                let idx = Vec3i::new(x, y, z) + origin;
+                insert_z = stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
-                {
-                    insert_z = true;
-                    break;
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs);
+
+                if insert_z {
+                    break 'outer;
                 }
             }
         }
@@ -226,17 +225,16 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
 
         let mut insert_y = false;
 
-        for x in 0..size {
+        'outer: for x in 0..size {
             for z in 0..size {
-                let idx = Vec3i::new(x, y, z);
-
-                if stencil
+                let idx = Vec3i::new(x, y, z) + origin;
+                insert_y = stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
-                {
-                    insert_y = true;
-                    break;
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs);
+
+                if insert_y {
+                    break 'outer;
                 }
             }
         }
@@ -249,17 +247,16 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
 
         let mut insert_x = false;
 
-        for y in 0..size {
+        'outer: for y in 0..size {
             for z in 0..size {
-                let idx = Vec3i::new(x, y, z);
-
-                if stencil
+                let idx = Vec3i::new(x, y, z) + origin;
+                insert_x = stencil
                     .center
                     .at(&idx)
-                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs)
-                {
-                    insert_x = true;
-                    break;
+                    .is_some_and(|v| v.sign() == self.sweep_sign && v.abs() < self.limit_abs);
+
+                if insert_x {
+                    break 'outer;
                 }
             }
         }
