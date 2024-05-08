@@ -82,7 +82,7 @@ where
         let root = self
             .root
             .iter()
-            .map(|(key, child)| (*key, child.clone_map(map).into()))
+            .map(|(key, child)| (*key, child.clone_map(map)))
             .collect();
 
         Box::new(RootNode { root })

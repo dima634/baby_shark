@@ -97,7 +97,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
                 bottom: sdf
                     .take_leaf_at(&bottom_o)
                     .unwrap_or_else(|| TTree::Leaf::empty(bottom_o)),
-                center: sdf.take_leaf_at(&o).unwrap(),
+                center: sdf.take_leaf_at(o).unwrap(),
                 frozen: self.frozen.leaf_at(origin.point()),
                 min: *o,
                 max: o + Vec3i::new(size, size, size),
@@ -175,10 +175,10 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
             return;
         }
 
-        let d_old = stencil.center.at(&idx).copied().unwrap_or(f32::far());
+        let d_old = stencil.center.at(idx).copied().unwrap_or(f32::far());
 
         if d_new_abs < d_old.abs() {
-            stencil.center.insert(&idx, d_new);
+            stencil.center.insert(idx, d_new);
         }
     }
 
@@ -532,10 +532,8 @@ fn compute_distance(mut a1: f32, mut a2: f32, mut a3: f32, h: f32) -> f32 {
     let a1a3_diff_sq = a1a3_diff * a1a3_diff;
     let a2a3_diff = a2 - a3;
     let a2a3_diff_sq = a2a3_diff * a2a3_diff;
-    let s3 = (a1a2a3_sum + (three_h_sq - a1a2_diff_sq - a1a3_diff_sq - a2a3_diff_sq).sqrt())
-        * (1.0 / 3.0);
 
-    s3
+    (a1a2a3_sum + (three_h_sq - a1a2_diff_sq - a1a3_diff_sq - a2a3_diff_sq).sqrt()) * (1.0 / 3.0)
 }
 
 struct CollectLeafIndicesVisitor<TTree: TreeNode, TLeafOrigin: LeafOrigin> {

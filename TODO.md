@@ -4,6 +4,7 @@
 
 ## TODO/IDEAS:
 - [ ] Prelude module
+- [ ] Fix clippy warnings
 - [ ] Replace code examples with links to examples
 - [ ] Volume booleans: check that volumes have the same resolution
 - [ ] Volume mesher: get voxels size from the volume

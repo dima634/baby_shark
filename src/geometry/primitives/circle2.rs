@@ -10,16 +10,16 @@ pub struct Circle2<TScalar: Number> {
 
 impl<TScalar: Number> Circle2<TScalar> {
     pub fn new(radius: TScalar, center: Point2<TScalar>) -> Self { 
-        return Self { radius, center };
+        Self { radius, center }
     }
 
     #[inline]
     pub fn radius(&self) -> TScalar {
-        return self.radius;
+        self.radius
     }
 
     #[inline]
     pub fn center(&self) -> Point2<TScalar> {
-        return self.center;
+        self.center
     }
 }

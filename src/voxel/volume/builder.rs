@@ -67,8 +67,8 @@ impl VolumeBuilder {
                 - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos())
                 - 1.0);
 
-            if !sampling_bbox.contains_point(&p) {
-                iwp_bbox.squared_distance(&p).sqrt()
+            if !sampling_bbox.contains_point(p) {
+                iwp_bbox.squared_distance(p).sqrt()
             } else {
                 v * cell_size
             }
