@@ -154,26 +154,3 @@ struct Tile<T> {
     pub size: usize,
     pub value: T,
 }
-
-enum LeafMut<'a, T: TreeNode> {
-    Node(&'a mut T),
-    Tile(T::Value),
-}
-
-impl<'a, T: TreeNode> LeafMut<'a, T> {
-    pub fn as_ref(self) -> Option<&'a T> {
-        match self {
-            Self::Node(node) => Some(node),
-            _ => None,
-        }
-    }
-
-    pub fn as_mut(self) -> Option<&'a mut T> {
-        match self {
-            Self::Node(node) => Some(node),
-            _ => None,
-        }
-    }
-}
-
-// https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf
