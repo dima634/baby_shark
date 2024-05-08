@@ -1,13 +1,13 @@
 [package]
 name = "baby_shark"
-version = "0.2.7"
+version = "0.3.0"
 edition = "2021"
 description="Geometry processing library"
 license="MIT"
 homepage = "https://github.com/dima634/baby_shark"
 repository = "https://github.com/dima634/baby_shark"
 keywords = ["mesh", "mesh-processing", "geometry", "3d", "algorithms"]
-categories = ["mathematics", "graphics", "data-structures"]
+categories = ["graphics", "games", "data-structures"]
 exclude = [
     ".github/workflows/*",
     ".vscode/*",
