@@ -7,6 +7,7 @@
 - Implicit/voxel/volume modeling
     - Voxel remeshing
     - Boolean operations
+    - Offsetting
 - Explicit modeling
     - Mesh simplification (decimation)
     - Isotropic remeshing
