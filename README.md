@@ -36,28 +36,6 @@ fn main() {
 ```
 
 # Implicit modeling
-## Voxel remeshing
-*Voxel remeshing* is a computational process used in computer graphics to reconstruct or optimize the topology of a three-dimensional (3D) model.
-Voxels are volumetric pixels that make up the 3D space, and remeshing involves reorganizing these voxels to create a more uniform and well-defined mesh structure.
-Also, it comes with the benefit of removing overlapping geometry, a valuable asset in sculpting applications.
-
-<img width="100%" alt="image" src="assets/readme/voxel_remeshing.png">
-
-### Example
-```rust
-use baby_shark::{
-    mesh::{builder, polygon_soup::data_structure::PolygonSoup},
-    remeshing::voxel::VoxelRemesher,
-};
-use nalgebra::Vector3;
-
-fn main() {
-    let mesh: PolygonSoup<f32> = builder::cube(Vector3::zeros(), 1.0, 1.0, 1.0);
-    let mut remesher = VoxelRemesher::default().with_voxel_size(0.02);
-    let remeshed = remesher.remesh(&mesh).unwrap();
-}
-```
-
 ## Boolean operations
 Boolean operations are a set of operations that can be performed on volumes to combine or modify their shapes. The supported boolean operations in this library are:
 
@@ -66,26 +44,28 @@ Boolean operations are a set of operations that can be performed on volumes to c
 * *Intersect* - returns the volume that is common to both models, resulting in a shape that includes only the overlapping region.
 
 These boolean operations can be useful in various applications, such as creating complex shapes by combining simpler shapes, removing unwanted parts from a volume, or finding the intersection between two volumes.
-Supported boolean operations are:
+
+### [Example](examples/boolean.rs)
 
 Subtract           |  Union
 :-----------------:|:----------------:
 <img alt="boolean_subtract" src="assets/readme/boolean_subtract.gif"> | <img alt="boolean_union" src="assets/readme/boolean_union.gif">
 
-### Example
-```rust
-// See examples/boolean_operations.rs for full example
-let mut bunny_volume = mesh_to_sdf.convert(&bunny_mesh).unwrap();
+## Volume offset
+The volume offsetting allows for the expansion or contraction of a model shape, serving various applications like CNC machining, collision detection, and rapid prototyping. It's a vital tool in model generation and toolpath creation. Inwards and outwards offsets are supported.
 
-// Slice bunny with vertical boxes
-let builder = VolumeBuilder::default().with_voxel_size(voxel_size);
+### [Example](examples/offset.rs)
 
-for x in (-25..26).step_by(3) {
-    let x = x as f32;
-    let slice_box = builder.cuboid(Vec3::new(x, -20.0, 0.0), Vec3::new(x + 1.0, 20.0, 50.0));
-    bunny_volume = bunny_volume.subtract(slice_box);
-}
-```
+<img width="100%" alt="image" src="assets/readme/offset.png">
+
+## Voxel remeshing
+*Voxel remeshing* is a computational process used in computer graphics to reconstruct or optimize the topology of a three-dimensional (3D) model.
+Voxels are volumetric pixels that make up the 3D space, and remeshing involves reorganizing these voxels to create a more uniform and well-defined mesh structure.
+Also, it comes with the benefit of removing overlapping geometry, a valuable asset in sculpting applications.
+
+### [Example](examples/voxel_remeshing.rs)
+
+<img width="100%" alt="image" src="assets/readme/voxel_remeshing.png">
 
 # Explicit modeling
 ## Isotropic remeshing

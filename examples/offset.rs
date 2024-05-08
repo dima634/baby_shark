@@ -16,18 +16,22 @@ fn main() {
 
     // Convert bunny mesh to volume
     let mut mesh_to_volume = MeshToVolume::default().with_voxel_size(voxel_size);
-    let mut bunny_volume = mesh_to_volume.convert(&bunny_mesh).unwrap();
+    let bunny_volume = mesh_to_volume.convert(&bunny_mesh).unwrap();
 
     // Offset the bunny
-    let offset_by = 1.5;
-    bunny_volume = bunny_volume.offset(offset_by);
+    for offset_by in [-2.5, -1.5, 1.5, 3.0] {
+        let offset = bunny_volume.clone().offset(offset_by);
+        write_volume_to_stl(&offset, format!("offset_{}.stl", offset_by).as_str());
+    }
+}
 
-    // Convert volume to mesh and write to STL
-    let mut mesher = MarchingCubesMesher::default().with_voxel_size(voxel_size);
-    let vertices = mesher.mesh(&bunny_volume);
+fn write_volume_to_stl(volume: &Volume, path: &str) {
+    let vertices = MarchingCubesMesher::default()
+        .with_voxel_size(volume.voxel_size())
+        .mesh(volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
-        .write_stl_to_file(&mesh, Path::new("offset.stl"))
-        .expect("Write mesh");
+        .write_stl_to_file(&mesh, Path::new(path))
+        .expect("Should write mesh to STL");
 }

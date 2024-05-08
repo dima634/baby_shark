@@ -40,8 +40,9 @@ fn main() {
 }
 
 fn write_volume_to_stl(volume: &Volume, path: &str) {
-    let mut mesher = MarchingCubesMesher::default().with_voxel_size(volume.voxel_size());
-    let vertices = mesher.mesh(volume);
+    let vertices = MarchingCubesMesher::default()
+        .with_voxel_size(volume.voxel_size())
+        .mesh(volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
