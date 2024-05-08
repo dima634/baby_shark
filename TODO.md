@@ -3,6 +3,7 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings
 - [ ] Replace code examples with links to examples
