@@ -60,6 +60,18 @@ pub fn partial_max<T: PartialOrd>(a: T, b: T) -> T {
     }
 }
 
+#[inline]
+pub fn option_min_by<T>(a: Option<T>, b: Option<T>, cmp: impl Fn(&T, &T) -> Ordering) -> Option<T> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(match cmp(&a, &b) {
+            Ordering::Less | Ordering::Equal => a,
+            Ordering::Greater => b,
+        }),
+        (Some(v), None) | (None, Some(v)) => Some(v),
+        (None, None) => None,
+    }
+}
+
 //         7 ________ 6
 //         /|       /|
 //       /  |     /  |

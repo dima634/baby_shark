@@ -10,12 +10,12 @@ pub struct LineSegment2<TScalar: RealNumber>(Line2<TScalar>);
 
 impl<TScalar: RealNumber> LineSegment2<TScalar> {
     pub fn new(p1: Point2<TScalar>, p2: Point2<TScalar>) -> Self {
-        return Self(Line2::new(p1, p2));
+        Self(Line2::new(p1, p2))
     }
 
     #[inline]
     pub fn line(&self) -> &Line2<TScalar> {
-        return &self.0;
+        &self.0
     }
 
     #[inline]
@@ -24,18 +24,18 @@ impl<TScalar: RealNumber> LineSegment2<TScalar> {
             (self.0.origin() - p).norm() + 
             (self.0.end() - p).norm() - 
             (self.0.origin() - self.0.end()).norm();
-        return len < TScalar::epsilon();
+        len < TScalar::epsilon()
     }
 
     #[inline]
     pub fn at(&self, t: TScalar) -> Point2<TScalar> {
-        return self.0.point_at(t);
+        self.0.point_at(t)
     }
 
     #[inline]
     pub fn intersects_line_segment2_at(&self, other: &Self) -> Option<(TScalar, TScalar)> {
-        return self.line().intersects_line2_at_t(other.line())
-            .filter(|(t1, t2)| *t1 >= TScalar::zero() && *t1 <= TScalar::one() && *t2 >= TScalar::zero() && *t2 <= TScalar::one());
+        self.line().intersects_line2_at_t(other.line())
+            .filter(|(t1, t2)| *t1 >= TScalar::zero() && *t1 <= TScalar::one() && *t2 >= TScalar::zero() && *t2 <= TScalar::one())
     }
 }
 
@@ -63,7 +63,7 @@ impl<TScalar: RealNumber> Intersects<LineSegment2<TScalar>> for LineSegment2<TSc
 
     #[inline]
     fn intersects_at(&self, segment: &LineSegment2<TScalar>) -> Option<Self::Output> {
-        return self.intersects_line_segment2_at(segment).map(|(t, _)| self.at(t));
+        self.intersects_line_segment2_at(segment).map(|(t, _)| self.at(t))
     }
 }
 

@@ -10,17 +10,17 @@ pub struct Ray2<TScalar: RealNumber>(Line2<TScalar>);
 impl<TScalar: RealNumber> Ray2<TScalar> {
     /// origin = p1, direction = p2 - p1
     pub fn from_points(p1: Point2<TScalar>, p2: Point2<TScalar>) -> Self {
-        return Self(Line2::new(p1, p2));
+        Self(Line2::new(p1, p2))
     }
 
     #[inline]
     pub fn line(&self) -> &Line2<TScalar> {
-        return &self.0;
+        &self.0
     }
 
     #[inline]
     pub fn point_at(&self, t: TScalar) -> Point2<TScalar> {
-        return self.0.point_at(t);
+        self.0.point_at(t)
     }
 }
 
@@ -34,7 +34,8 @@ impl<TScalar: RealNumber> Intersects<LineSegment2<TScalar>> for Ray2<TScalar> {
     #[inline]
     fn intersects_at(&self, segment: &LineSegment2<TScalar>) -> Option<Self::Output> {
         let t = self.line().intersects_line2_at_t(segment.line());
-        return t.and_then(|(t1, t2)| {
+
+        t.and_then(|(t1, t2)| {
             let not_intersecting =
                 t1 < TScalar::zero() ||                         // outside ray
                 t2 < TScalar::zero() || t2 > TScalar::one();    // outside segment
@@ -43,8 +44,8 @@ impl<TScalar: RealNumber> Intersects<LineSegment2<TScalar>> for Ray2<TScalar> {
                 return None;
             }
 
-            return Some(self.point_at(t1));
-        });
+            Some(self.point_at(t1))
+        })
     }
 }
 

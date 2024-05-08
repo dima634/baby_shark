@@ -229,7 +229,7 @@ where
             .iter()
             .fold(objects[0].1, |acc, (_, bbox)| acc + bbox);
 
-        let mut split_axises = vec![
+        let mut split_axises = [
             (bbox.size_x(), SplitAxis::X),
             (bbox.size_y(), SplitAxis::Y),
             (bbox.size_z(), SplitAxis::Z),

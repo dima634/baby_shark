@@ -3,12 +3,9 @@ use std::{fmt::Debug, ops::Index};
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::{Vec3, Vec3f, Vec3i},
-    voxel::{
-        utils::CUBE_OFFSETS,
-        volume::{Volume, VolumeGrid},
-        Signed, Tile, TreeNode, Visitor,
-    },
+    voxel::*,
 };
+use self::utils::CUBE_OFFSETS;
 
 use super::lookup_table::*;
 

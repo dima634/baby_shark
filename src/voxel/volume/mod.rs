@@ -1,5 +1,7 @@
 pub mod builder;
 
+use self::fast_sweep::FastSweeping;
+use self::visitors::ValueMutVisitor;
 use crate::voxel::*;
 use crate::{dynamic_vdb, helpers::aliases::Vec3f};
 
@@ -8,9 +10,29 @@ pub(super) type VolumeGrid = dynamic_vdb!(f32, par 5, 4, 3);
 #[derive(Debug)]
 pub struct Volume {
     grid: Box<VolumeGrid>,
+    voxel_size: f32,
 }
 
 impl Volume {
+    /// Creates empty volume with given voxel size.
+    #[inline]
+    pub fn with_voxel_size(voxel_size: f32) -> Self {
+        Self {
+            voxel_size,
+            grid: VolumeGrid::empty(Vec3i::zeros()),
+        }
+    }
+
+    #[inline]
+    pub(super) fn new(grid: Box<VolumeGrid>, voxel_size: f32) -> Self {
+        Self { grid, voxel_size }
+    }
+
+    #[inline]
+    pub fn voxel_size(&self) -> f32 {
+        self.voxel_size
+    }
+
     ///
     /// Creates new SDF grid by evaluating given function on each grid point.
     /// Inside is negative.
@@ -46,7 +68,7 @@ impl Volume {
 
         // TODO: prune
 
-        Self { grid }
+        Self { grid, voxel_size }
     }
 
     pub fn union(mut self, mut other: Self) -> Self {
@@ -70,15 +92,32 @@ impl Volume {
         self
     }
 
+    pub fn offset(mut self, distance: f32) -> Self {
+        self.grid.remove_if(|val| val.abs() > self.voxel_size);
+
+        let mut extension_distance = distance.abs() + self.voxel_size + self.voxel_size;
+        extension_distance.set_sign(distance.sign());
+
+        let mut sweep = FastSweeping::new(self.voxel_size, extension_distance);
+        sweep.fast_sweep(self.grid.as_mut());
+
+        let mut offset = ValueMutVisitor::<VolumeGrid, _>::from_fn(|v| *v -= distance);
+        self.grid.visit_values_mut(&mut offset);
+
+        self
+    }
+
     pub(in crate::voxel) fn grid(&self) -> &VolumeGrid {
         // HIDE
         &self.grid
     }
 }
 
-impl From<Box<VolumeGrid>> for Volume {
-    #[inline]
-    fn from(grid: Box<VolumeGrid>) -> Self {
-        Self { grid }
+impl Clone for Volume {
+    fn clone(&self) -> Self {
+        Self {
+            grid: self.grid.clone(),
+            voxel_size: self.voxel_size,
+        }
     }
 }

@@ -83,36 +83,7 @@ impl<
         self.value_mask.off_all();
     }
 
-    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value> {
-        if self.is_empty() || !self.value_mask.is_full() {
-            return None;
-        }
-
-        let first_value_offset = self.value_mask.find_first_on()?;
-        let first_value = self.values[first_value_offset];
-
-        // Check if all values are within tolerance
-        for offset in (first_value_offset + 1)..SIZE {
-            if !self.value_mask.at(offset) {
-                continue;
-            }
-
-            let value = self.values[offset];
-
-            if (value - first_value) > tolerance {
-                return None;
-            }
-        }
-
-        Some(first_value)
-    }
-
-    #[inline]
-    fn prune(&mut self, _: Self::Value) -> Option<Self::Value> {
-        unimplemented!("Unsupported operation. Leaf node should never be pruned")
-    }
-
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue,
@@ -131,7 +102,15 @@ impl<
             new_node.values[i] = map(self.values[i]);
         }
 
-        new_node
+        Box::new(new_node)
+    }
+
+    fn clone(&self) -> Box<Self> {
+        Box::new(LeafNode {
+            origin: self.origin,
+            value_mask: self.value_mask,
+            values: self.values,
+        })
     }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
@@ -142,9 +121,41 @@ impl<
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
         visitor.dense(self);
     }
-    
+
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
+        for i in 0..SIZE {
+            if self.value_mask.is_on(i) {
+                visitor.value(&mut self.values[i]);
+            }
+        }
+    }
+
     #[inline]
-    fn touch_leaf_at(&mut self, _: &Vec3i) -> LeafMut<'_, Self::Leaf> {
-        LeafMut::Node(self)
+    fn leaf_at(&self, _: &Vec3i) -> Option<&Self::Leaf> {
+        Some(self)
+    }
+
+    fn take_leaf_at(&mut self, _: &Vec3i) -> Option<Box<Self::Leaf>> {
+        unimplemented!("Unsupported operation. Leaf node has no childs");
+    }
+
+    fn insert_leaf_at(&mut self, _: Box<Self::Leaf>) {
+        unimplemented!("Unsupported operation. Leaf node has no childs");
+    }
+
+    #[inline]
+    fn remove_empty_nodes(&mut self) {
+        // Do nothing for leaf nodes
+    }
+
+    fn remove_if<TPred>(&mut self, pred: TPred)
+    where
+        TPred: Fn(&Self::Value) -> bool + Copy,
+    {
+        for i in 0..SIZE {
+            if self.value_mask.is_on(i) && pred(&self.values[i]) {
+                self.value_mask.off(i);
+            }
+        }
     }
 }

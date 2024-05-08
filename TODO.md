@@ -1,129 +1,30 @@
+## RUST unstable
+ - [ ] VDB: const expressions with generics
+ - [ ] VDB: tree traverse using coroutines/generators
 
-## TODO:
-- [ ] Mesh trait: move vertex normal to topological mesh
-- [ ] Mesh trait: default implementation for edge/face position using get_edge_vertices/get_face_vertices
-- [ ] Remesher/Corner table: handle edge boundary collapses
-- [ ] CornerTable/Remesher - preallocate estimated amount of elements for internal arrays
-- [ ] Reusable vectors across app to reduce allocations for iter macro
-- [ ] Corner table: better index typing
-- [ ] AABB tree: pre allocate memory during construction
-- [ ] Grid: consider exploiting min-max distance or incremental sphere growth
-- [ ] Reeb graph cleanup
-- [ ] Triangle-triangle intersection: check sign by product that can be reused later
-- [ ] Reexport `triangle3`, `plane3`... in `primitives` module, replace static methods with regular functions
-- [ ] Generic `intersects` trait, replacement for all `intersects_primitive` traits
-- [ ] Corner table: improve handling of non-manifold edges by duplication vertices instead of removing whole face
-- [ ] Replace `num_traits::cast` with corresponding `to_primitive` methods
-
-### VBD
-- [ ] Replace `Box` with index in `Vec` and check performance (cache misses)
-- [ ] Add assertions for BRANCHING (>=2 for leaf, decreasing for tree), SIZE
-- [ ] Root is not tree node?
-- [ ] Visualization
+## TODO/IDEAS:
+- [ ] Prelude module
+- [ ] Fix clippy warnings
+- [ ] Replace code examples with links to examples
+- [ ] Volume booleans: check that volumes have the same resolution
+- [ ] Volume mesher: get voxels size from the volume
+- [ ] Dual contouring docs
+- [ ] Default constructor for grid
+- [ ] Remove sub from grid value
+- [ ] Voxel remeshing, add options for feature-preserving meshing
 - [ ] Cached accessor
     - Typed list to avoid vtable calls https://crates.io/crates/frunk#hlist
     - Fix issue with caching
 - [ ] Stencil accessor
 - [ ] Sequential accessor
-- [ ] BitSet implementation
-- [ ] Cubes iter:
-    - Iterate over no-overlaping cubes
-    - Iterate over seams cubes
-    - Only on DEPTH - 1 level? skip rest. THIS ONE. Only active tiles/leaf should be considered. How to avoid duplicates?
-    - AAAHHHHHHH create a separate tree containing intersected voxels (make borders active) and iterate over it
-    - Make border active???
-- [ ] Marching cubes: intersection grid
+- [ ] Add assertions for BRANCHING (>=2 for leaf, decreasing for tree), SIZE
+- [ ] Replace `Box` with index in `Vec` and check performance (cache misses)
+- [ ] Visualization
 - [ ] Ability to pick between BTree and HashMap for root node
 - [ ] Type list: change to enum. Each enum value is type at {idx} of list. Will compiler optimize match expr? Implement the same ways as TreeNode
 - [ ] Cubes meshing: optimize by testing only boundary of tile nodes
 - [ ] Remove redundant total branching from leaf node
 - [ ] Internal node: merge childs and values into union to reduce memory footprint
-- [ ] Leaf node: bit mask for inside/outside
-- [ ] Mesh to SDF: implement union for tree nodes to speed up stuff???
 - [ ] Marching cubes: verify cases handling, especially subconfig usage
 - [ ] Fast winding numbers: order3 approx
-- AABB tree: pre-compute bbox centers etc
-
-### RUST unstable
- - [ ] VDB: const expressions with generics
- - [ ] VDB: tree traverse using coroutines/generators
-
-
-# RELEASES TODO
-* Dual contouring docs
-* Default constructor for grid
-* Remove sub from grid value
-* Voxel remeshing, add options for feature-preserving meshing
-
-TPMS:
-```rust
-        let cell_size = 3.0_f32;
-        let density = 0.2_f32;
-        let x = 2.0 * PI * p.x / cell_size;
-        let y = 2.0 * PI * p.y / cell_size;
-        let z = 2.0 * PI * p.z / cell_size;
-
-
-        // Tub-Primitive 
-        //-(x.cos() + y.cos() + z.cos() - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos()) - 1.0)
-
-        // Schoen-Gyroid
-        // (x.sin() * y.cos() + y.sin() * z.cos() + z.sin() * x.cos() - density)
-
-        // Schoen-I-WP (IWP)
-        // (
-        //     x.cos() * y.cos() + y.cos() * z.cos() + x.cos() * z.cos() - 
-        //     0.5 * ((x * 2.0).cos() + (y * 2.0).cos() + (z * 2.0).cos() - density)
-        // )
-
-        // if bbox.contains_point(&((*p).into())) {
-        //     f32::MIN
-        // } else {
-        //     bbox.squared_distance(&((*p).into())).sqrt()
-        // }
-
-        // (p - Vector3::new(0.0, 0.0, -5.0)).magnitude_squared().sqrt() - 3.0 // circle
-
-
-        // let p = (*p).into();
-        // let sphere = Sphere3::new(Point3::new(0.0, 0.0, -5.0), 3.0);
-        // let d = sphere.squared_distance_to_point(&p);
-
-        // if d < 0.0 {
-        //     // println!("neg");
-        //     -d.sqrt()
-        // } else {
-        //     d.sqrt()
-        // }
-
-        // p.y
-
-        p.x.cos() + p.y.cos() + p.z.cos()
-
-         // pub fn iwp(&self, min: Vec3f, max: Vec3f) -> Sdf {
-    //     let cell_size = 0.1_f32;
-    //     let bbox = Box3::new(min.add_scalar(0.5), max.add_scalar(-0.5));
-
-    //     Sdf::from_fn(self.voxel_size, min, max, 1, |p| {
-    //         let x = p.x / cell_size; // 2.0 * PI * p.x / cell_size;
-    //         let y = p.y / cell_size; // 2.0 * PI * p.y / cell_size;
-    //         let z = p.z / cell_size; // 2.0 * PI * p.z / cell_size;
-
-    //         // let v = -(
-    //         //     x.cos() * y.cos() + y.cos() * z.cos() + x.cos() * z.cos() - 
-    //         //     0.5 * ((x * 2.0).cos() + (y * 2.0).cos() + (z * 2.0).cos() - density)
-    //         // );
-    //         // println!("{v}");
-    //         // v
-
-    //         // (x.sin() * y.cos() + y.sin() * z.cos() + z.sin() * x.cos() - density)
-    //         let v = -(x.cos() + y.cos() + z.cos() - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos()) - 1.0);
-
-    //         if !bbox.contains_point(&p) {
-    //             bbox.squared_distance(&p).sqrt()
-    //         } else {
-    //             v * cell_size
-    //         }
-    //     })
-    // }
-```
+- [ ] AABB tree optimizations: pre-compute bbox centers etc

@@ -49,6 +49,31 @@ impl VolumeBuilder {
             }
         })
     }
+
+    /// IWP TPMS
+    pub fn iwp(&self, min: Vec3f, max: Vec3f, cell_size: f32) -> Volume {
+        let cell_size_inv = 1.0 / cell_size;
+        let sampling_bbox = Box3::new(min, max);
+        let iwp_bbox = Box3::new(
+            min.add_scalar(-self.voxel_size),
+            max.add_scalar(self.voxel_size),
+        );
+
+        Volume::from_fn(self.voxel_size, *iwp_bbox.get_min(), *iwp_bbox.get_max(), 2, |p| {
+            let x = p.x * cell_size_inv;
+            let y = p.y * cell_size_inv;
+            let z = p.z * cell_size_inv;
+            let v = -(x.cos() + y.cos() + z.cos()
+                - 0.51 * (x.cos() * y.cos() + y.cos() * z.cos() + z.cos() * x.cos())
+                - 1.0);
+
+            if !sampling_bbox.contains_point(p) {
+                iwp_bbox.squared_distance(p).sqrt()
+            } else {
+                v * cell_size
+            }
+        })
+    }
 }
 
 impl Default for VolumeBuilder {

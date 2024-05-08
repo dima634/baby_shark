@@ -9,7 +9,7 @@ pub struct ActiveVoxelsMesher {
 impl ActiveVoxelsMesher {
     /// Returns a list where each tree consecutive vertices form a triangle
     #[allow(dead_code)]
-    pub(super) fn mesh(&mut self, grid: &impl TreeNode) -> Vec<Vector3<isize>> {
+    pub fn mesh(&mut self, grid: &impl TreeNode) -> Vec<Vector3<isize>> {
         self.vertices.clear();
 
         let mut visitor = ActiveVoxelsVisitor { grid, mesher: self };

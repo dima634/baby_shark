@@ -3,22 +3,29 @@ pub mod meshing;
 pub mod prelude;
 pub mod volume;
 
+mod fast_sweep;
 mod init;
 mod internal_node;
 mod leaf_node;
 mod root_node;
-#[cfg(test)]
-mod tests;
 mod utils;
 mod value;
+mod visitors;
+
+#[cfg(test)]
+mod tests;
 
 use crate::helpers::aliases::Vec3i;
 use internal_node::*;
 use leaf_node::*;
 use root_node::*;
+use volume::*;
 use std::ops::{Neg, Sub};
 
-trait Value: Default + Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self> {}
+trait Value:
+    Default + Copy + Clone + Send + Sync + PartialEq + PartialOrd + Sub<Output = Self>
+{
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Sign {
@@ -32,9 +39,13 @@ trait Signed: Value {
     fn far() -> Self;
 }
 
-trait Visitor<T: TreeNode> {
-    fn tile(&mut self, tile: Tile<T::Value>);
-    fn dense(&mut self, dense: &T);
+trait Visitor<TLeaf: TreeNode> {
+    fn tile(&mut self, tile: Tile<TLeaf::Value>);
+    fn dense(&mut self, dense: &TLeaf);
+}
+
+trait ValueVisitorMut<T> {
+    fn value(&mut self, value: &mut T);
 }
 
 trait ParVisitor<T: TreeNode>: Send + Sync {
@@ -78,30 +89,28 @@ trait TreeNode: Send + Sync + Sized {
     fn clear(&mut self);
     fn visit_leafs<T: Visitor<Self::Leaf>>(&self, visitor: &mut T);
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T);
+    fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T);
 
     /// Returns ref to leaf at grid point `index`. Creates leaf if not exists.
-    fn touch_leaf_at(&mut self, index: &Vec3i) -> LeafMut<'_, Self::Leaf>;
+    fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf>;
 
-    ///
-    /// Checks if node is constant within tolerance.
-    /// Empty nodes are not constant.
-    ///
-    /// Returns `None` if node is not constant, otherwise returns constant value
-    ///
-    fn is_constant(&self, tolerance: Self::Value) -> Option<Self::Value>;
+    fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>>;
+    fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>); // TODO: No need to pass index
 
-    ///
-    /// Prune all nodes where all values are within tolerance
-    ///
-    fn prune(&mut self, tolerance: Self::Value) -> Option<Self::Value>; // TODO: prune_if
+    fn remove_if<TPred>(&mut self, pred: TPred)
+    where
+        TPred: Fn(&Self::Value) -> bool + Copy;
+    fn remove_empty_nodes(&mut self);
 
     ///
     /// Creates a copy of the node with same topology but with different values
     ///
-    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Self::As<TNewValue>
+    fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
     where
         TNewValue: Value,
         TMap: Fn(Self::Value) -> TNewValue;
+
+    fn clone(&self) -> Box<Self>;
 
     /// Number of voxels in one dimension
     #[inline]
@@ -145,19 +154,3 @@ struct Tile<T> {
     pub size: usize,
     pub value: T,
 }
-
-enum LeafMut<'a, T: TreeNode> {
-    Node(&'a mut T),
-    Tile(T::Value),
-}
-
-impl<'a, T: TreeNode> LeafMut<'a, T> {
-    pub fn as_ref(self) -> Option<&'a T> {
-        match self {
-            Self::Node(node) => Some(node),
-            _ => None,
-        }
-    }
-}
-
-// https://research.dreamworks.com/wp-content/uploads/2018/08/Museth_TOG13-Edited.pdf

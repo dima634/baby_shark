@@ -59,11 +59,11 @@ where
     }
 
     #[inline]
-    fn remove_child_node(&mut self, offset: usize) {
+    fn remove_child_node(&mut self, offset: usize) -> Option<Box<TChild>> {
         debug_assert!(self.child_mask.at(offset));
 
         self.child_mask.off(offset);
-        self.childs[offset] = None;
+        self.childs[offset].take()
     }
 
     #[inline]
@@ -72,15 +72,6 @@ where
 
         self.child_mask.off(offset);
         unsafe { self.childs[offset].take().unwrap_unchecked() }
-    }
-
-    #[inline]
-    fn replace_node_with_tile(&mut self, offset: usize, value: TChild::Value) {
-        debug_assert!(self.child_mask.at(offset));
-
-        self.remove_child_node(offset);
-        self.value_mask.on(offset);
-        self.values[offset] = value;
     }
 
     #[inline]
