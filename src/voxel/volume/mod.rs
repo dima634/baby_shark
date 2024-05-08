@@ -14,9 +14,23 @@ pub struct Volume {
 }
 
 impl Volume {
+    /// Creates empty volume with given voxel size.
+    #[inline]
+    pub fn with_voxel_size(voxel_size: f32) -> Self {
+        Self {
+            voxel_size,
+            grid: VolumeGrid::empty(Vec3i::zeros()),
+        }
+    }
+
     #[inline]
     pub(super) fn new(grid: Box<VolumeGrid>, voxel_size: f32) -> Self {
         Self { grid, voxel_size }
+    }
+
+    #[inline]
+    pub fn voxel_size(&self) -> f32 {
+        self.voxel_size
     }
 
     ///

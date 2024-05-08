@@ -3,6 +3,8 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Volume booleans: check that volumes have the same resolution
+- [ ] Volume mesher: get voxels size from the volume
 - [ ] Dual contouring docs
 - [ ] Default constructor for grid
 - [ ] Remove sub from grid value
