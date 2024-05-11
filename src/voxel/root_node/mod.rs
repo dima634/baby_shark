@@ -70,7 +70,7 @@ impl Hash for RootKey {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         let hash =
-            ((1 << 8) - 1) & (self.0.x * 73856093 ^ self.0.y * 19349663 ^ self.0.z * 83492791);
+            ((1 << 8) - 1) & ((self.0.x * 73856093) ^ (self.0.y * 19349663) ^ (self.0.z * 83492791));
         state.write_isize(hash);
     }
 }
