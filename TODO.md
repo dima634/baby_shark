@@ -3,6 +3,7 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings
 - [ ] Replace code examples with links to examples
@@ -24,7 +25,6 @@
 - [ ] Type list: change to enum. Each enum value is type at {idx} of list. Will compiler optimize match expr? Implement the same ways as TreeNode
 - [ ] Cubes meshing: optimize by testing only boundary of tile nodes
 - [ ] Remove redundant total branching from leaf node
-- [ ] Internal node: merge childs and values into union to reduce memory footprint
 - [ ] Marching cubes: verify cases handling, especially subconfig usage
 - [ ] Fast winding numbers: order3 approx
 - [ ] AABB tree optimizations: pre-compute bbox centers etc

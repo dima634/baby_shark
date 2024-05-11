@@ -19,53 +19,56 @@ where
             return;
         }
 
-        self.childs
-            .iter_mut()
-            .filter_map(|c| c.as_mut())
-            .for_each(|c| c.flood_fill());
+        for offset in 0..SIZE {
+            if let Some(OneOf::T1(child)) = self.child_mut(offset) {
+                child.flood_fill();
+            }
+        }
 
         let first_value = self.value_mask.find_first_on();
-        let first_child = self.child_mask.find_first_on();
+        let first_branch = self.child_mask.find_first_on();
 
-        let mut i = match (first_value, first_child) {
-            (Some(v), Some(c)) if v <= c => self.values[v].sign(),
-            (Some(_), Some(c)) => self.child_node(c).first_value_sign(),
-            (Some(i), None) => self.values[i].sign(),
-            (None, Some(i)) => self.child_node(i).first_value_sign(),
-            (None, None) => return,
+        let mut i = unsafe {
+            match (first_value, first_branch) {
+                (Some(v), Some(b)) if v <= b => self.childs[v].tile.sign(),
+                (Some(_), Some(b)) => self.childs[b].branch.first_value_sign(),
+                (Some(i), None) => self.childs[i].tile.sign(),
+                (None, Some(i)) => self.childs[i].branch.first_value_sign(),
+                (None, None) => return,
+            }
         };
 
         for x in 0..Self::childs_per_dim() {
             let x00 = x << (BRANCHING + BRANCHING); // offset for block(x, 0, 0)
 
-            if self.child_mask.is_on(x00) {
-                i = self.child_node(x00).last_value_sign();
-            } else if self.value_mask.is_on(x00) {
-                i = self.values[x00].sign();
-            }
+            match self.child(x00) {
+                Some(OneOf::T1(branch)) => i = branch.last_value_sign(),
+                Some(OneOf::T2(value)) => i = value.sign(),
+                None => {}
+            };
 
             let mut j = i;
             for y in 0..Self::childs_per_dim() {
                 let xy0 = x00 + (y << BRANCHING); // offset for block(x, y, 0)
 
-                if self.child_mask.is_on(xy0) {
-                    j = self.child_node(xy0).last_value_sign();
-                } else if self.value_mask.is_on(xy0) {
-                    j = self.values[xy0].sign();
-                }
+                match self.child(xy0) {
+                    Some(OneOf::T1(branch)) => j = branch.last_value_sign(),
+                    Some(OneOf::T2(value)) => j = value.sign(),
+                    None => {}
+                };
 
                 let mut k = j;
                 for z in 0..Self::childs_per_dim() {
                     let xyz = xy0 + z; // offset for block(x, y, z)
 
-                    if self.child_mask.is_on(xyz) {
-                        k = self.child_node(xyz).last_value_sign();
-                    } else if self.value_mask.is_on(xyz) {
-                        k = self.values[xyz].sign();
-                    } else {
-                        self.values[xyz] = Self::Value::far();
-                        self.values[xyz].set_sign(k);
-                    }
+                    match self.child(xyz) {
+                        Some(OneOf::T1(branch)) => k = branch.last_value_sign(),
+                        Some(OneOf::T2(value)) => k = value.sign(),
+                        None => unsafe {
+                            self.childs[xyz].tile = Self::Value::far();
+                            self.childs[xyz].tile.set_sign(k);
+                        },
+                    };
                 }
             }
         }
@@ -77,44 +80,39 @@ where
         }
 
         for i in 0..SIZE {
-            if self.child_mask.is_on(i) {
-                self.child_node_mut(i).fill_with_sign(sign);
-            }
-
-            if self.value_mask.is_off(i) {
-                self.values[i] = Self::Value::far();
-            }
-
-            self.values[i].set_sign(sign);
+            match self.child_mut(i) {
+                Some(OneOf::T1(branch)) => branch.fill_with_sign(sign),
+                Some(OneOf::T2(tile)) => tile.set_sign(sign),
+                None => unsafe {
+                    self.childs[i].tile = Self::Value::far();
+                    self.childs[i].tile.set_sign(sign);
+                },
+            };
         }
     }
 
     #[inline]
     fn first_value_sign(&self) -> Sign {
-        if self.child_mask.is_on(0) {
-            self.child_node(0).first_value_sign()
-        } else {
-            self.values[0].sign()
+        match self.child(0) {
+            Some(OneOf::T1(branch)) => branch.first_value_sign(),
+            Some(OneOf::T2(_)) | None => unsafe { self.childs[0].tile.sign() },
         }
     }
 
     #[inline]
     fn last_value_sign(&self) -> Sign {
-        let offset = SIZE - 1;
-        if self.child_mask.is_on(offset) {
-            self.child_node(offset).last_value_sign()
-        } else {
-            self.values[offset].sign()
+        match self.child(SIZE - 1) {
+            Some(OneOf::T1(branch)) => branch.first_value_sign(),
+            Some(OneOf::T2(_)) | None => unsafe { self.childs[SIZE - 1].tile.sign() },
         }
     }
 
     #[inline]
     fn sign_at(&self, index: &Vec3i) -> Sign {
         let offset = Self::offset(index);
-        if self.child_mask.is_on(offset) {
-            self.child_node(offset).sign_at(index)
-        } else {
-            self.values[offset].sign()
+        match self.child(offset) {
+            Some(OneOf::T1(branch)) => branch.sign_at(index),
+            Some(OneOf::T2(_)) | None => unsafe { self.childs[offset].tile.sign() },
         }
     }
 }
@@ -122,43 +120,10 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        data_structures::bitset::BitArray,
         helpers::aliases::{Vec3, Vec3i},
         static_vdb,
         voxel::{utils::box_indices, *},
     };
-
-    use super::InternalNode;
-
-    #[test]
-    fn test_alloc_internal_node() {
-        const LEAF_LOG2: usize = 2;
-        const INTERNAL_LOG2: usize = 3;
-
-        type Leaf = LeafNode<
-            f32,
-            LEAF_LOG2,
-            LEAF_LOG2,
-            { leaf_node_size(LEAF_LOG2) },
-            { leaf_node_bit_size(LEAF_LOG2) },
-        >;
-        type Internal = InternalNode<
-            f32,
-            Leaf,
-            INTERNAL_LOG2,
-            { LEAF_LOG2 + INTERNAL_LOG2 },
-            { internal_node_size(INTERNAL_LOG2) },
-            { internal_node_bit_size(INTERNAL_LOG2) },
-            false,
-        >;
-
-        let origin = Vec3i::new(1, 2, 3);
-        let node = Internal::empty(origin);
-        assert_eq!(node.child_mask, BitArray::zeroes());
-        assert_eq!(node.value_mask, BitArray::zeroes());
-        assert_eq!(node.origin, origin);
-        assert!(node.childs.iter().all(|c| c.is_none()));
-    }
 
     #[test]
     fn test_flood_fill() {

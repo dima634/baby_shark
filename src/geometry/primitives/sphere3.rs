@@ -28,9 +28,9 @@ impl<TScalar: RealNumber> HasScalarType for Sphere3<TScalar> {
 impl<TScalar: RealNumber> HasBBox3 for Sphere3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<Self::ScalarType> {
-        return Box3::new(
+        Box3::new(
             self.center.add_scalar(-self.radius),
             self.center.add_scalar(self.radius),
-        );
+        )
     }
 }

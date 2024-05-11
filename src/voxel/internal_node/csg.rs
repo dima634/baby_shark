@@ -19,37 +19,32 @@ where
 {
     #[inline]
     fn is_inside_tile(&self, offset: usize) -> bool {
-        self.child_mask.is_off(offset) && self.values[offset].sign() == Sign::Negative
+        self.child_mask.is_off(offset) && unsafe { self.childs[offset].tile.sign() == Sign::Negative }
     }
 
     #[inline]
     fn is_outside_tile(&self, offset: usize) -> bool {
-        self.child_mask.is_off(offset) && self.values[offset].sign() == Sign::Positive
+        self.child_mask.is_off(offset) && unsafe { self.childs[offset].tile.sign() == Sign::Positive }
     }
 
     #[inline]
     fn take_child(&mut self, other: &mut Self, offset: usize) {
         if other.child_mask.is_on(offset) {
+            other.child_mask.set(offset, self.child_mask.is_on(offset));
+            other.value_mask.set(offset, self.value_mask.is_on(offset));
             self.child_mask.on(offset);
+            self.value_mask.off(offset);
             core::mem::swap(&mut self.childs[offset], &mut other.childs[offset]);
         }
     }
 
     #[inline]
     fn make_child_inside(&mut self, offset: usize) {
-        self.child_mask.off(offset);
-        self.childs[offset] = None;
+        self.remove_child(offset);
         self.value_mask.on(offset);
-        let mut value = TChild::Value::far();
-        value.set_sign(Sign::Negative);
-        self.values[offset] = value;
-    }
-
-    #[inline]
-    fn remove_child(&mut self, offset: usize) {
-        self.value_mask.off(offset);
-        self.child_mask.off(offset);
-        self.childs[offset] = None;
+        self.childs[offset] = ChildUnion {
+            tile: TChild::Value::far(),
+        };
     }
 }
 
@@ -86,13 +81,16 @@ where
                 continue;
             }
 
-            if other.child_mask.is_on(offset) {
-                self.child_node_mut(offset).union(other.child_owned(offset));
+            match (self.child_mut(offset), other.remove_child(offset)) {
+                (Some(OneOf::T1(self_branch)), Some(OneOf::T1(other_branch))) => {
+                    self_branch.union(other_branch);
 
-                if self.child_node(offset).is_empty() {
-                    self.make_child_inside(offset);
-                }
-            }
+                    if self_branch.is_empty() {
+                        self.make_child_inside(offset);
+                    }
+                },
+                _ => continue,
+            };
         }
     }
 
@@ -109,12 +107,24 @@ where
 
             if self.is_inside_tile(offset) {
                 self.take_child(&mut other, offset);
-                self.child_node_mut(offset).flip_signs();
+
+                match self.child_mut(offset) {
+                    Some(OneOf::T1(branch)) => {
+                        branch.flip_signs();
+                    },
+                    Some(OneOf::T2(value)) => {
+                        *value = -*value; // TODO: replace with `value.flip_sign()` when it's implemented
+                    },
+                    None => {}
+                }
+
                 continue;
             }
 
-            self.child_node_mut(offset)
-                .subtract(other.child_owned(offset));
+            match (self.child_mut(offset), other.remove_child(offset)) {
+                (Some(OneOf::T1(self_branch)), Some(OneOf::T1(other_branch))) => self_branch.subtract(other_branch),
+                _ => continue,
+            };
         }
     }
 
@@ -134,18 +144,20 @@ where
                 continue;
             }
 
-            self.child_node_mut(offset)
-                .intersect(other.child_owned(offset));
+            match (self.child_mut(offset), other.remove_child(offset)) {
+                (Some(OneOf::T1(self_branch)), Some(OneOf::T1(other_branch))) => self_branch.intersect(other_branch),
+                _ => continue,
+            };
         }
     }
 
     fn flip_signs(&mut self) {
         for offset in 0..SIZE {
-            if self.child_mask.is_on(offset) {
-                self.child_node_mut(offset).flip_signs();
-            }
-
-            self.values[offset] = -self.values[offset];
+            match self.child_mut(offset) {
+                Some(OneOf::T1(branch)) => branch.flip_signs(),
+                Some(OneOf::T2(value)) => *value = -*value, // TODO: replace with `value.flip_sign()` when it's implemented
+                None => {}
+            };
         }
     }
 }
