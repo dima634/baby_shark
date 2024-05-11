@@ -100,12 +100,10 @@ impl MarchingCubesMesher {
             6 => {
                 if self.test_face(TEST_6[self.config][0]) {
                     self.add_faces(&TILING_EDGES_6_2[self.config]);
+                } else if self.test_interior(TEST_6[self.config][1]) {
+                    self.add_faces(&TILING_EDGES_6_1_1[self.config]);
                 } else {
-                    if self.test_interior(TEST_6[self.config][1]) {
-                        self.add_faces(&TILING_EDGES_6_1_1[self.config]);
-                    } else {
-                        self.add_faces(&TILING_EDGES_6_1_2[self.config]);
-                    }
+                    self.add_faces(&TILING_EDGES_6_1_2[self.config]);
                 }
             }
             7 => {
@@ -168,17 +166,13 @@ impl MarchingCubesMesher {
                         self.compute_c_vertex();
                         self.add_faces(&TILING_EDGES_10_2[self.config]);
                     }
+                } else if self.test_face(TEST_10[self.config][1]) {
+                    self.compute_c_vertex();
+                    self.add_faces(&TILING_EDGES_10_2_[self.config]);
+                } else if self.test_interior(TEST_10[self.config][2]) {
+                    self.add_faces(&TILING_EDGES_10_1_1[self.config]);
                 } else {
-                    if self.test_face(TEST_10[self.config][1]) {
-                        self.compute_c_vertex();
-                        self.add_faces(&TILING_EDGES_10_2_[self.config]);
-                    } else {
-                        if self.test_interior(TEST_10[self.config][2]) {
-                            self.add_faces(&TILING_EDGES_10_1_1[self.config]);
-                        } else {
-                            self.add_faces(&TILING_EDGES_10_1_2[self.config]);
-                        }
-                    }
+                    self.add_faces(&TILING_EDGES_10_1_2[self.config]);
                 }
             }
             11 => self.add_faces(&TILING_EDGES_11[self.config]),
@@ -194,17 +188,13 @@ impl MarchingCubesMesher {
                         self.compute_c_vertex();
                         self.add_faces(&TILING_EDGES_12_2[self.config]);
                     }
+                } else if self.test_face(TEST_12[self.config][1]) {
+                    self.compute_c_vertex();
+                    self.add_faces(&TILING_EDGES_12_2_[self.config]);
+                } else if self.test_interior(TEST_12[self.config][2]) {
+                    self.add_faces(&TILING_EDGES_12_1_1[self.config]);
                 } else {
-                    if self.test_face(TEST_12[self.config][1]) {
-                        self.compute_c_vertex();
-                        self.add_faces(&TILING_EDGES_12_2_[self.config]);
-                    } else {
-                        if self.test_interior(TEST_12[self.config][2]) {
-                            self.add_faces(&TILING_EDGES_12_1_1[self.config]);
-                        } else {
-                            self.add_faces(&TILING_EDGES_12_1_2[self.config]);
-                        }
-                    }
+                    self.add_faces(&TILING_EDGES_12_1_2[self.config]);
                 }
             }
             13 => {
@@ -263,12 +253,10 @@ impl MarchingCubesMesher {
                             } else {
                                 self.add_faces(&TILING_EDGES_13_5_2[1][offset - 23]);
                             }
+                        } else if self.interior_test_case13() {
+                            self.add_faces(&TILING_EDGES_13_5_1[1][offset - 23]);
                         } else {
-                            if self.interior_test_case13() {
-                                self.add_faces(&TILING_EDGES_13_5_1[1][offset - 23]);
-                            } else {
-                                self.add_faces(&TILING_EDGES_13_5_2[0][offset - 23]);
-                            }
+                            self.add_faces(&TILING_EDGES_13_5_2[0][offset - 23]);
                         }
                     }
                     27..=38 => {

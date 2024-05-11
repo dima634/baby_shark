@@ -9,7 +9,7 @@ pub struct CornerTableMarker<TScalar: RealNumber> {
 
 impl<TScalar: RealNumber> CornerTableMarker<TScalar> {
     pub fn new(corner_table: &CornerTable<TScalar>) -> Self { 
-        return Self { corner_table } ;
+        Self { corner_table }
     }
 }
 
@@ -28,7 +28,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     #[inline]
     fn is_face_marked(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor) -> bool {
         let first_corner = corner::first_corner_from_corner(*face);
-        unsafe { return (*self.corner_table).corners[first_corner].is_marked_1(); }
+        unsafe { (*self.corner_table).corners[first_corner].is_marked_1()}
     }
 
     //
@@ -42,7 +42,7 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
 
     #[inline]
     fn is_vertex_marked(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor) -> bool {
-        unsafe { return (*self.corner_table).vertices[*vertex].is_marked_1(); }
+        unsafe { (*self.corner_table).vertices[*vertex].is_marked_1()}
     }
 
     //
@@ -63,6 +63,6 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
 
     #[inline]
     fn is_edge_marked(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor) -> bool {
-        unsafe { return (*self.corner_table).corners[edge.get_corner_index()].is_marked_2(); }
+        unsafe { (*self.corner_table).corners[edge.get_corner_index()].is_marked_2()}
     }
 }

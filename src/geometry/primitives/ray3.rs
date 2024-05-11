@@ -11,7 +11,7 @@ pub struct Ray3<TScalar: RealNumber> {
 
 impl<TScalar: RealNumber> Ray3<TScalar> {
     pub fn new(point: Vec3<TScalar>, direction: Vector3<TScalar>) -> Self {
-        return Self { line: Line3::new(point, direction) };
+        Self { line: Line3::new(point, direction) }
     }
 
     #[inline]
@@ -26,7 +26,7 @@ impl<TScalar: RealNumber> Ray3<TScalar> {
 
     #[inline]
     pub fn get_line(&self) -> &Line3<TScalar> {
-        return &self.line;
+        &self.line
     }
 
     #[inline]
@@ -35,12 +35,12 @@ impl<TScalar: RealNumber> Ray3<TScalar> {
             return self.is_on_ray(t);
         }
 
-        return None;
+        None
     }
 
     #[inline]
     pub fn intersects_plane3(&self, plane: &Plane3<TScalar>) -> bool {
-        return self.intersects_plane3_at(plane).is_some();
+        self.intersects_plane3_at(plane).is_some()
     }
 
     #[inline]
@@ -49,12 +49,12 @@ impl<TScalar: RealNumber> Ray3<TScalar> {
             return self.is_on_ray(t);
         }
 
-        return None;
+        None
     }
 
     #[inline]
     pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
-        return self.intersects_box3_at(aabb).is_some();
+        self.intersects_box3_at(aabb).is_some()
     }  
 
     fn is_on_ray(&self, t: TScalar) -> Option<TScalar> {
@@ -62,7 +62,7 @@ impl<TScalar: RealNumber> Ray3<TScalar> {
             return None;
         }
 
-        return Some(t);
+        Some(t)
     }
 }
 

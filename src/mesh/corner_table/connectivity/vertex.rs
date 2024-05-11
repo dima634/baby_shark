@@ -17,61 +17,60 @@ pub struct Vertex<TScalarType: RealNumber> {
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     pub fn new(corner_index: usize, position: Vec3<TScalarType>, flags: flags::Flags) -> Self { 
-        return Self { 
+        Self { 
             corner_index, 
             position, 
             flags: UnsafeCell::new(flags)
-        };
+        }
     }
 }
 
 impl<TScalarType: RealNumber> Default for Vertex<TScalarType> {
     fn default() -> Self {
-        return Self {
+        Self {
             corner_index: usize::max_value(), 
             position: Vec3::zeros(), 
             flags: Default::default() 
-        };
+        }
     }
 }
 
 impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
     #[inline]
     fn get_flags(&self) -> &UnsafeCell<flags::Flags> {
-        return &self.flags;
+        &self.flags
     }
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
     pub fn get_position(&self) -> &Vec3<TScalarType> {
-        return &self.position;
+        &self.position
     }
 
     #[inline]
     pub fn set_position(&mut self, point: Vec3<TScalarType>) -> &mut Self {
         self.position = point;
-        return self;
+        self
     }
 
     #[inline]
     pub fn get_corner_index(&self) ->  usize {
-        return self.corner_index;
+        self.corner_index
     }
 
     #[inline]
     pub fn set_corner_index(&mut self, index: usize) -> &mut Self {
         self.corner_index = index;
-        return self;
+        self
     }
 }
 
 impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        return 
-            self.corner_index  == other.corner_index && 
-            self.position      == other.position;
+        self.corner_index  == other.corner_index && 
+            self.position      == other.position
     }
 }
 impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}

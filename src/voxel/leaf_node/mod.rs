@@ -28,16 +28,16 @@ impl<
 {
     #[inline]
     fn offset(index: &Vec3i) -> usize {
-        let offset = ((index.x & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING + Self::BRANCHING)
-            + ((index.y & (1 << Self::BRANCHING_TOTAL) - 1) << Self::BRANCHING)
-            + (index.z & (1 << Self::BRANCHING_TOTAL) - 1);
+        let offset = ((index.x & ((1 << Self::BRANCHING_TOTAL) - 1)) << (Self::BRANCHING + Self::BRANCHING))
+            + ((index.y & ((1 << Self::BRANCHING_TOTAL) - 1)) << Self::BRANCHING)
+            + (index.z & ((1 << Self::BRANCHING_TOTAL) - 1));
 
         offset as usize
     }
 }
 
 pub const fn leaf_node_size(branching: usize) -> usize {
-    1 << branching * 3
+    1 << (branching * 3)
 }
 
 pub const fn leaf_node_bit_size(branching: usize) -> usize { // THIS IS NOT RIGHT

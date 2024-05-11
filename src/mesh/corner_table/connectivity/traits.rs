@@ -13,7 +13,7 @@ pub trait Flags {
     fn set_deleted(& self, deleted: bool) -> &Self {
         unsafe {
             (*self.get_flags().get()).set(flags::Flags::IS_DELETED, deleted);
-            return self;
+            self
         }
     }
 
@@ -28,7 +28,7 @@ pub trait Flags {
     fn set_visited(&self, visited: bool) -> &Self {
         unsafe {
             (*self.get_flags().get()).set(flags::Flags::IS_VISITED, visited);
-            return self;
+            self
         }
     }
 
@@ -43,7 +43,7 @@ pub trait Flags {
     fn set_marked_1(&self, marked: bool) -> &Self {
         unsafe {
             (*self.get_flags().get()).set(flags::Flags::IS_MARKED_1, marked);
-            return self;
+            self
         }
     }
 
@@ -58,7 +58,7 @@ pub trait Flags {
     fn set_marked_2(&self, marked: bool) -> &Self {
         unsafe {
             (*self.get_flags().get()).set(flags::Flags::IS_MARKED_2, marked);
-            return self;
+            self
         }
     }
 
@@ -73,7 +73,7 @@ pub trait Flags {
     fn set_marked_3(&self, marked: bool) -> &Self {
         unsafe {
             (*self.get_flags().get()).set(flags::Flags::IS_MARKED_3, marked);
-            return self;
+            self
         }
     }
 

@@ -30,25 +30,25 @@ pub struct BarycentricCoordinates<TScalar: RealNumber>(Vector3<TScalar>);
 impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
     #[inline]
     pub fn u(&self) -> TScalar {
-        return self.0.x;
+        self.0.x
     }
 
     #[inline]
     pub fn v(&self) -> TScalar {
-        return self.0.y;
+        self.0.y
     }
 
     #[inline]
     pub fn w(&self) -> TScalar {
-        return self.0.z;
+        self.0.z
     }
 
     /// Checks whether `self` is on triangle
     #[inline]
     pub fn is_within_triangle(&self) -> bool {
-        return self.v() >= TScalar::zero()
+        self.v() >= TScalar::zero()
             && self.w() >= TScalar::zero()
-            && (self.v() + self.w() <= TScalar::one());
+            && (self.v() + self.w() <= TScalar::one())
     }
 }
 
@@ -62,46 +62,46 @@ pub struct Triangle3<TScalar: Number> {
 
 impl<TScalar: RealNumber> Triangle3<TScalar> {
     pub fn new(a: Vec3<TScalar>, b: Vec3<TScalar>, c: Vec3<TScalar>) -> Self {
-        return Self { a, b, c };
+        Self { a, b, c }
     }
 
     #[inline]
     pub fn p1(&self) -> &Vec3<TScalar> {
-        return &self.a;
+        &self.a
     }
 
     #[inline]
     pub fn p2(&self) -> &Vec3<TScalar> {
-        return &self.b;
+        &self.b
     }
 
     #[inline]
     pub fn p3(&self) -> &Vec3<TScalar> {
-        return &self.c;
+        &self.c
     }
 
     #[inline]
     pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Vec3<TScalar> {
-        return Vec3::new(
+        Vec3::new(
             barycoords.u() * self.a.x + barycoords.v() * self.b.x + barycoords.w() * self.c.x,
             barycoords.u() * self.a.y + barycoords.v() * self.b.y + barycoords.w() * self.c.y,
             barycoords.u() * self.a.z + barycoords.v() * self.b.z + barycoords.w() * self.c.z,
-        );
+        )
     }
 
     #[inline]
     pub fn plane(&self) -> Plane3<TScalar> {
-        return Plane3::from_points(&self.a.into(), &self.b.into(), &self.c.into());
+        Plane3::from_points(&self.a.into(), &self.b.into(), &self.c.into())
     }
 
     #[inline]
     pub fn basis(&self) -> Basis2<TScalar> {
-        return Basis2::from_normal_and_point(self.get_normal(), self.a.into());
+        Basis2::from_normal_and_point(self.get_normal(), self.a.into())
     }
 
     #[inline]
     pub fn center(&self) -> Vec3<TScalar> {
-        return (self.a + self.b + self.c) / cast::<_, TScalar>(3).unwrap();
+        (self.a + self.b + self.c) / cast::<_, TScalar>(3).unwrap()
     }
 
     pub fn max_side(&self) -> TScalar {
@@ -129,22 +129,22 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         let w = (d00 * d21 - d01 * d20) * denom_inv;
         let u = TScalar::one() - v - w;
 
-        return BarycentricCoordinates(Vector3::new(u, v, w));
+        BarycentricCoordinates(Vector3::new(u, v, w))
     }
 
     #[inline]
     pub fn is_point_within(&self, point: &Vec3<TScalar>) -> bool {
-        return self.barycentric(point).is_within_triangle();
+        self.barycentric(point).is_within_triangle()
     }
 
     #[inline]
     pub fn get_normal(&self) -> Vec3<TScalar> {
-        return Triangle3::normal(&self.a, &self.b, &self.c);
+        Triangle3::normal(&self.a, &self.b, &self.c)
     }
 
     #[inline]
     pub fn get_area(&self) -> TScalar {
-        return Triangle3::area(&self.a, &self.b, &self.c);
+        Triangle3::area(&self.a, &self.b, &self.c)
     }
 
     #[inline]
@@ -160,7 +160,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     #[inline]
     pub fn get_quality(&self) -> TScalar {
-        return Triangle3::quality(&self.a, &self.b, &self.c);
+        Triangle3::quality(&self.a, &self.b, &self.c)
     }
 
     /// Test triangle - bbox intersection
@@ -191,7 +191,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
             }
         }
 
-        return false;
+        false
     }
 
     /// Test triangle - triangle intersection
@@ -204,17 +204,17 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         &self,
         line: &Line3<TScalar>,
     ) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
-        return line_triangle_intersection_moller::<false, TScalar>(self, line);
+        line_triangle_intersection_moller::<false, TScalar>(self, line)
     }
 
     #[inline]
     pub fn intersects_line3(&self, line: &Line3<TScalar>) -> bool {
-        return self.intersects_line3_at(line).is_some();
+        self.intersects_line3_at(line).is_some()
     }
 
     #[inline]
     pub fn intersects_line_segment3(&self, line_segment: &LineSegment3<TScalar>) -> bool {
-        return self.intersects_line_segment3_at(line_segment).is_some();
+        self.intersects_line_segment3_at(line_segment).is_some()
     }
 
     /// Face culling off
@@ -232,9 +232,9 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
                     return None;
                 }
 
-                return Some(i);
+                Some(i)
             }
-            None => return None,
+            None => None,
         }
     }
 
@@ -253,9 +253,9 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
                     return None;
                 }
 
-                return Some(i);
+                Some(i)
             }
-            None => return None,
+            None => None,
         }
     }
 
@@ -305,7 +305,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         let len_max = Float::max(Float::max(ab_len, ac_len), bc_len);
         let equilateral_triangle_aspect_ratio = TScalar::from(1.1547005383792515).unwrap();
 
-        return equilateral_triangle_aspect_ratio * double_area / len_max;
+        equilateral_triangle_aspect_ratio * double_area / len_max
     }
 }
 
@@ -316,10 +316,10 @@ impl<TScalar: RealNumber> HasScalarType for Triangle3<TScalar> {
 impl<TScalar: RealNumber> HasBBox3 for Triangle3<TScalar> {
     #[inline]
     fn bbox(&self) -> Box3<TScalar> {
-        return Box3::new(
+        Box3::new(
             min2(&self.c, &min2(&self.a, &self.b)),
             max2(&self.c, &max2(&self.a, &self.b)),
-        );
+        )
     }
 }
 
@@ -386,7 +386,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Triangle3<TScalar> {
         let v = vb * denom;
         let w = vc * denom;
 
-        return self.a + ab * v + ac * w;
+        self.a + ab * v + ac * w
     }
 }
 
@@ -424,7 +424,7 @@ impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
 
         let line = p1.intersects_plane3_at(&p2).unwrap();
 
-        return match line {
+        match line {
             Plane3Plane3Intersection::Line(line) => {
                 let (t1t1, t2t1) = calculate_line_intervals(self, &line, d0t1, d1t1, d2t1);
                 let (t1t2, t2t2) = calculate_line_intervals(other, &line, d0t2, d1t2, d2t2);
@@ -449,10 +449,10 @@ impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
                     Float::max(t1t1, t1t2),
                     Float::min(t2t1, t2t2),
                 );
-                return Some(Triangle3Triangle3Intersection::LineSegment(segment));
+                Some(Triangle3Triangle3Intersection::LineSegment(segment))
             }
             Plane3Plane3Intersection::Plane => Some(Triangle3Triangle3Intersection::Coplanar),
-        };
+        }
     }
 }
 

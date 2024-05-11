@@ -27,7 +27,7 @@ struct BinaryNode<TScalar: RealNumber> {
 impl<TScalar: RealNumber> BinaryNode<TScalar> {
     #[inline]
     pub fn is_leaf(&self) -> bool {
-        return self.node_type == NodeType::Leaf;
+        self.node_type == NodeType::Leaf
     }
 }
 
@@ -67,7 +67,7 @@ where
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
     ///
     pub fn new(objects: Vec<TObject>) -> Self {
-        return Self {
+        Self {
             nodes: Vec::new(),
             min_objects_per_leaf: 10,
             max_depth: 40,
@@ -75,31 +75,31 @@ where
                 .into_iter()
                 .map(|obj| {
                     let bbox = obj.bbox();
-                    return (obj, bbox);
+                    (obj, bbox)
                 })
                 .collect(),
-        };
+        }
     }
 
     pub fn empty() -> Self {
-        return Self {
+        Self {
             nodes: Vec::new(),
             min_objects_per_leaf: 10,
             max_depth: 40,
             objects: Vec::new(),
-        };
+        }
     }
 
     /// Set minimal objects count per leaf node. Default value is 10
     pub fn with_min_objects_per_leaf(mut self, min_objects_per_leaf: usize) -> Self {
         self.min_objects_per_leaf = min_objects_per_leaf;
-        return self;
+        self
     }
 
     /// Set max depth of tree. Default value is 40
     pub fn with_max_depth(mut self, max_depth: usize) -> Self {
         self.max_depth = max_depth;
-        return self;
+        self
     }
 
     pub fn depth(&self) -> usize {
@@ -124,7 +124,7 @@ where
             self.top_down_build_node(0, self.objects.len(), 1, &mut TPartition::default());
         }
 
-        return self;
+        self
     }
 
     /// Traverse leaf node of tree
@@ -176,7 +176,7 @@ where
         if depth >= self.max_depth || last - first <= self.min_objects_per_leaf {
             // println!("Leaf node: depth: {}, objects: {}", depth, last - first);
             // Create leaf node when number of objects is small
-            return self.leaf_node_from_objects(first, last);
+            self.leaf_node_from_objects(first, last)
         } else {
             // Split set of objects
             let subset = &mut self.objects[first..last];
@@ -203,18 +203,18 @@ where
 
                     self.nodes.push(node);
 
-                    return self.nodes.len() - 1;
+                    self.nodes.len() - 1
                 }
                 None => {
                     // println!("SPLIT FAILED");
                     // Create leaf node if split failed
-                    let node = self.leaf_node_from_objects(first, last);
+                    
 
                     // if self.nodes[node].bbox.size_max() > TObject::ScalarType::from_f64(100.0).unwrap() {
                     //     std::io::stdin().read_line(&mut String::new());
                     // }
 
-                    return node;
+                    self.leaf_node_from_objects(first, last)
                 }
             }
         }
@@ -289,7 +289,7 @@ where
 
         self.nodes.push(node);
 
-        return self.nodes.len() - 1;
+        self.nodes.len() - 1
     }
 
     fn node_depth(&self, idx: usize) -> usize {
@@ -313,7 +313,7 @@ impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>> {
             .map(|face| mesh.face_positions(&face))
             .collect();
 
-        return Self::new(faces);
+        Self::new(faces)
     }
 }
 
@@ -335,8 +335,8 @@ where
         let mut closest_point = Vec3::zeros();
         let mut distance_squared = Float::infinity();
 
-        while !stack.is_empty() {
-            let top = stack.pop().unwrap();
+        while let Some(top) = stack.pop() {
+            
 
             if top.is_leaf() {
                 for (obj, _) in &self.objects[top.left..top.right + 1] {
@@ -370,7 +370,7 @@ where
             return None;
         }
 
-        return Some(closest_point);
+        Some(closest_point)
     }
 }
 
@@ -434,7 +434,7 @@ where
 
         let split_at = objects.len() / 2;
 
-        if !check_split(axis.as_usize(), &objects_bbox, objects, split_at) {
+        if !check_split(axis.as_usize(), objects_bbox, objects, split_at) {
             return None;
         }
 
@@ -643,7 +643,7 @@ pub mod winding_numbers {
 
         let denominator = T::one() + qa.dot(&qb) + qa.dot(&qc) + qb.dot(&qc);
 
-        return Float::atan2(numerator, denominator) * T::from_f32(2.0).unwrap();
+        Float::atan2(numerator, denominator) * T::from_f32(2.0).unwrap()
     }
 
     pub fn winding_number<'tri>(
@@ -653,7 +653,7 @@ pub mod winding_numbers {
         let mut wn = 0.0;
 
         for tri in triangles {
-            wn += solid_angle(&tri, point);
+            wn += solid_angle(tri, point);
         }
 
         wn / (4.0 * PI)
@@ -665,7 +665,7 @@ pub mod winding_numbers {
     }
 
     impl WindingNumbers {
-        pub fn from_mesh<'a, T: Mesh<ScalarType = f32>>(mesh: &'a T) -> Self {
+        pub fn from_mesh<T: Mesh<ScalarType = f32>>(mesh: &T) -> Self {
             let mut tree = AABBTree::from_mesh(mesh)
                 .with_min_objects_per_leaf(3)
                 .top_down::<Area>();

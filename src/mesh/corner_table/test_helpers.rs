@@ -11,7 +11,7 @@ pub fn create_unit_square_mesh() -> CornerTableF {
 
     let indices = vec![0, 1, 2, 2, 3, 0];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 pub fn create_unit_cross_square_mesh() -> CornerTableF {
@@ -30,7 +30,7 @@ pub fn create_unit_cross_square_mesh() -> CornerTableF {
         3, 0, 4
     ];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 pub fn create_single_face_mesh() -> CornerTableF {
@@ -42,7 +42,7 @@ pub fn create_single_face_mesh() -> CornerTableF {
 
     let indices = vec![0, 1, 2];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 // Mesh with vertices around edges vertices
@@ -73,7 +73,7 @@ pub fn create_collapse_edge_sample_mesh1() -> CornerTableF {
         7, 0, 8
     ];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 // Mesh with vertices around one vertex of edge
@@ -97,7 +97,7 @@ pub fn create_collapse_edge_sample_mesh2() -> CornerTableF {
         5, 0, 6
     ];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 // Half star
@@ -116,7 +116,7 @@ pub fn create_collapse_edge_sample_mesh3() -> CornerTableF {
         2, 3, 4
     ];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 pub fn create_flip_edge_sample_mesh() -> CornerTableF {
@@ -140,7 +140,7 @@ pub fn create_flip_edge_sample_mesh() -> CornerTableF {
         0, 5, 1
     ];
 
-    return CornerTableF::from_vertices_and_indices(&vertices, &indices);
+    CornerTableF::from_vertices_and_indices(&vertices, &indices)
 }
 
 pub fn assert_mesh_eq(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {

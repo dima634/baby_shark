@@ -13,10 +13,10 @@ pub struct CornerWalker<'a, TScalar: RealNumber> {
 impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Creates walker starting at given corner
     pub fn from_corner(table: &'a CornerTable<TScalar>, corner_index: usize) -> Self { 
-        return Self {
+        Self {
             table, 
             corner_index
-        }; 
+        }
     }
 
     /// Creates walker starting at random corner of given vertex
@@ -31,7 +31,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     #[inline]
     pub fn set_current_corner(&mut self, corner_index: usize) -> &mut Self {
         self.corner_index = corner_index;
-        return self;
+        self
     }
 
     /// Moves to next corner
@@ -39,7 +39,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     #[inline]
     pub fn next(&mut self) -> &mut Self {
         self.corner_index = next(self.get_corner_index());
-        return self;
+        self
     }
     
     /// Moves to opposite corner if exist, otherwise corner stays still
@@ -52,14 +52,14 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
             debug_assert!(false, "Moving to not existing corner");
         }
 
-        return self;
+        self
     }
 
     /// Moves to previous corner. Shorthand for next().next()
     #[inline]
     pub fn previous(&mut self) -> &mut Self {
         self.corner_index = previous(self.get_corner_index());
-        return self;
+        self
     }
 
     /// Moves to right corner
@@ -109,10 +109,10 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
         if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
             self.set_current_corner(opposite);
             self.next();
-            return true;
+            true
         } else {
             self.previous();
-            return false;
+            false
         }
     }
 
@@ -127,10 +127,10 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
         if let Some(opposite) = self.get_corner().get_opposite_corner_index() {
             self.set_current_corner(opposite);
             self.previous();
-            return true;
+            true
         } else {
             self.next();
-            return false;
+            false
         }
     }
 
@@ -143,13 +143,13 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Returns next corner index
     #[inline]
     pub fn get_next_corner_index(&self) -> usize {
-        return next(self.get_corner_index()); 
+        next(self.get_corner_index())
     }
 
     /// Returns previous corner index
     #[inline]
     pub fn get_previous_corner_index(&self) -> usize {
-        return previous(self.get_corner_index()); 
+        previous(self.get_corner_index())
     }
 
     /// Returns previous corner
@@ -165,7 +165,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
             return Some(self.table.get_corner(opposite).unwrap());
         }
         else {
-            return None;
+            None
         }
     }
 
@@ -178,7 +178,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Returns current corner index
     #[inline]
     pub fn get_corner_index(&self) -> usize {
-        return self.corner_index;
+        self.corner_index
     }
 
     /// Returns vertex of current corner
@@ -242,7 +242,7 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
             self.next();
         }
 
-        return self;
+        self
     }
     
     #[inline]
@@ -258,7 +258,7 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
             self.set_current_corner(corner);
         };
 
-        return self;
+        self
     }
 
     #[inline]
@@ -292,10 +292,10 @@ pub struct CornerTableFacesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> CornerTableFacesIter<'a, TScalar> {
     pub fn new(corner_table: &'a CornerTable<TScalar>) -> Self {
-        return Self {
+        Self {
             table: corner_table,
             corner_index: 0
-        };
+        }
     }
 }
 
@@ -316,9 +316,9 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableFacesIter<'a, TScalar> {
                 let current = self.corner_index;
                 self.corner_index += 3;
     
-                return Some(current);
+                Some(current)
             },
-            None => return None,
+            None => None,
         }
     }
 }
@@ -333,10 +333,10 @@ pub struct CornerTableVerticesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> CornerTableVerticesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
-        return Self { 
+        Self { 
             table,
             vertex_index: 0
-        };
+        }
     }
 }
 
@@ -354,9 +354,9 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableVerticesIter<'a, TScalar> 
                     return self.next();
                 }
 
-                return Some(next_index);
+                Some(next_index)
             },
-            None => return None,
+            None => None,
         }
     }
 }
@@ -372,10 +372,10 @@ pub struct CornerTableEdgesIter<'a, TScalar: RealNumber> {
 impl<'a, TScalar: RealNumber> CornerTableEdgesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         clear_visited(table.corners.iter());
-        return Self {
+        Self {
             table,
             corner_index: 0
-        };
+        }
     }
 }
 
@@ -406,9 +406,9 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableEdgesIter<'a, TScalar> {
                 self.corner_index += 1;
 
                 let edge = EdgeRef::new(current, self.table);
-                return Some(edge);
+                Some(edge)
             },
-            None => return None,
+            None => None,
         }
     }
 }
@@ -462,7 +462,7 @@ pub fn collect_corners_around_vertex<TScalar: RealNumber>(corner_table: &CornerT
         corners.push(*corner_index)
     });
 
-    return corners;
+    corners
 }
 
 /// Iterates over one-ring vertices of vertex

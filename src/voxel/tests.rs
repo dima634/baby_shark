@@ -37,7 +37,7 @@ fn test_static_tree_remove() {
 
     for idx in &indices {
         tree.insert(idx, Empty);
-        assert!(tree.at(&idx).is_some());
+        assert!(tree.at(idx).is_some());
     }
 
     let half = (size * size * size / 2) as usize;

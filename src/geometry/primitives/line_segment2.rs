@@ -89,6 +89,6 @@ mod tests {
         "When intersecting (reordered)"
     )]
     fn segment2_segment2_intersection(s1: LineSegment2<f32>, s2: LineSegment2<f32>) -> Option<Point2<f32>> {
-        return s1.intersects_at(&s2);
+        s1.intersects_at(&s2)
     }
 }

@@ -10,7 +10,7 @@ struct Node<TEdgeWeight, TNodeWeight> {
 
 impl<TWeight, TNodeWeight> Node<TWeight, TNodeWeight> {
     pub fn new(parent: Option<(NodeIndex, TWeight)>, weight: TNodeWeight) -> Self { 
-        return Self { parent, weight };
+        Self { parent, weight }
     }
 }
 
@@ -20,20 +20,20 @@ pub struct DynamicTree<TWeightType: PartialOrd, TNodeWeight> {
 
 impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight> {
     pub fn new() -> Self {
-        return Self {
+        Self {
             nodes: Vec::new()
-        };
+        }
     }
 
     #[inline]
     pub fn create_node(&mut self, weight: TNodeWeight) -> NodeIndex {
         self.nodes.push(Node::new(None, weight));
-        return self.nodes.len() - 1;
+        self.nodes.len() - 1
     }
 
     #[inline]
     pub fn parent(&self, node: NodeIndex) -> Option<NodeIndex> {
-        return self.nodes[node].parent.map(|(parent_index, _)| parent_index);
+        self.nodes[node].parent.map(|(parent_index, _)| parent_index)
     }
 
     #[inline]
@@ -48,7 +48,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 
     #[inline]
     pub fn edge_weight(&self, node: NodeIndex) -> Option<TEdgeWeight> {
-        return self.nodes[node].parent.map(|(_, weight)| weight);
+        self.nodes[node].parent.map(|(_, weight)| weight)
     }
 
     #[inline]
@@ -63,10 +63,10 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 
     #[inline]
     pub fn weight_mut(&mut self, node: NodeIndex) -> Option<&mut TEdgeWeight> {
-        return match &mut self.nodes[node].parent {
+        match &mut self.nodes[node].parent {
             Some(weight) => Some(&mut weight.1),
             None => None,
-        };
+        }
     }
 
     #[inline]
@@ -85,7 +85,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
                 return Ordering::Less;
             }
 
-            return node1.parent.unwrap().1.cmp(&node2.parent.unwrap().1);
+            node1.parent.unwrap().1.cmp(&node2.parent.unwrap().1)
         });
     }
 
@@ -102,14 +102,14 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
         let node1 = &self.nodes[n1];
         let node2 = &self.nodes[n1];
 
-        return match (node1.parent, node2.parent) {
+        match (node1.parent, node2.parent) {
             (Some((n1_parent, _)), _) if n1_parent == n2 => {
                 self.nodes[n1].parent = None;
-                return Ok(());
+                Ok(())
             },
             (_, Some((n2_parent, _))) if n2_parent == n1 => {
                 self.nodes[n2].parent = None;
-                return Ok(());
+                Ok(())
             },
             _ => Err("Disconnected nodes")
         }
@@ -131,7 +131,7 @@ impl<TEdgeWeight: Ord + Copy, TNodeWeight> DynamicTree<TEdgeWeight, TNodeWeight>
 impl<TEdgeWeight: Ord + Copy, TNodeWeight> Default for DynamicTree<TEdgeWeight, TNodeWeight> {
     #[inline]
     fn default() -> Self {
-        return Self::new();
+        Self::new()
     }
 }
 
@@ -142,10 +142,10 @@ pub struct RootPath<'a, TEdgeWeight: PartialOrd, TNodeWeight> {
 
 impl<'a, TEdgeWeight: PartialOrd, TNodeWeight> RootPath<'a, TEdgeWeight, TNodeWeight> {
     pub fn new(st_tree: &'a DynamicTree<TEdgeWeight, TNodeWeight>, from: NodeIndex) -> Self { 
-        return Self { 
+        Self { 
             st_tree, 
             current: Some(from) 
-        }; 
+        }
     }
 }
 
@@ -153,13 +153,13 @@ impl<'a, TEdgeWeight: PartialOrd + Copy, TNodeWeight> Iterator for RootPath<'a, 
     type Item = NodeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return match self.current {
+        match self.current {
             Some(current_index) => {
                 let parent = &self.st_tree.nodes[current_index].parent;
                 self.current = parent.and_then(|(parent_index, _)| Some(parent_index));
-                return Some(current_index);
+                Some(current_index)
             },
             None => None,
-        };
+        }
     }
 }

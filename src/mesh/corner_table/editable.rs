@@ -276,7 +276,7 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
 
     #[inline]
     fn edge_exist(&self, edge: &Self::EdgeDescriptor) -> bool {
-        return !self.corners[edge.get_corner_index()].is_deleted();
+        !self.corners[edge.get_corner_index()].is_deleted()
     }
 }
 

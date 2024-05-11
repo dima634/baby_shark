@@ -49,12 +49,10 @@ pub fn signed_diamond_angle<TScalar: RealNumber>(y: TScalar, x: TScalar) -> TSca
         } else {
             TScalar::one() - x / (-x + y) 
         }
-    } else {
-        if x < TScalar::zero() {
-            cast::<f64, TScalar>(2.0).unwrap() - y / (-x - y) 
-        } else { 
-            cast::<f64, TScalar>(3.0).unwrap() + x / (x - y)
-        }
+    } else if x < TScalar::zero() {
+        cast::<f64, TScalar>(2.0).unwrap() - y / (-x - y) 
+    } else { 
+        cast::<f64, TScalar>(3.0).unwrap() + x / (x - y)
     }
 }
 

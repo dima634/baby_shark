@@ -34,15 +34,15 @@ pub struct Grid<TObject: HasBBox3> {
 impl<TObject: HasBBox3> Grid<TObject> {
     pub fn new(objects: Vec<TObject>) -> Self {
         let cell_size = Self::calculate_cell_size(&objects);
-        return Self::with_cell_size(objects, cell_size);
+        Self::with_cell_size(objects, cell_size)
     }
 
     pub fn empty() -> Self {
-        return Self {
+        Self {
             cell_size: Vector3::zeros(),
             cells: HashMap::new(),
             objects: Vec::new()
-        };
+        }
     }
 
     pub fn with_cell_size(objects: Vec<TObject>, cell_size: Vector3<TObject::ScalarType>) -> Self {
@@ -57,7 +57,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
             grid.insert_object_at_index(i);
         }
         
-        return grid;
+        grid
     }
 
     /// Insert object to grid
@@ -104,14 +104,14 @@ impl<TObject: HasBBox3> Grid<TObject> {
             cell.z -= 1;
         }
 
-        return cell;
+        cell
     }
 
     #[inline]
     fn box_to_cell_range(&self, bbox: &Box3<TObject::ScalarType>) -> CellRange {
         return CellRange::new(
-            self.point_to_cell(bbox.get_min()).into(),
-            self.point_to_cell(bbox.get_max()).into() 
+            self.point_to_cell(bbox.get_min()),
+            self.point_to_cell(bbox.get_max()) 
         );
     }
 
@@ -128,7 +128,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
         let cell_volume = cast::<TObject::ScalarType, f64>(bbox.volume()).unwrap() / number_of_cells;
         let cell_size = cast(cell_volume.cbrt()).unwrap();
 
-        return Vector3::new(cell_size, cell_size, cell_size);        
+        Vector3::new(cell_size, cell_size, cell_size)
     }
 }
 
@@ -185,15 +185,15 @@ where
             return None;
         }
 
-        return Some(closest_point);
+        Some(closest_point)
     }
 
     #[inline]
     pub fn cell_to_box(&self, cell: &Cell) -> Box3<TObject::ScalarType> {
-        return Box3::new(
-            self.cell_size.component_mul(&utils::cast(cell)).into(),
-            self.cell_size.component_mul(&utils::cast(&cell.add_scalar(1))).into(),
-        );
+        Box3::new(
+            self.cell_size.component_mul(&utils::cast(cell)),
+            self.cell_size.component_mul(&utils::cast(&cell.add_scalar(1))),
+        )
     }
 }
 
@@ -204,6 +204,6 @@ impl<TScalar: RealNumber> Grid<Triangle3<TScalar>>{
             .map(|face| mesh.face_positions(&face))
             .collect();
 
-        return Self::new(faces);
+        Self::new(faces)
     }
 }

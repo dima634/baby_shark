@@ -10,10 +10,10 @@ pub struct FacesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> FacesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
-        return Self { 
+        Self { 
             polygon_soup,
             current_face: 0,
-        }; 
+        }
     }
 }
 
@@ -28,7 +28,7 @@ impl<'a, TScalar: RealNumber> Iterator for FacesIter<'a, TScalar> {
             return Some(index);
         }
 
-        return None;
+        None
     }
 }
 
@@ -40,10 +40,10 @@ pub struct VerticesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> VerticesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
-        return Self { 
+        Self { 
             polygon_soup,
             current_vertex: 0,
-        }; 
+        }
     }
 }
 
@@ -58,7 +58,7 @@ impl<'a, TScalar: RealNumber> Iterator for VerticesIter<'a, TScalar> {
             return Some(index);
         }
 
-        return None;
+        None
     }
 }
 
@@ -70,10 +70,10 @@ pub struct EdgesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> EdgesIter<'a, TScalar> {
     pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
-        return Self { 
+        Self { 
             polygon_soup,
             current_edge: 0,
-        }; 
+        }
     }
 }
 
@@ -88,6 +88,6 @@ impl<'a, TScalar: RealNumber> Iterator for EdgesIter<'a, TScalar> {
             return Some(index);
         }
 
-        return None;
+        None
     }
 }

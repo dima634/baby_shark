@@ -70,21 +70,21 @@ pub trait Mesh {
     #[inline]
     fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
         let triangle = self.face_positions(face);
-        return triangle.get_normal();
+        triangle.get_normal()
     }
 
     /// Returns edge length
     #[inline]
     fn edge_length(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
         let (v1, v2) = self.edge_positions(edge);
-        return (v1 - v2).norm();
+        (v1 - v2).norm()
     }
 
     /// Returns edge length
     #[inline]
     fn edge_length_squared(&self, edge: &Self::EdgeDescriptor) -> Self::ScalarType {
         let (v1, v2) = self.edge_positions(edge);
-        return (v1 - v2).norm_squared();
+        (v1 - v2).norm_squared()
     }
 }
 

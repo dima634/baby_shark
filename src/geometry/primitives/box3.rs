@@ -19,63 +19,63 @@ pub struct Box3<TScalar: Number> {
 
 impl<TScalar: Number> Box3<TScalar> {
     pub fn new(min: Vec3<TScalar>, max: Vec3<TScalar>) -> Self {
-        return Self { min, max };
+        Self { min, max }
     }
 
     pub fn empty() -> Self {
-        return Self {
+        Self {
             min: Vec3::max_value(),
             max: Vec3::min_value(),
-        };
+        }
     }
 
     #[inline]
     pub fn get_min(&self) -> &Vec3<TScalar> {
-        return &self.min;
+        &self.min
     }
 
     #[inline]
     pub fn get_max(&self) -> &Vec3<TScalar> {
-        return &self.max;
+        &self.max
     }
 
     #[inline]
     pub fn get_center(&self) -> Vec3<TScalar> {
-        return (self.min + self.max) * cast::<f32, TScalar>(0.5).unwrap();
+        (self.min + self.max) * cast::<f32, TScalar>(0.5).unwrap()
     }
 
     #[inline]
     pub fn size_x(&self) -> TScalar {
-        return self.max.x - self.min.x;
+        self.max.x - self.min.x
     }
 
     #[inline]
     pub fn size_y(&self) -> TScalar {
-        return self.max.y - self.min.y;
+        self.max.y - self.min.y
     }
 
     #[inline]
     pub fn size_z(&self) -> TScalar {
-        return self.max.z - self.min.z;
+        self.max.z - self.min.z
     }
 
     #[inline]
     pub fn is_valid(&self) -> bool {
-        return self.min.x <= self.max.x && self.min.y <= self.max.y && self.min.z <= self.max.z;
+        self.min.x <= self.max.x && self.min.y <= self.max.y && self.min.z <= self.max.z
     }
 
     #[inline]
     pub fn union_box(&mut self, other: &Box3<TScalar>) -> &mut Self {
-        self.max = max2(&self.get_max(), &other.get_max());
-        self.min = min2(&self.get_min(), &other.get_min());
+        self.max = max2(self.get_max(), other.get_max());
+        self.min = min2(self.get_min(), other.get_min());
 
         self
     }
 
     #[inline]
     pub fn union_point(&mut self, p: &Vec3<TScalar>) -> &mut Self {
-        self.max = max2(&self.get_max(), &p);
-        self.min = min2(&self.get_min(), &p);
+        self.max = max2(self.get_max(), p);
+        self.min = min2(self.get_min(), p);
 
         self
     }
@@ -83,11 +83,11 @@ impl<TScalar: Number> Box3<TScalar> {
     /// Returns the ith box vertex in order: (x,y,z),(X,y,z),(x,Y,z),(X,Y,z),(x,y,Z),(X,y,Z),(x,Y,Z),(X,Y,Z)
     #[inline]
     pub fn vertex(&self, i: u8) -> Vec3<TScalar> {
-        return Vec3::new(
+        Vec3::new(
             self.min.x + TScalar::from(i % 2).unwrap() * self.size_x(),
             self.min.y + TScalar::from((i / 2) % 2).unwrap() * self.size_y(),
             self.min.z + TScalar::from(if i > 3 { 1 } else { 0 }).unwrap() * self.size_z(),
-        );
+        )
     }
 
     #[inline]
@@ -144,7 +144,7 @@ impl<TScalar: Number> Box3<TScalar> {
             return false;
         }
 
-        return true;
+        true
     }
 }
 
@@ -172,13 +172,13 @@ impl<TScalar: RealNumber> Box3<TScalar> {
     /// Returns the ith diagonal of box
     #[inline]
     pub fn diagonal(&self, i: u8) -> LineSegment3<TScalar> {
-        return LineSegment3::new(&self.vertex(i), &self.vertex(7 - i));
+        LineSegment3::new(&self.vertex(i), &self.vertex(7 - i))
     }
 
     #[inline]
     pub fn size_max(&self) -> TScalar {
         let xy = Float::max(self.size_x(), self.size_y());
-        return Float::max(xy, self.size_z());
+        Float::max(xy, self.size_z())
     }
 
     ///
@@ -207,18 +207,18 @@ impl<TScalar: RealNumber> Box3<TScalar> {
     /// Test bbox - plane intersection
     #[inline]
     pub fn intersects_plane3(&self, plane: &Plane3<TScalar>) -> bool {
-        return plane.intersects_box3(self);
+        plane.intersects_box3(self)
     }
 
     /// Test bbox - triangle intersection
     #[inline]
     pub fn intersects_triangle3(&self, triangle: &Triangle3<TScalar>) -> bool {
-        return triangle.intersects_box3(self);
+        triangle.intersects_box3(self)
     }
 
     #[inline]
     pub fn intersects_sphere3(&self, sphere: &Sphere3<TScalar>) -> bool {
-        return sphere.intersects_box3(self);
+        sphere.intersects_box3(self)
     }
 }
 
@@ -229,7 +229,7 @@ impl<TScalar: RealNumber> HasScalarType for Box3<TScalar> {
 impl<TScalar: RealNumber> ClosestPoint3 for Box3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
-        return Vec3::from(min2(&max2(&self.min, &point), &self.max));
+        Vec3::from(min2(&max2(&self.min, point), &self.max))
     }
 }
 
