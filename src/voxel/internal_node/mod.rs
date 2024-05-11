@@ -170,9 +170,9 @@ where
     }
 }
 
-pub type Child<'node, T: TreeNode> = OneOf<&'node T, &'node T::Value>;
-pub type ChildMut<'node, T: TreeNode> = OneOf<&'node mut T, &'node mut T::Value>;
-pub type ChildOwned<T: TreeNode> = OneOf<Box<T>, T::Value>;
+pub type Child<'node, T> = OneOf<&'node T, &'node <T as TreeNode>::Value>;
+pub type ChildMut<'node, T> = OneOf<&'node mut T, &'node mut <T as TreeNode>::Value>;
+pub type ChildOwned<T> = OneOf<Box<T>, <T as TreeNode>::Value>;
 
 pub const fn internal_node_size(branching: usize) -> usize {
     1 << branching * 3

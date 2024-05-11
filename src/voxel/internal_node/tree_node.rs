@@ -130,7 +130,7 @@ where
     fn clear(&mut self) {
         for offset in 0..SIZE {
             if self.child_mask.is_on(offset) {
-                unsafe { ManuallyDrop::take(&mut self.childs[offset].branch) };
+                unsafe { let _ = ManuallyDrop::take(&mut self.childs[offset].branch); }
             }
         }
 
