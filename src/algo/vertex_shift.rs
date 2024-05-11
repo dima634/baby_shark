@@ -37,5 +37,5 @@ pub fn is_vertex_shift_safe<TMesh: TopologicalMesh>(
         damages_quality |= bad_quality;
     });
 
-    return !damages_quality;
+    !damages_quality
 }

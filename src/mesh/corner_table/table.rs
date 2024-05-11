@@ -26,17 +26,17 @@ pub struct CornerTable<TScalar: RealNumber> {
 
 impl<TScalar: RealNumber> Default for CornerTable<TScalar> {
     fn default() -> Self {
-        return Self { 
+        Self { 
             vertices: Vec::new(), 
             corners: Vec::new() 
-        };
+        }
     }
 }
 
 impl<TScalar: RealNumber> CornerTable<TScalar> {
     #[inline]
     pub fn new() -> Self {
-        return Default::default();
+        Default::default()
     }
 
     #[inline]
@@ -87,7 +87,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         let c3 = self.create_corner();
         c3.set_vertex_index(v3);
 
-        return self.corners.len() - 3;
+        self.corners.len() - 3
     }
 
     /// Makes give corners opposite to each other
@@ -186,7 +186,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             corner_table.corner_from(&mut edge_opposite_corner_map, edge3, v3_index);
         }
 
-        return corner_table;
+        corner_table
     }
 
     #[inline]
@@ -249,7 +249,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             return None;
         }
 
-        return Some(sum.normalize());
+        Some(sum.normalize())
     }
 }
 
@@ -288,31 +288,31 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
             }
         }
 
-        return false;
+        false
     }
 
     #[inline]
     fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool {
-        return self.corners[edge.get_corner_index()].get_opposite_corner_index().is_none();
+        self.corners[edge.get_corner_index()].get_opposite_corner_index().is_none()
     }
 
     #[inline]
     fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>) {
         let f1 = edge.get_corner_index();
-        return (
+        (
             f1,
             self.corners[f1].get_opposite_corner_index()
-        );
+        )
     }
 
     #[inline]
     fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor) {
         let first_corner = first_corner_from_corner(*face);
-        return (
+        (
             Self::EdgeDescriptor::new(first_corner, self),
             Self::EdgeDescriptor::new(first_corner + 1, self),
             Self::EdgeDescriptor::new(first_corner + 2, self)
-        );
+        )
     }
 }
 
@@ -321,7 +321,7 @@ impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {
 
     #[inline]
     fn marker(&self) -> Self::Marker {
-        return CornerTableMarker::new(self);
+        CornerTableMarker::new(self)
     }
 }
 
@@ -336,7 +336,7 @@ impl<TScalar: RealNumber> Display for CornerTable<TScalar> {
         writeln!(f, "### CORNERS ###")?;
         writeln!(f,"{}", corners)?;
 
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -351,10 +351,10 @@ pub mod helpers {
 
     impl Edge {
         pub fn new(start: usize, end: usize) -> Self {
-            return Self {
+            Self {
                 start_vertex: start,
                 end_vertex: end
-            };
+            }
         }
 
         #[inline]

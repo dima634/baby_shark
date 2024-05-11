@@ -19,7 +19,7 @@ pub struct Plane3<TScalar: Number> {
 
 impl<TScalar: RealNumber> Plane3<TScalar> {
     pub fn new(normal: Vector3<TScalar>, d: TScalar) -> Self { 
-        return Self { normal, distance: d };
+        Self { normal, distance: d }
     }
 
     /// Given three noncollinear points (ordered ccw), compute plane equation
@@ -27,23 +27,23 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
         let normal = (b - a).cross(&(c - a)).normalize();
         let d = normal.dot(&a.coords);
 
-        return Self { normal, distance: d };
+        Self { normal, distance: d }
     }
 
     #[inline]
     pub fn get_normal(&self) -> &Vector3<TScalar> {
-        return &self.normal;
+        &self.normal
     }
 
     #[inline]
     pub fn get_distance(&self) -> TScalar {
-        return self.distance;
+        self.distance
     }
 
     /// Returns signed distance from point to plane
     #[inline]
     pub fn distance_to_point(&self, point: &Vec3<TScalar>) -> TScalar {
-        return (self.normal.dot(&point) - self.distance) / self.normal.dot(&self.normal); 
+        (self.normal.dot(point) - self.distance) / self.normal.dot(&self.normal)
     }
 
     pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
@@ -55,7 +55,7 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
         // Compute distance of box center from plane
         let s = self.normal.dot(&c) - self.distance;
         // Intersection occurs when distance s falls within [-r,+r] interval
-        return Float::abs(s) <= r
+        Float::abs(s) <= r
     }
 }
 
@@ -68,7 +68,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let t = self.distance_to_point(point);
-        return point - self.normal.scale(t); 
+        point - self.normal.scale(t)
     }
 }
 
@@ -99,10 +99,10 @@ impl<TScalar: RealNumber> IntersectsPlane3 for Plane3<TScalar> {
         let c1 = n00 * other.distance - n01 * self.distance * inv_det;
 
         let line = Line3::new(
-            (self.normal * c0 + other.normal * c1).into(),
+            self.normal * c0 + other.normal * c1,
             self.normal.cross(&other.normal)
         );
 
-        return Some(Plane3Plane3Intersection::Line(line));
+        Some(Plane3Plane3Intersection::Line(line))
     }
 }

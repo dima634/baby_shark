@@ -15,34 +15,34 @@ pub struct Line3<TScalar: RealNumber> {
 
 impl<TScalar: RealNumber> Line3<TScalar> {
     pub fn new(point: Vec3<TScalar>, direction: Vec3<TScalar>) -> Self {
-        return Self { point, direction };
+        Self { point, direction }
     }
 
     pub fn from_points(p1: &Vec3<TScalar>, p2: &Vec3<TScalar>) -> Self {
-        return Self {
+        Self {
             direction: (p2 - p1).normalize(),
             point: *p1
-        };
+        }
     }
 
     #[inline]
     pub fn get_point(&self) -> &Vec3<TScalar> {
-        return &self.point;
+        &self.point
     }
 
     #[inline]
     pub fn get_direction(&self) -> &Vec3<TScalar> {
-        return &self.direction;
+        &self.direction
     }
 
     #[inline]
     pub fn parameter_at(&self, point: &Vec3<TScalar>) -> TScalar {
-        return (point - self.point).dot(&self.direction);
+        (point - self.point).dot(&self.direction)
     }
 
     #[inline]
     pub fn point_at(&self, t: TScalar) -> Vec3<TScalar> {
-        return self.point + self.direction.scale(t);
+        self.point + self.direction.scale(t)
     }
 
     #[inline]
@@ -58,7 +58,7 @@ impl<TScalar: RealNumber> Line3<TScalar> {
 
     #[inline]
     pub fn intersects_plane3(&self, plane: &Plane3<TScalar>) -> bool {
-        return self.intersects_plane3_at(plane).is_some();
+        self.intersects_plane3_at(plane).is_some()
     }    
     
     #[inline]
@@ -100,12 +100,12 @@ impl<TScalar: RealNumber> Line3<TScalar> {
             }
         }
         
-        return Some(t_min);
+        Some(t_min)
     }
 
     #[inline]
     pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
-        return self.intersects_box3_at(aabb).is_some();
+        self.intersects_box3_at(aabb).is_some()
     }
 }
 
@@ -117,7 +117,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Line3<TScalar> {
     #[inline]
     fn closest_point(&self, point: &Vec3<TScalar>) -> Vec3<TScalar> {
         let t = self.parameter_at(point);
-        return self.point + self.direction.scale(t);
+        self.point + self.direction.scale(t)
     }
 }
 

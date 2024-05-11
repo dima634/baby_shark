@@ -81,6 +81,6 @@ mod tests {
         "When not intersecting"
     )]
     fn test_ray2_segment2_intersection(ray: Ray2<f32>, segment: LineSegment2<f32>) -> Option<Point2<f32>> {
-        return ray.intersects_at(&segment);
+        ray.intersects_at(&segment)
     }
 }

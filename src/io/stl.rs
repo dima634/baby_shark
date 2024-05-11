@@ -23,11 +23,11 @@ pub struct StlReader {
 /// 
 impl StlReader {
     pub fn new() -> Self {
-        return Self {
+        Self {
             vertices: Vec::new(),
             buf16: [0; size_of::<u16>()],
             buf32: [0; size_of::<u32>()]
-        };
+        }
     }
 
     /// Reads mesh from file
@@ -39,7 +39,7 @@ impl StlReader {
         let file = OpenOptions::new().read(true).open(filepath)?;
         let mut reader = BufReader::new(file);
 
-        return self.read_stl::<File, TMesh>(&mut reader);
+        self.read_stl::<File, TMesh>(&mut reader)
     }
 
     /// Reads mesh from buffer
@@ -74,7 +74,7 @@ impl StlReader {
                 .collect();
         
         // Create mesh
-        return Ok(TMesh::from_vertices_and_indices(&vertices, &merged_vertices.indices));
+        Ok(TMesh::from_vertices_and_indices(&vertices, &merged_vertices.indices))
     }
 
     fn read_face<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<()> {
@@ -93,7 +93,7 @@ impl StlReader {
         // Attribute
         reader.read_exact(&mut self.buf16)?;
 
-        return Ok(());
+        Ok(())
     }
 
     fn read_vec3<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<Vec3f> {
@@ -106,14 +106,14 @@ impl StlReader {
         reader.read_exact(&mut self.buf32)?;
         let z = f32::from_le_bytes(self.buf32);
 
-        return Ok(Vec3f::new(x, y, z));
+        Ok(Vec3f::new(x, y, z))
     }
 }
 
 impl Default for StlReader {
     #[inline]
     fn default() -> Self {
-        return Self::new();
+        Self::new()
     }
 }
 
@@ -121,7 +121,7 @@ pub struct StlWriter;
 
 impl StlWriter {
     pub fn new() -> Self {
-        return StlWriter {};
+        StlWriter {}
     }
 
     pub fn write_stl_to_file<TMesh: Mesh>(&self, mesh: &TMesh, path: &Path) -> io::Result<()> {
@@ -133,7 +133,7 @@ impl StlWriter {
             .unwrap();
         let mut writer = BufWriter::new(file);
 
-        return self.write_stl(mesh, &mut writer);
+        self.write_stl(mesh, &mut writer)
     }
     
     pub fn write_stl<TBuffer, TMesh>(&self, mesh: &TMesh, writer: &mut BufWriter<TBuffer>) -> io::Result<()> 
@@ -163,7 +163,7 @@ impl StlWriter {
             self.write_face(writer, &p1, &p2, &p3, &n)?;
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn write_face<TBuffer: Write>(&self, writer: &mut BufWriter<TBuffer>, v1: &Point3<f32>, v2: &Point3<f32>, v3: &Point3<f32>, normal: &Vector3<f32>) -> io::Result<()> {
@@ -173,7 +173,7 @@ impl StlWriter {
         self.write_point(writer, v3)?;
         writer.write_all(&[0; 2])?;
 
-        return Ok(());
+        Ok(())
     }
 
     fn write_point<TBuffer: Write, TPoint: Index<usize, Output = f32>>(&self, writer: &mut BufWriter<TBuffer>, point: &TPoint) -> io::Result<()> {
@@ -181,13 +181,13 @@ impl StlWriter {
         writer.write_all(&point[1].to_le_bytes())?;
         writer.write_all(&point[2].to_le_bytes())?;
 
-        return Ok(());
+        Ok(())
     }
 }
 
 impl Default for StlWriter {
     #[inline]
     fn default() -> Self {
-        return Self::new();
+        Self::new()
     }
 }

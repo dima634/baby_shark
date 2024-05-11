@@ -17,26 +17,26 @@ pub struct EdgeRef {
 impl EdgeRef {
     pub fn new<TScalar: RealNumber>(corner_index: usize, corner_table: &CornerTable<TScalar>) -> Self { 
         let corner = &corner_table.corners[corner_index];
-        return Self { 
+        Self { 
             corner_index: corner_index.min(corner.get_opposite_corner_index().unwrap_or(usize::MAX))
-        };
+        }
     }
 
     /// Returns corner index of `this` edge reference
     pub fn get_corner_index(&self) -> usize {
-        return self.corner_index;
+        self.corner_index
     }
 }
 
 impl Display for EdgeRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{}", self.corner_index);
+        write!(f, "{}", self.corner_index)
     }
 }
 
 impl Debug for EdgeRef {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "corner_index: {}", &self.corner_index);
+        write!(f, "corner_index: {}", &self.corner_index)
     }
 }

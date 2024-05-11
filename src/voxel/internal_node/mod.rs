@@ -128,19 +128,19 @@ where
 
     #[inline]
     fn offset(index: &Vec3i) -> usize {
-        let offset = (((index.x & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))
-            + (((index.y & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << Self::BRANCHING)
-            + ((index.z & (1 << Self::BRANCHING_TOTAL) - 1) >> <Self as TreeNode>::Child::BRANCHING_TOTAL);
+        let offset = (((index.x & ((1 << Self::BRANCHING_TOTAL) - 1)) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << (Self::BRANCHING + Self::BRANCHING))
+            + (((index.y & ((1 << Self::BRANCHING_TOTAL) - 1)) >> <Self as TreeNode>::Child::BRANCHING_TOTAL) << Self::BRANCHING)
+            + ((index.z & ((1 << Self::BRANCHING_TOTAL) - 1)) >> <Self as TreeNode>::Child::BRANCHING_TOTAL);
 
         offset as usize
     }
 
     #[inline]
     fn offset_to_local_index(mut offset: usize) -> Vec3u {
-        debug_assert!(offset < (1 << 3 * BRANCHING));
+        debug_assert!(offset < (1 << (3 * BRANCHING)));
 
-        let x = offset >> 2 * BRANCHING;
-        offset &= (1 << 2 * BRANCHING) - 1;
+        let x = offset >> (2 * BRANCHING);
+        offset &= (1 << (2 * BRANCHING)) - 1;
         let y = offset >> BRANCHING;
         let z = offset & ((1 << BRANCHING) - 1);
 
@@ -175,7 +175,7 @@ pub type ChildMut<'node, T> = OneOf<&'node mut T, &'node mut <T as TreeNode>::Va
 pub type ChildOwned<T> = OneOf<Box<T>, <T as TreeNode>::Value>;
 
 pub const fn internal_node_size(branching: usize) -> usize {
-    1 << branching * 3
+    1 << (branching * 3)
 }
 
 pub const fn internal_node_bit_size(branching: usize) -> usize {

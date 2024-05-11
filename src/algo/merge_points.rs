@@ -33,8 +33,8 @@ pub fn merge_points<const D: usize, TScalar: RealNumber>(vertices: &Vec<SVector<
         }
     }
 
-    return IndexedVertices {
+    IndexedVertices {
         indices,
         points: merged_vertices
-    };
+    }
 }

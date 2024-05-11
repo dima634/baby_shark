@@ -12,12 +12,12 @@ pub struct PolygonSoup<TScalar: RealNumber> {
 impl<TScalar: RealNumber> PolygonSoup<TScalar> {
     #[inline]
     pub fn new() -> Self { 
-        return Default::default();
+        Default::default()
     }
 
     #[inline]
     pub fn from_vertices(vertices: Vec<Vec3<TScalar>>) -> Self {
-        return Self { vertices };
+        Self { vertices }
     }
 
     pub fn add_face(&mut self, v1: Vec3<TScalar>, v2: Vec3<TScalar>, v3: Vec3<TScalar>) {
@@ -34,7 +34,7 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
 
 impl<TScalar: RealNumber> Default for PolygonSoup<TScalar> {
     fn default() -> Self {
-        return Self { vertices: Vec::new() };
+        Self { vertices: Vec::new() }
     }
 }
 
@@ -56,9 +56,9 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
             soup.push(vertices[*vertex_index]);
         }
 
-        return Self {
+        Self {
             vertices: soup
-        };
+        }
     }
 
     #[inline]
@@ -78,13 +78,13 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
 
     #[inline]
     fn face_positions(&self, face: &Self::FaceDescriptor) -> Triangle3<TScalar> {
-        return Triangle3::new(self.vertices[*face], self.vertices[face + 1], self.vertices[face + 2]);
+        Triangle3::new(self.vertices[*face], self.vertices[face + 1], self.vertices[face + 2])
     }
 
     #[inline]
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
         let v2 = if edge % 3 == 2 { edge - 2 } else { edge + 1 };
-        return (self.vertices[*edge], self.vertices[v2]);
+        (self.vertices[*edge], self.vertices[v2])
     }
 
     #[inline]
@@ -94,7 +94,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
 
     #[inline]
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
-        return &self.vertices[*vertex];
+        &self.vertices[*vertex]
     }
 
     #[inline]

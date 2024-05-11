@@ -13,7 +13,7 @@ impl<TProperty: Default> VertexPropertyMap<TProperty> {
     pub fn new(vertices_count: usize) -> Self {
         let mut props = Vec::new();
         props.resize_with(vertices_count, Default::default);
-        return Self { props };
+        Self { props }
     }
 }
 
@@ -22,14 +22,14 @@ impl<TProperty: Default> Index<usize> for VertexPropertyMap<TProperty> {
 
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
-        return &self.props[index];
+        &self.props[index]
     }
 }
 
 impl<TProperty: Default> IndexMut<usize> for VertexPropertyMap<TProperty> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        return &mut self.props[index];
+        &mut self.props[index]
     }
 }
 
@@ -51,6 +51,6 @@ impl<TScalar: RealNumber> VertexProperties for CornerTable<TScalar> {
 
     #[inline]
     fn create_vertex_properties_map<TProperty: Default>(&self) -> Self::VertexPropertyMap<TProperty> {
-        return VertexPropertyMap::new(self.vertices.len());
+        VertexPropertyMap::new(self.vertices.len())
     }
 }

@@ -32,7 +32,7 @@ pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(
     });
 
     // Is topologically safe?
-    return common_neighbors_count == 2;
+    common_neighbors_count == 2
 }
 
 ///
@@ -47,8 +47,8 @@ pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
 ) -> bool {
     // Check new normals (geometrical safety)
     let (e_start, e_end) = mesh.edge_vertices(edge);
-    return check_faces_after_collapse(mesh, &e_start, new_position, min_quality)
-        && check_faces_after_collapse(mesh, &e_end, new_position, min_quality);
+    check_faces_after_collapse(mesh, &e_start, new_position, min_quality)
+        && check_faces_after_collapse(mesh, &e_end, new_position, min_quality)
 }
 
 /// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
@@ -59,8 +59,8 @@ pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
     collapse_at: &Vec3<TMesh::ScalarType>,
     min_quality: TMesh::ScalarType,
 ) -> bool {
-    return is_topologically_safe(mesh, edge)
-        && is_geometrically_safe(mesh, edge, collapse_at, min_quality);
+    is_topologically_safe(mesh, edge)
+        && is_geometrically_safe(mesh, edge, collapse_at, min_quality)
 }
 
 fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
@@ -102,7 +102,7 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
         }
     });
 
-    return !bad_collapse;
+    !bad_collapse
 }
 
 pub fn will_collapse_affect_boundary<TMesh: TopologicalMesh + EditableMesh>(
@@ -113,11 +113,11 @@ pub fn will_collapse_affect_boundary<TMesh: TopologicalMesh + EditableMesh>(
     if boundary_affected {
         return true;
     }
-    let (v1, v2) = mesh.edge_vertices(&edge);
+    let (v1, v2) = mesh.edge_vertices(edge);
 
     for vertex in [v1, v2] {
         mesh.edges_around_vertex(&vertex, |edge| {
-            if mesh.is_edge_on_boundary(&edge) {
+            if mesh.is_edge_on_boundary(edge) {
                 boundary_affected = true;
             }
         });
@@ -127,5 +127,5 @@ pub fn will_collapse_affect_boundary<TMesh: TopologicalMesh + EditableMesh>(
         }
     }
 
-    return false;
+    false
 }

@@ -40,56 +40,56 @@ pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
 
 impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     pub fn new() -> Self {
-        return Default::default();
+        Default::default()
     }
 
     /// Set flag indicating whether edge split should be performed. Default is `true`
     #[inline]
     pub fn with_split_edges(mut self, split_edges: bool) -> Self {
         self.split_edges = split_edges;
-        return self;
+        self
     }
 
     /// Set flag indicating whether laplacian smoothing should be performed. Default is `true`
     #[inline]
     pub fn with_shift_vertices(mut self, shift_vertices: bool) -> Self {
         self.shift_vertices = shift_vertices;
-        return self;
+        self
     }
 
     /// Set flag indicating whether edge collapse should be performed. Default is `true`
     #[inline]
     pub fn with_collapse_edges(mut self, collapse_edges: bool) -> Self {
         self.collapse_edges = collapse_edges;
-        return self;
+        self
     }
 
     /// Set flag indicating whether edge flip should be performed. Default is `true`
     #[inline]
     pub fn with_flip_edges(mut self, flip_edges: bool) -> Self {
         self.flip_edges = flip_edges;
-        return self;
+        self
     }
 
     /// Set flag indicating whether vertices of resulting mesh should be projected to original. Default is `true`
     #[inline]
     pub fn with_project_vertices(mut self, project_vertices: bool) -> Self {
         self.project_vertices = project_vertices;
-        return self;
+        self
     }
 
     /// Set number of remeshing iterations. Default is `10`
     #[inline]
     pub fn with_iterations_count(mut self, iterations: u16) -> Self {
         self.iterations = iterations;
-        return self;
+        self
     }
 
     /// Set whether keep mesh boundary unchanged
     #[inline]
     pub fn with_keep_boundary(mut self, keep: bool) -> Self {
         self.keep_boundary = keep;
-        return self;
+        self
     }
 
     ///
@@ -155,7 +155,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         for vertex in vertices {
             let vertex_normal = mesh.vertex_normal(&vertex);
 
-            if let None = vertex_normal {
+            if vertex_normal.is_none() {
                 continue;
             }
             
@@ -266,7 +266,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             return false;
         }
 
-        return true;
+        true
     }
 
     fn will_flip_improve_quality(&self, mesh: &mut TMesh, edge: &TMesh::EdgeDescriptor) -> bool {
@@ -307,9 +307,9 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let old_face_quality = Triangle3::quality(v0_pos, v1_pos, v2_pos).min(Triangle3::quality(v0_pos, v2_pos, v3_pos));
         let new_face_quality = Triangle3::quality(v1_pos, v2_pos, v3_pos).min(Triangle3::quality(v0_pos, v1_pos, v3_pos));
 
-        return (new_deviation < old_deviation && new_face_quality >= old_face_quality * cast(0.5).unwrap()) ||
+        (new_deviation < old_deviation && new_face_quality >= old_face_quality * cast(0.5).unwrap()) ||
                (new_deviation == old_deviation && new_face_quality > old_face_quality) || // Same valence but better quality
-               (new_face_quality > old_face_quality * cast(1.5).unwrap());                // Hurt valence but improve quality by much
+               (new_face_quality > old_face_quality * cast(1.5).unwrap())// Hurt valence but improve quality by much
     }
 
     #[inline]
@@ -317,22 +317,22 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let mut valence = 0;
         mesh.vertices_around_vertex(vertex, |_| valence += 1);
 
-        return valence;
+        valence
     }    
     
     #[inline]
     fn ideal_valence(&self, mesh: &TMesh, vertex: &TMesh::VertexDescriptor) -> isize {
         if mesh.is_vertex_on_boundary(vertex) {
-            return mesh_stats::IDEAL_BOUNDARY_VERTEX_VALENCE as isize;
+            mesh_stats::IDEAL_BOUNDARY_VERTEX_VALENCE as isize
         } else {
-            return mesh_stats::IDEAL_INTERIOR_VERTEX_VALENCE as isize;
+            mesh_stats::IDEAL_INTERIOR_VERTEX_VALENCE as isize
         }
     }
 }
 
 impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMesh> {
     fn default() -> Self {
-        return Self {
+        Self {
             split_edges: true,
             shift_vertices: true,
             collapse_edges: true,
@@ -341,6 +341,6 @@ impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMes
             iterations: 10,
             keep_boundary: true,
             mesh_type: PhantomData
-        };
+        }
     }
 }

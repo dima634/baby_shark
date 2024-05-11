@@ -29,7 +29,7 @@ mod tests {
     #[test]
     fn test_none() {
         assert_eq!(Empty, Empty);
-        assert!(!(Empty > Empty));
-        assert!(!(Empty < Empty));
+        assert!(Empty <= Empty);
+        assert!(Empty >= Empty);
     }
 }

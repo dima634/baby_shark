@@ -22,22 +22,33 @@ pub struct LinkedList<T> {
     len: usize
 }
 
+impl<T> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> LinkedList<T> {
     /// Creates empty linked list
     pub fn new() -> Self {
-        return Self { 
+        Self { 
             head: None, 
             tail: None,
             free: None,
             vec: Vec::new(),
             len: 0
-        };
+        }
     }
 
     /// Returns number of elements in list
     #[inline]
     pub fn len(&self) -> usize {
-        return self.len;
+        self.len
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     /// Reserve storage for additional number of elements 
@@ -58,13 +69,13 @@ impl<T> LinkedList<T> {
     /// Returns head (first element) of linked list
     #[inline]
     pub fn head(&self) -> Option<Link> {
-        return self.head;
+        self.head
     }
 
     /// Returns tail (last element) of linked list
     #[inline]
     pub fn tail(&self) -> Option<Link> {
-        return self.tail;
+        self.tail
     }
 
     /// Returns element after `element`
@@ -114,7 +125,7 @@ impl<T> LinkedList<T> {
 
         self.head = Some(node);
         
-        return node;
+        node
     }
 
     /// Remove first element in the list
@@ -146,7 +157,7 @@ impl<T> LinkedList<T> {
 
         self.tail = Some(node);
         
-        return node;
+        node
     }
 
     /// Remove last element in the list
@@ -174,9 +185,9 @@ impl<T> LinkedList<T> {
             let node = self.new_node(Some(after_next), Some(after), value);
             self.node_mut(after).next = Some(node);
             self.node_mut(after_next).prev = Some(node);
-            return node;
+            node
         } else {
-            return self.push_back(value);
+            self.push_back(value)
         }
     }
 
@@ -188,9 +199,9 @@ impl<T> LinkedList<T> {
             let node = self.new_node(Some(before), Some(before_prev), value);
             self.node_mut(before).prev = Some(node);
             self.node_mut(before_prev).next = Some(node);
-            return node;
+            node
         } else {
-            return self.push_front(value);
+            self.push_front(value)
         }
     }
 
@@ -247,12 +258,12 @@ impl<T> LinkedList<T> {
 
     #[inline]
     fn node(&self, link: Link) -> &Node<T> {
-        return &self.vec[link.0];
+        &self.vec[link.0]
     }
 
     #[inline]
     fn node_mut(&mut self, link: Link) -> &mut Node<T> {
-        return &mut self.vec[link.0];
+        &mut self.vec[link.0]
     }
 
     /// Create new node between `prev` and `next`
@@ -268,12 +279,12 @@ impl<T> LinkedList<T> {
             // Reuse free node
             self.free = self.node(free).prev;
             self.vec[free.0] = new_node;
-            return free;
+            free
         } else {
             // Push new node
             let link = Link(self.vec.len());
             self.vec.push(new_node);
-            return link;
+            link
         }
     }
 
@@ -291,8 +302,7 @@ impl<T> LinkedList<T> {
     fn is_free(&self, link: Link) -> bool {
         let node = self.node(link);
         let link = Some(link);
-        return 
-            link != self.tail && 
+        link != self.tail && 
             link != self.head && 
             (
                 link == self.free ||
@@ -300,7 +310,7 @@ impl<T> LinkedList<T> {
                     node.prev.is_some() &&
                     node.next.is_none()
                 )
-            );
+            )
     }
 }
 
@@ -329,10 +339,10 @@ impl<'a, T, const FORWARD: bool> LinkedVecIter<'a, T, FORWARD> {
     }
     
     pub fn from_node(linked_vec: &'a LinkedList<T>, node: Option<Link>) -> Self {
-        return Self {
+        Self {
             linked_vec,
             current: node
-        };
+        }
     }
 }
 
@@ -350,7 +360,7 @@ impl<'a, T, const FORWARD: bool> Iterator for LinkedVecIter<'a, T, FORWARD> {
                 self.current = node.prev;
             }
 
-            return current;
+            current
         });
     }
 }
@@ -358,7 +368,7 @@ impl<'a, T, const FORWARD: bool> Iterator for LinkedVecIter<'a, T, FORWARD> {
 impl<'a, T, const FORWARD: bool> ExactSizeIterator for LinkedVecIter<'a, T, FORWARD> {
     #[inline]
     fn len(&self) -> usize {
-        return self.linked_vec.len();
+        self.linked_vec.len()
     }
 }
 

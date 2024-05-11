@@ -121,7 +121,7 @@ trait TreeNode: Send + Sync + Sized {
     /// Total number of voxels
     #[inline]
     fn size() -> usize {
-        1 << Self::BRANCHING_TOTAL * 3
+        1 << (Self::BRANCHING_TOTAL * 3)
     }
 }
 

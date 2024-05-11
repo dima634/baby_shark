@@ -8,24 +8,24 @@ use crate::{algo::float_hash::{combine_hash, hash_float}, geometry::traits::Real
 /// 
 pub struct HashablePoint<const D: usize, TScalar: RealNumber>(SVector<TScalar, D>);
 
-impl<const D: usize, TScalar: RealNumber> Into<SVector<TScalar, D>> for HashablePoint<D, TScalar> {
+impl<const D: usize, TScalar: RealNumber> From<HashablePoint<D, TScalar>> for SVector<TScalar, D> {
     #[inline]
-    fn into(self) -> SVector<TScalar, D> {
-        return self.0;
+    fn from(val: HashablePoint<D, TScalar>) -> Self {
+        val.0
     }
 }
 
 impl<const D: usize, TScalar: RealNumber> From<SVector<TScalar, D>> for HashablePoint<D, TScalar> {
     #[inline]
     fn from(value: SVector<TScalar, D>) -> Self {
-        return Self(value);
+        Self(value)
     }
 }
 
 impl<const D: usize, TScalar: RealNumber> PartialEq for HashablePoint<D, TScalar> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        return self.0 == other.0;
+        self.0 == other.0
     }
 }
 
@@ -52,15 +52,15 @@ pub struct PointIndexMap<const D: usize, TScalar: RealNumber> {
 
 impl<const D: usize, TScalar: RealNumber> PointIndexMap<D, TScalar> {
     pub fn new() -> Self {
-        return Self {
+        Self {
             map: HashMap::new()
-        }; 
+        }
     }
     
     pub fn with_capacity(capacity: usize) -> Self {
-        return Self {
+        Self {
             map: HashMap::with_capacity(capacity)
-        };
+        }
     }
 
     /// Returns index of point
@@ -81,6 +81,6 @@ impl<const D: usize, TScalar: RealNumber> PointIndexMap<D, TScalar> {
 impl<const D: usize, TScalar: RealNumber> Default for PointIndexMap<D, TScalar> {
     #[inline]
     fn default() -> Self {
-        return Self::new();
+        Self::new()
     }
 }

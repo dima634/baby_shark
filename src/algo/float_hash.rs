@@ -8,7 +8,7 @@ pub fn hash_float<TFloat: RealNumber>(float: TFloat) -> i32 {
     }
 
     let i = Float::floor(float * TFloat::from(73856093).unwrap()) % TFloat::from(i32::MAX).unwrap();
-    return i.to_i32().unwrap();
+    i.to_i32().unwrap()
 }
 
 pub fn hash_vec3<T: RealNumber>(v: &Vec3<T>) -> i32 {
@@ -21,5 +21,5 @@ pub fn hash_vec3<T: RealNumber>(v: &Vec3<T>) -> i32 {
 
 #[inline]
 pub fn combine_hash(h1: i32, h2: i32) -> i32 {
-    return i32::wrapping_add(h1 << 5, h1) ^ h2;
+    i32::wrapping_add(h1 << 5, h1) ^ h2
 }
