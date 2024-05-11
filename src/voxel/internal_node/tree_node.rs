@@ -34,31 +34,21 @@ where
     #[inline]
     fn at(&self, index: &Vec3i) -> Option<&Self::Value> {
         let offset = Self::offset(index);
-
-        if self.child_mask.at(offset) {
-            return self.child_node(offset).at(index);
+        match self.child(offset) {
+            Some(OneOf::T1(branch)) => branch.at(index),
+            Some(OneOf::T2(tile)) => Some(tile),
+            None => None,
         }
-
-        if !self.value_mask.at(offset) {
-            return None;
-        }
-
-        Some(&self.values[offset])
     }
 
     #[inline]
     fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value> {
         let offset = Self::offset(index);
-
-        if self.child_mask.at(offset) {
-            return self.child_node_mut(offset).at_mut(index);
+        match self.child_mut(offset) {
+            Some(OneOf::T1(branch)) => branch.at_mut(index),
+            Some(OneOf::T2(tile)) => Some(tile),
+            None => None,
         }
-
-        if !self.value_mask.at(offset) {
-            return None;
-        }
-
-        Some(&mut self.values[offset])
     }
 
     fn insert(&mut self, index: &Vec3i, value: Self::Value) {
@@ -67,30 +57,25 @@ where
         //   if tile is active - convert to branch, fill with tile value and insert voxel
         //   else - add empty child and insert voxel
         let offset = Self::offset(index);
+        match self.child_mut(offset) {
+            Some(OneOf::T1(branch)) => branch.insert(index, value),
+            Some(OneOf::T2(tile)) => {
+                let tile_value = *tile;
 
-        if self.child_mask.at(offset) {
-            let child = self.child_node_mut(offset);
-            child.insert(index, value);
-            return;
-        }
+                // No need to add child if tile value is equal to inserted one
+                if tile_value == value {
+                    return;
+                }
 
-        if self.value_mask.at(offset) {
-            let tile_value = self.values[offset];
-
-            // No need to add child if tile value is equal to inserted one
-            if tile_value == value {
-                return;
+                let branch = self.add_branch(offset);
+                branch.fill(tile_value);
+                branch.insert(index, value);
             }
-
-            self.add_child(offset);
-            let child = self.child_node_mut(offset);
-            child.fill(tile_value);
-            child.insert(index, value);
-        } else {
-            self.add_child(offset);
-            let child = self.child_node_mut(offset);
-            child.insert(index, value);
-        }
+            None => {
+                let branch = self.add_branch(offset);
+                branch.insert(index, value);
+            }
+        };
     }
 
     fn remove(&mut self, index: &Vec3i) {
@@ -99,22 +84,22 @@ where
         //   active - add active child, fill with tile value and remove voxel
         //   inactive - do nothing
         let offset = Self::offset(index);
+        match self.child_mut(offset) {
+            Some(OneOf::T1(branch)) => {
+                branch.remove(index);
 
-        if self.child_mask.at(offset) {
-            let child = self.child_node_mut(offset);
-            child.remove(index);
-
-            if child.is_empty() {
-                self.remove_child_node(offset);
-                self.value_mask.off(offset); // Remove?
+                if branch.is_empty() {
+                    self.remove_branch(offset);
+                }
             }
-        } else if self.value_mask.at(offset) {
-            let tile_value = self.values[offset];
-            self.add_child(offset);
-            let child = self.child_node_mut(offset);
-            child.fill(tile_value);
-            child.remove(index);
-        }
+            Some(OneOf::T2(tile)) => {
+                let tile_value = *tile;
+                let branch = self.add_branch(offset);
+                branch.fill(tile_value);
+                branch.remove(index);
+            }
+            None => {}
+        };
     }
 
     #[inline]
@@ -133,17 +118,24 @@ where
         self.origin
     }
 
-    #[inline]
     fn fill(&mut self, value: Self::Value) {
-        self.child_mask = BitArray::zeroes();
-        self.value_mask = BitArray::ones();
-        self.values = [value; SIZE];
+        self.clear();
+        self.value_mask.on_all();
+
+        for offset in 0..SIZE {
+            self.childs[offset].tile = value;
+        }
     }
 
     fn clear(&mut self) {
+        for offset in 0..SIZE {
+            if self.child_mask.is_on(offset) {
+                unsafe { ManuallyDrop::take(&mut self.childs[offset].branch) };
+            }
+        }
+
         self.child_mask.off_all();
         self.value_mask.off_all();
-        self.childs.fill_with(|| None);
     }
 
     fn clone_map<TNewValue, TMap>(&self, map: &TMap) -> Box<Self::As<TNewValue>>
@@ -151,36 +143,45 @@ where
         TNewValue: super::Value,
         TMap: Fn(Self::Value) -> TNewValue,
     {
-        let mut new_node = unsafe { Self::As::<TNewValue>::alloc_on_heap(self.origin) };
-        new_node.child_mask = self.child_mask;
-        new_node.value_mask = self.value_mask;
+        let mut clone = unsafe { Self::As::<TNewValue>::alloc_on_heap(self.origin) };
+        clone.child_mask = self.child_mask;
+        clone.value_mask = self.value_mask;
 
         for i in 0..SIZE {
-            if self.child_mask.at(i) {
-                let child = self.child_node(i);
-                new_node.childs[i] = Some(child.clone_map(map));
-            } else if self.value_mask.at(i) {
-                new_node.values[i] = map(self.values[i]);
+            if let Some(child) = self.child(i) {
+                match child {
+                    OneOf::T1(branch) => {
+                        clone.childs[i] = ChildUnion {
+                            branch: ManuallyDrop::new(branch.clone_map(map)),
+                        }
+                    }
+                    OneOf::T2(tile) => clone.childs[i] = ChildUnion { tile: map(*tile) },
+                }
             }
         }
 
-        new_node
+        clone
     }
 
     fn clone(&self) -> Box<Self> {
-        let mut new_node = unsafe { Self::alloc_on_heap(self.origin) };
-        new_node.child_mask = self.child_mask;
-        new_node.value_mask = self.value_mask;
-        new_node.values = self.values;
+        let mut clone = unsafe { Self::alloc_on_heap(self.origin) };
+        clone.child_mask = self.child_mask;
+        clone.value_mask = self.value_mask;
 
         for i in 0..SIZE {
-            if self.child_mask.at(i) {
-                let child = self.child_node(i);
-                new_node.childs[i] = Some(child.clone());
+            if let Some(child) = self.child(i) {
+                match child {
+                    OneOf::T1(branch) => {
+                        clone.childs[i] = ChildUnion {
+                            branch: ManuallyDrop::new(branch.clone()),
+                        }
+                    }
+                    OneOf::T2(tile) => clone.childs[i] = ChildUnion { tile: *tile },
+                }
             }
         }
 
-        new_node
+        clone
     }
 
     fn visit_leafs_par<T: ParVisitor<Self::Leaf>>(&self, visitor: &T) {
@@ -188,65 +189,62 @@ where
 
         if PARALLEL {
             (0..SIZE)
-                .filter_map(|i| match self.child_mask.at(i) {
-                    true => Some(self.child_node(i)),
-                    false => None,
+                .filter_map(|offset| match self.child(offset) {
+                    Some(OneOf::T1(branch)) => Some(branch),
+                    _ => None,
                 })
                 .par_bridge()
                 .into_par_iter()
                 .for_each(|c| c.visit_leafs_par(visitor));
 
-            (0..SIZE).filter(|i| self.value_mask.at(*i)).for_each(|i| {
-                let tile = Tile {
-                    origin: self.offset_to_global_index(i),
-                    size: TChild::resolution(),
-                    value: self.values[i],
-                };
-
-                visitor.tile(tile);
-            });
-        } else {
-            for i in 0..SIZE {
-                if self.child_mask.at(i) {
-                    let child = self.child_node(i);
-                    child.visit_leafs_par(visitor);
-                } else if self.value_mask.at(i) {
+            (0..SIZE)
+                .filter_map(|offset| match self.child(offset) {
+                    Some(OneOf::T2(tile)) => Some((offset, *tile)),
+                    _ => None,
+                })
+                .for_each(|(offset, value)| {
                     let tile = Tile {
-                        origin: self.offset_to_global_index(i),
+                        origin: self.offset_to_global_index(offset),
                         size: TChild::resolution(),
-                        value: self.values[i],
+                        value,
                     };
 
                     visitor.tile(tile);
-                }
+                });
+        } else {
+            for (offset, child) in self.childs() {
+                match child {
+                    OneOf::T1(branch) => branch.visit_leafs_par(visitor),
+                    OneOf::T2(tile) => visitor.tile(Tile {
+                        origin: self.offset_to_global_index(offset),
+                        size: TChild::resolution(),
+                        value: *tile,
+                    }),
+                };
             }
         }
     }
 
     fn visit_leafs<T: super::Visitor<Self::Leaf>>(&self, visitor: &mut T) {
-        for i in 0..SIZE {
-            if self.child_mask.at(i) {
-                let child = self.child_node(i);
-                child.visit_leafs(visitor);
-            } else if self.value_mask.at(i) {
-                let tile = Tile {
-                    origin: self.offset_to_global_index(i),
+        for (offset, child) in self.childs() {
+            match child {
+                OneOf::T1(branch) => branch.visit_leafs(visitor),
+                OneOf::T2(tile) => visitor.tile(Tile {
+                    origin: self.offset_to_global_index(offset),
                     size: TChild::resolution(),
-                    value: self.values[i],
-                };
-
-                visitor.tile(tile);
-            }
+                    value: *tile,
+                }),
+            };
         }
     }
 
     fn visit_values_mut<T: ValueVisitorMut<Self::Value>>(&mut self, visitor: &mut T) {
-        for i in 0..SIZE {
-            if self.child_mask.is_on(i) {
-                let child = self.child_node_mut(i);
-                child.visit_values_mut(visitor);
-            } else if self.value_mask.is_on(i) {
-                visitor.value(&mut self.values[i]);
+        for offset in 0..SIZE {
+            if let Some(child) = self.child_mut(offset) {
+                match child {
+                    OneOf::T1(branch) => branch.visit_values_mut(visitor),
+                    OneOf::T2(tile) => visitor.value(tile),
+                };
             }
         }
     }
@@ -255,9 +253,8 @@ where
     fn leaf_at(&self, index: &Vec3i) -> Option<&Self::Leaf> {
         let offset = Self::offset(index);
 
-        if self.child_mask.is_on(offset) {
-            let child = self.child_node(offset);
-            return child.leaf_at(index);
+        if let Some(OneOf::T1(branch)) = self.child(offset) {
+            return branch.leaf_at(index);
         }
 
         None
@@ -266,16 +263,14 @@ where
     fn take_leaf_at(&mut self, index: &Vec3i) -> Option<Box<Self::Leaf>> {
         let offset = Self::offset(index);
 
-        if self.child_mask.is_on(offset) {
-            let child = self.child_node_mut(offset);
-
+        if let Some(OneOf::T1(branch)) = self.child_mut(offset) {
             if Self::Child::IS_LEAF {
-                let child = self.remove_child_node(offset);
+                let child = self.remove_branch(offset);
                 unsafe {
                     return std::mem::transmute(child);
                 }
             } else {
-                return child.take_leaf_at(index);
+                return branch.take_leaf_at(index);
             }
         }
 
@@ -285,34 +280,30 @@ where
     fn insert_leaf_at(&mut self, leaf: Box<Self::Leaf>) {
         let index = leaf.origin();
         let offset = Self::offset(&index);
+        self.value_mask.off(offset);
 
         if Self::Child::IS_LEAF {
+            self.remove_branch(offset);
             self.child_mask.on(offset);
             self.value_mask.off(offset);
-            self.childs[offset] = Some(unsafe { std::mem::transmute(leaf) });
+            self.childs[offset] = ChildUnion {
+                branch: ManuallyDrop::new(unsafe { core::mem::transmute(leaf) }),
+            };
         } else {
-            if self.child_mask.is_on(offset) {
-                let child = self.child_node_mut(offset);
-                child.insert_leaf_at(leaf);
-            } else {
-                self.child_mask.on(offset);
-                self.value_mask.off(offset);
-                let child_origin = self.offset_to_global_index(offset);
-                let mut child_node = TChild::empty(child_origin);
-                child_node.insert_leaf_at(leaf);
-                self.childs[offset] = Some(child_node);
-            }
+            match self.child_mut(offset) {
+                Some(OneOf::T1(branch)) => branch.insert_leaf_at(leaf),
+                Some(OneOf::T2(_)) | None => self.add_branch(offset).insert_leaf_at(leaf),
+            };
         }
     }
 
-    fn remove_empty_nodes(&mut self) {
+    fn remove_empty_branches(&mut self) {
         for offset in 0..SIZE {
-            if self.child_mask.is_on(offset) {
-                let child = self.child_node_mut(offset);
-                child.remove_empty_nodes();
+            if let Some(OneOf::T1(branch)) = self.child_mut(offset) {
+                branch.remove_empty_branches();
 
-                if child.is_empty() {
-                    self.remove_child_node(offset);
+                if branch.is_empty() {
+                    self.remove_branch(offset);
                 }
             }
         }
@@ -322,16 +313,25 @@ where
     where
         TPred: Fn(&Self::Value) -> bool + Copy,
     {
-        for i in 0..SIZE {
-            if self.child_mask.is_on(i) {
-                let child = self.child_node_mut(i);
-                child.remove_if(pred);
+        for offset in 0..SIZE {
+            let child = match self.child_mut(offset) {
+                Some(child) => child,
+                None => continue,
+            };
 
-                if child.is_empty() {
-                    self.remove_child_node(i);
+            match child {
+                OneOf::T1(branch) => {
+                    branch.remove_if(pred);
+
+                    if branch.is_empty() {
+                        self.remove_branch(offset);
+                    }
                 }
-            } else if self.value_mask.is_on(i) && pred(&self.values[i]) {
-                self.value_mask.off(i);
+                OneOf::T2(tile) => {
+                    if pred(tile) {
+                        self.value_mask.off(offset);
+                    }
+                }
             }
         }
     }

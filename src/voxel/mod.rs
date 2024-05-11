@@ -100,7 +100,7 @@ trait TreeNode: Send + Sync + Sized {
     fn remove_if<TPred>(&mut self, pred: TPred)
     where
         TPred: Fn(&Self::Value) -> bool + Copy;
-    fn remove_empty_nodes(&mut self);
+    fn remove_empty_branches(&mut self);
 
     ///
     /// Creates a copy of the node with same topology but with different values

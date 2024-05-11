@@ -62,7 +62,7 @@ impl<TTree: TreeNode<Value = f32>> FastSweeping<TTree> {
         // Algorithm can leave empty nodes in the tree
         // Somehow it is causing problems with flood filling
         // So we remove them, it is hacky but it works
-        sdf.remove_empty_nodes();
+        sdf.remove_empty_branches();
     }
 
     fn sweep<TLeafOrigin: LeafOrigin>(&self, sdf: &mut TTree, queue: &mut Queue<TLeafOrigin>) {

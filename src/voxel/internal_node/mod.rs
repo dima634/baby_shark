@@ -5,13 +5,16 @@ mod tree_node;
 use super::*;
 use crate::{
     data_structures::bitset::*,
-    helpers::aliases::{Vec3i, Vec3u},
+    helpers::{
+        aliases::{Vec3i, Vec3u},
+        one_of::OneOf,
+    },
 };
-use std::alloc::Layout;
+use std::{alloc::Layout, fmt::Debug, mem::ManuallyDrop};
 
 #[derive(Debug)]
 pub(super) struct InternalNode<
-    TValue,
+    TValue: Value,
     TChild: TreeNode,
     const BRANCHING: usize,
     const BRANCHING_TOTAL: usize,
@@ -22,8 +25,7 @@ pub(super) struct InternalNode<
     origin: Vec3i,
     child_mask: BitArray<SIZE, BIT_SIZE>,
     value_mask: BitArray<SIZE, BIT_SIZE>,
-    childs: [Option<Box<TChild>>; SIZE],
-    values: [TValue; SIZE],
+    childs: [ChildUnion<TValue, TChild>; SIZE], // `child_mask` and `value_mask` are discriminating between branch and tile
 }
 
 impl<
@@ -47,49 +49,81 @@ where
         local.cast() + self.origin
     }
 
-    fn add_child(&mut self, offset: usize) {
-        debug_assert!(!self.child_mask.at(offset));
+    fn add_branch(&mut self, offset: usize) -> &mut TChild {
+        if self.child_mask.is_on(offset) {
+            return unsafe { &mut self.childs[offset].branch };
+        }
 
         self.child_mask.on(offset);
         self.value_mask.off(offset);
 
         let child_origin = self.offset_to_global_index(offset);
         let child_node = TChild::empty(child_origin);
-        self.childs[offset] = Some(child_node);
+        self.childs[offset] = ChildUnion {
+            branch: ManuallyDrop::new(child_node),
+        };
+
+        unsafe { &mut self.childs[offset].branch }
     }
 
     #[inline]
-    fn remove_child_node(&mut self, offset: usize) -> Option<Box<TChild>> {
-        debug_assert!(self.child_mask.at(offset));
+    fn remove_branch(&mut self, offset: usize) -> Option<Box<TChild>> {
+        if self.child_mask.is_off(offset) {
+            return None;
+        }
 
         self.child_mask.off(offset);
-        self.childs[offset].take()
+        let child = unsafe { ManuallyDrop::take(&mut self.childs[offset].branch) };
+        Some(child)
     }
 
     #[inline]
-    fn child_owned(&mut self, offset: usize) -> Box<TChild> { // TODO: merge with `remove_child_node`
-        debug_assert!(self.child_mask.at(offset));
-
-        self.child_mask.off(offset);
-        unsafe { self.childs[offset].take().unwrap_unchecked() }
+    fn remove_child(&mut self, offset: usize) -> Option<ChildOwned<TChild>> {
+        if self.child_mask.is_on(offset) {
+            self.child_mask.off(offset);
+            let branch = unsafe { ManuallyDrop::take(&mut self.childs[offset].branch) };
+            Some(ChildOwned::T1(branch))
+        } else if self.value_mask.is_on(offset) {
+            self.value_mask.off(offset);
+            let value = unsafe { self.childs[offset].tile };
+            Some(ChildOwned::T2(value))
+        } else {
+            None
+        }
     }
 
     #[inline]
-    fn child_node(&self, offset: usize) -> &TChild {
+    fn child(&self, offset: usize) -> Option<Child<TChild>> {
         let child = &self.childs[offset];
-        debug_assert!(self.child_mask.at(offset));
-        debug_assert!(child.is_some());
 
-        unsafe { child.as_ref().unwrap_unchecked() }
+        unsafe {
+            if self.child_mask.is_on(offset) {
+                return Some(OneOf::T1(child.branch.as_ref()));
+            } else if self.value_mask.is_on(offset) {
+                return Some(OneOf::T2(&child.tile));
+            }
+        }
+
+        None
     }
 
     #[inline]
-    fn child_node_mut(&mut self, offset: usize) -> &mut TChild {
+    fn child_mut(&mut self, offset: usize) -> Option<ChildMut<TChild>> {
         let child = &mut self.childs[offset];
-        debug_assert!(self.child_mask.at(offset));
-        debug_assert!(child.is_some());
 
-        unsafe { child.as_mut().unwrap_unchecked() }
+        unsafe {
+            if self.child_mask.is_on(offset) {
+                return Some(OneOf::T1(child.branch.as_mut()));
+            } else if self.value_mask.is_on(offset) {
+                return Some(OneOf::T2(&mut child.tile));
+            }
+        }
+
+        None
+    }
+
+    fn childs(&self) -> impl Iterator<Item = (usize, Child<TChild>)> + '_ {
+        (0..SIZE).filter_map(|offset| self.child(offset).map(|child| (offset, child)))
     }
 
     #[inline]
@@ -132,16 +166,13 @@ where
         (*ptr).child_mask.off_all();
         (*ptr).value_mask.off_all();
 
-        let child_ptr = (*ptr).childs.as_mut_ptr();
-        for i in 0..SIZE {
-            child_ptr.add(i).write(None);
-        }
-
-        // (*ptr).value_mask - no need to initialize because value mask is empty
-
         Box::from_raw(ptr)
     }
 }
+
+pub type Child<'node, T: TreeNode> = OneOf<&'node T, &'node T::Value>;
+pub type ChildMut<'node, T: TreeNode> = OneOf<&'node mut T, &'node mut T::Value>;
+pub type ChildOwned<T: TreeNode> = OneOf<Box<T>, T::Value>;
 
 pub const fn internal_node_size(branching: usize) -> usize {
     1 << branching * 3
@@ -159,4 +190,50 @@ pub const fn internal_node_bit_size(branching: usize) -> usize {
 
 pub const fn internal_node_branching<TChild: TreeNode>(branching: usize) -> usize {
     branching + TChild::BRANCHING_TOTAL
+}
+
+union ChildUnion<TValue: Value, TChild: TreeNode> {
+    branch: ManuallyDrop<Box<TChild>>,
+    tile: TValue,
+}
+
+impl<TValue: Value, TChild: TreeNode> Debug for ChildUnion<TValue, TChild> {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("unknown")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alloc_internal_node() {
+        const LEAF_LOG2: usize = 2;
+        const INTERNAL_LOG2: usize = 3;
+
+        type Leaf = LeafNode<
+            f32,
+            LEAF_LOG2,
+            LEAF_LOG2,
+            { leaf_node_size(LEAF_LOG2) },
+            { leaf_node_bit_size(LEAF_LOG2) },
+        >;
+        type Internal = InternalNode<
+            f32,
+            Leaf,
+            INTERNAL_LOG2,
+            { LEAF_LOG2 + INTERNAL_LOG2 },
+            { internal_node_size(INTERNAL_LOG2) },
+            { internal_node_bit_size(INTERNAL_LOG2) },
+            false,
+        >;
+
+        let origin = Vec3i::new(1, 2, 3);
+        let node = Internal::empty(origin);
+        assert_eq!(node.child_mask, BitArray::zeroes());
+        assert_eq!(node.value_mask, BitArray::zeroes());
+        assert_eq!(node.origin, origin);
+    }
 }
