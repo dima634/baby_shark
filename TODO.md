@@ -3,7 +3,6 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
-- [ ] Remove tiles support, right now it's not used and only complicates the code
 - [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings
