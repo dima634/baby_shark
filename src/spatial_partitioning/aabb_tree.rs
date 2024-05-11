@@ -451,6 +451,7 @@ where
     TObject: HasBBox3,
     TObject::ScalarType: RealNumber,
 {
+    #[allow(clippy::needless_range_loop)]
     fn split(
         &mut self,
         objects: &[(TObject, Box3<<TObject>::ScalarType>)],
@@ -549,7 +550,7 @@ struct Bucket<T: RealNumber> {
     bbox: Box3<T>,
 }
 
-fn check_split<TObject: HasBBox3>(
+fn check_split<TObject>(
     axis: usize,
     parent_bbox: &Box3<TObject::ScalarType>,
     objects: &[(TObject, Box3<TObject::ScalarType>)],

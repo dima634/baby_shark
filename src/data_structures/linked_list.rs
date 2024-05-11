@@ -46,6 +46,11 @@ impl<T> LinkedList<T> {
         self.len
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Reserve storage for additional number of elements 
     #[inline]
     pub fn reserve(&mut self, additional: usize) {

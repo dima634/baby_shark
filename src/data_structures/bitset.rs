@@ -1,4 +1,7 @@
-use std::{fmt::Display, ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr}};
+use std::{
+    fmt::Display,
+    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr},
+};
 
 pub trait BitSet:
     PartialEq
@@ -239,8 +242,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitAnd for BitArray<BITS, STO
 
     #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let mut storage: [usize; STORAGE_SIZE] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut storage = [0; STORAGE_SIZE];
 
         for i in 0..STORAGE_SIZE {
             storage[i] = self.storage[i] & rhs.storage[i];
@@ -264,8 +266,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitOr for BitArray<BITS, STOR
 
     #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
-        let mut storage: [usize; STORAGE_SIZE] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut storage = [0; STORAGE_SIZE];
 
         for i in 0..STORAGE_SIZE {
             storage[i] = self.storage[i] | rhs.storage[i];
@@ -289,8 +290,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> BitXor for BitArray<BITS, STO
 
     #[inline]
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let mut storage: [usize; STORAGE_SIZE] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut storage = [0; STORAGE_SIZE];
 
         for i in 0..STORAGE_SIZE {
             storage[i] = self.storage[i] ^ rhs.storage[i];
@@ -304,8 +304,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> Not for BitArray<BITS, STORAG
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        let mut storage: [usize; STORAGE_SIZE] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut storage = [0; STORAGE_SIZE];
 
         for i in 0..STORAGE_SIZE {
             storage[i] = !self.storage[i];
@@ -352,7 +351,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> Shl<u32> for BitArray<BITS, S
 
             return self;
         }
-        
+
         let sub_offset = USIZE_BITS - offset;
 
         for i in 0..STORAGE_SIZE - shift - 1 {
@@ -406,7 +405,7 @@ impl<const BITS: usize, const STORAGE_SIZE: usize> Shr<u32> for BitArray<BITS, S
 
             return self;
         }
-        
+
         let sub_offset = USIZE_BITS - offset;
 
         for i in shift + 1..self.storage.len() {
@@ -501,11 +500,10 @@ impl<'a, const BITS: usize, const STORAGE_SIZE: usize> DoubleEndedIterator
 
 const USIZE_BITS: usize = usize::BITS as usize;
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     const fn bitsize(bits: usize) -> usize {
         let full_words = bits / USIZE_BITS;
         let remainder = bits % USIZE_BITS;
@@ -631,7 +629,6 @@ mod tests {
 
     #[test]
     fn test_shift_left() {
-
         fn shift_and_assert<T: BitSet>(mut set: T, shift: usize) {
             set = set << shift as u32;
             let split = set.len().saturating_sub(shift);
@@ -657,7 +654,6 @@ mod tests {
 
     #[test]
     fn test_shift_right() {
-
         fn shift_and_assert<T: BitSet>(mut set: T, shift: usize) {
             set = set >> shift as u32;
             let split = shift.min(set.len());
