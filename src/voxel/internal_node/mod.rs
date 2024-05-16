@@ -170,6 +170,30 @@ where
     }
 }
 
+impl<
+        TValue: Value,
+        TChild: TreeNode,
+        const BRANCHING: usize,
+        const BRANCHING_TOTAL: usize,
+        const SIZE: usize,
+        const BIT_SIZE: usize,
+        const PARALLEL: bool,
+    > Drop
+    for InternalNode<TValue, TChild, BRANCHING, BRANCHING_TOTAL, SIZE, BIT_SIZE, PARALLEL>
+where
+    TChild: TreeNode,
+{
+    fn drop(&mut self) {
+        for offset in 0..SIZE {
+            if self.child_mask.is_on(offset) {
+                unsafe {
+                    ManuallyDrop::drop(&mut self.childs[offset].branch);
+                }
+            }
+        }
+    }
+}
+
 pub type Child<'node, T> = OneOf<&'node T, &'node <T as TreeNode>::Value>;
 pub type ChildMut<'node, T> = OneOf<&'node mut T, &'node mut <T as TreeNode>::Value>;
 pub type ChildOwned<T> = OneOf<Box<T>, <T as TreeNode>::Value>;
