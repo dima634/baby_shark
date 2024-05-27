@@ -270,7 +270,12 @@ impl<'a, T: TreeNode<Value = f32>> ComputeEdgeIntersectionsVisitor<'a, T> {
             return;
         }
 
-        let t = v1_val / (v1_val - v2_val);
+        let t = if v1_val == v2_val {
+            0.5
+        } else {
+            v1_val / (v1_val - v2_val)
+        };
+
         debug_assert!(
             t.is_finite(),
             "Dual contouring, invalid interpolation: v1 = {}, v2 = {}",
