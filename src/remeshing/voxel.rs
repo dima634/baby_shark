@@ -1,8 +1,15 @@
 use crate::{
     algo::merge_points::merge_points,
     mesh::traits::Mesh,
-    voxel::{mesh_to_volume::MeshToVolume, meshing::MarchingCubesMesher},
+    voxel::{mesh_to_volume::MeshToVolume, meshing::{DualContouringMesher, MarchingCubesMesher}},
 };
+
+pub enum MeshingMethod {
+    /// Feature preserving meshing, which tries to preserve sharp features but may produce non-manifold/self-intersecting meshes.
+    FeaturePreserving,
+    /// Meshing which provides strong guarantees about topology (no self-intersections, no non-manifold edges/vertices) of the output mesh, but may smooth sharp features.
+    Manifold,
+}
 
 ///
 /// Voxel remeshing.
@@ -33,20 +40,38 @@ use crate::{
 ///
 pub struct VoxelRemesher {
     mesh_to_sdf: MeshToVolume,
-    marching_cubes: MarchingCubesMesher,
+    meshing_method: MeshingMethod,
+    voxel_size: f32,
 }
 
 impl VoxelRemesher {
     #[inline]
     pub fn with_voxel_size(mut self, size: f32) -> Self {
         self.mesh_to_sdf.set_voxel_size(size);
-        self.marching_cubes.set_voxel_size(size);
+        self.voxel_size = size;
+        self
+    }
+
+    #[inline]
+    pub fn with_meshing_method(mut self, method: MeshingMethod) -> Self {
+        self.meshing_method = method;
         self
     }
 
     pub fn remesh<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<T> {
         let distance_field = self.mesh_to_sdf.convert(mesh)?;
-        let faces = self.marching_cubes.mesh(&distance_field);
+
+        let faces = match self.meshing_method {
+            MeshingMethod::FeaturePreserving => {
+                let mut dc = DualContouringMesher::default().with_voxel_size(self.voxel_size);
+                dc.mesh(&distance_field)?
+            }
+            MeshingMethod::Manifold => {
+                let mut mc = MarchingCubesMesher::default().with_voxel_size(self.voxel_size);
+                mc.mesh(&distance_field)
+            }
+        };
+
         let indexed_faces = merge_points(&faces);
         let mesh = T::from_vertices_and_indices(&indexed_faces.points, &indexed_faces.indices);
 
@@ -58,7 +83,8 @@ impl Default for VoxelRemesher {
     fn default() -> Self {
         Self {
             mesh_to_sdf: MeshToVolume::default().with_narrow_band_width(0),
-            marching_cubes: MarchingCubesMesher::default(),
+            voxel_size: 1.0,
+            meshing_method: MeshingMethod::Manifold,
         }
     }
 }
