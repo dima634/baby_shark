@@ -1,4 +1,4 @@
-use std::{fmt::Display, cell::UnsafeCell};
+use std::{cell::RefCell, fmt::Display};
 
 pub fn display_option<T: Display>(o: &Option<T>) -> String {
     match o {
@@ -7,8 +7,6 @@ pub fn display_option<T: Display>(o: &Option<T>) -> String {
     }
 }
 
-pub fn display_unsafecell<T: Display>(cell: &UnsafeCell<T>) -> String {
-    unsafe {
-        format!("{}", *cell.get())
-    }
+pub fn display_refcell<T: Display>(cell: &RefCell<T>) -> String {
+    format!("{}", *cell.borrow())
 }

@@ -1,18 +1,18 @@
-use std::cell::UnsafeCell;
+use std::{cell::{Ref, RefCell, RefMut}, fmt::Debug, ops::{Deref, DerefMut}};
 use tabled::Tabled;
-use crate::{helpers::{display::display_unsafecell, aliases::Vec3}, geometry::traits::RealNumber};
+use crate::{helpers::{display::display_refcell, aliases::Vec3}, geometry::traits::RealNumber};
 use super::{traits::Flags, flags};
 
 ///
 /// Default implementation for Vertex trait
 /// 
-#[derive(Debug, Tabled)]
+#[derive(Tabled)]
 pub struct Vertex<TScalarType: RealNumber> {
     corner_index: usize,
     position: Vec3<TScalarType>,
 
-    #[tabled(display_with = "display_unsafecell")]
-    flags: UnsafeCell<flags::Flags>
+    #[tabled(display_with = "display_refcell")]
+    flags: RefCell<flags::Flags>
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
@@ -20,7 +20,7 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
         Self { 
             corner_index, 
             position, 
-            flags: UnsafeCell::new(flags)
+            flags: RefCell::new(flags)
         }
     }
 }
@@ -37,8 +37,13 @@ impl<TScalarType: RealNumber> Default for Vertex<TScalarType> {
 
 impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
     #[inline]
-    fn get_flags(&self) -> &UnsafeCell<flags::Flags> {
-        &self.flags
+    fn flags(&self) -> impl Deref<Target = flags::Flags> {
+        Ref::map(self.flags.borrow(), |flags| flags)
+    }
+    
+    #[inline]
+    fn flags_mut(&self) -> impl DerefMut<Target = flags::Flags> {
+        RefMut::map(self.flags.borrow_mut(), |flags| flags)
     }
 }
 
@@ -74,6 +79,16 @@ impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
     }
 }
 impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}
+
+impl<T: RealNumber> Debug for Vertex<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vertex")
+            .field("corner_index", &self.corner_index)
+            .field("position", &self.position)
+            .field("flags", &self.flags.borrow().bits())
+            .finish()
+    }
+}
 
 /// Aliases
 pub type VertexF = Vertex<f32>;

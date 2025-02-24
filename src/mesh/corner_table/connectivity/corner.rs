@@ -1,32 +1,33 @@
-use std::cell::UnsafeCell;
-
+use super::{flags, traits::Flags};
+use crate::helpers::display::{display_option, display_refcell};
+use std::cell::{Ref, RefCell, RefMut};
+use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
 use tabled::Tabled;
-use crate::helpers::display::{display_option, display_unsafecell};
-use super::{traits::Flags, flags};
 
 ///
 /// Default implementation for Corner trait
-/// 
-#[derive(Debug, Tabled)]
+///
+#[derive(Tabled)]
 pub struct Corner {
     #[tabled(display_with = "display_option")]
     opposite_corner_index: Option<usize>,
     vertex_index: usize,
 
-    #[tabled(display_with = "display_unsafecell")]
-    flags: UnsafeCell<flags::Flags>
+    #[tabled(display_with = "display_refcell")]
+    flags: RefCell<flags::Flags>,
 }
 
 impl Corner {
     pub fn new(
         opposite_corner_index: Option<usize>,
         vertex_index: usize,
-        flags: flags::Flags
-    ) -> Self { 
-        Self { 
-            opposite_corner_index, 
-            vertex_index, 
-            flags: UnsafeCell::new(flags) 
+        flags: flags::Flags,
+    ) -> Self {
+        Self {
+            opposite_corner_index,
+            vertex_index,
+            flags: RefCell::new(flags),
         }
     }
 
@@ -56,39 +57,61 @@ impl Corner {
 impl Default for Corner {
     fn default() -> Self {
         Self {
-            opposite_corner_index:  None,
-            vertex_index:           usize::max_value(),
-            flags:                  Default::default() 
+            opposite_corner_index: None,
+            vertex_index: usize::max_value(),
+            flags: Default::default(),
         }
     }
 }
 
 impl Flags for Corner {
     #[inline]
-    fn get_flags(&self) -> &UnsafeCell<super::flags::Flags> {
-        &self.flags
+    fn flags(&self) -> impl Deref<Target = flags::Flags> {
+        Ref::map(self.flags.borrow(), |flags| flags)
+    }
+
+    #[inline]
+    fn flags_mut(&self) -> impl DerefMut<Target = flags::Flags> {
+        RefMut::map(self.flags.borrow_mut(), |flags| flags)
     }
 }
 
 impl PartialEq for Corner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.opposite_corner_index == other.opposite_corner_index &&
-            self.vertex_index          == other.vertex_index
+        self.opposite_corner_index == other.opposite_corner_index
+            && self.vertex_index == other.vertex_index
     }
 }
 impl Eq for Corner {}
 
+impl Debug for Corner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Corner")
+            .field("opposite_corner_index", &self.opposite_corner_index)
+            .field("vertex_index", &self.vertex_index)
+            .field("flags", &self.flags.borrow().bits())
+            .finish()
+    }
+}
 
 #[inline]
 pub fn next(corner: usize) -> usize {
-    if (corner % 3) == 2 { corner - 2 } else { corner + 1 }
+    if (corner % 3) == 2 {
+        corner - 2
+    } else {
+        corner + 1
+    }
 }
 
 #[inline]
 pub fn previous(corner: usize) -> usize {
-    if (corner % 3) == 0 { corner + 2 } else { corner - 1 }
-} 
+    if (corner % 3) == 0 {
+        corner + 2
+    } else {
+        corner - 1
+    }
+}
 
 #[inline]
 pub fn face(corner: usize) -> usize {

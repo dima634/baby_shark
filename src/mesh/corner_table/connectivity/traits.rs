@@ -1,81 +1,62 @@
-use std::cell::UnsafeCell;
+use std::ops::{Deref, DerefMut};
 use super::flags;
 
 pub trait Flags {
     #[inline]
     fn is_deleted(&self) -> bool {
-        unsafe {
-            return (*self.get_flags().get()).contains(flags::Flags::IS_DELETED);
-        }
+        self.flags().contains(flags::Flags::IS_DELETED)
     }
 
     #[inline]
     fn set_deleted(& self, deleted: bool) -> &Self {
-        unsafe {
-            (*self.get_flags().get()).set(flags::Flags::IS_DELETED, deleted);
-            self
-        }
+        self.flags_mut().set(flags::Flags::IS_DELETED, deleted);
+        self
     }
 
     #[inline]
     fn is_visited(&self) -> bool {
-        unsafe {
-            return (*self.get_flags().get()).contains(flags::Flags::IS_VISITED);
-        }
+        self.flags().contains(flags::Flags::IS_VISITED)
     }
 
     #[inline]
     fn set_visited(&self, visited: bool) -> &Self {
-        unsafe {
-            (*self.get_flags().get()).set(flags::Flags::IS_VISITED, visited);
-            self
-        }
+        self.flags_mut().set(flags::Flags::IS_VISITED, visited);
+        self
     }
 
     #[inline]
     fn is_marked_1(&self) -> bool {
-        unsafe {
-            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_1);
-        }
+        self.flags().contains(flags::Flags::IS_MARKED_1)
     }
 
     #[inline]
     fn set_marked_1(&self, marked: bool) -> &Self {
-        unsafe {
-            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_1, marked);
-            self
-        }
+        self.flags_mut().set(flags::Flags::IS_MARKED_1, marked);
+        self
     }
 
     #[inline]
     fn is_marked_2(&self) -> bool {
-        unsafe {
-            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_2);
-        }
+        self.flags().contains(flags::Flags::IS_MARKED_2)
     }
 
     #[inline]
     fn set_marked_2(&self, marked: bool) -> &Self {
-        unsafe {
-            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_2, marked);
-            self
-        }
+        self.flags_mut().set(flags::Flags::IS_MARKED_2, marked);
+        self
     }
 
     #[inline]
     fn is_marked_3(&self) -> bool {
-        unsafe {
-            return (*self.get_flags().get()).contains(flags::Flags::IS_MARKED_3);
-        }
+        self.flags().contains(flags::Flags::IS_MARKED_3)
     }
 
     #[inline]
     fn set_marked_3(&self, marked: bool) -> &Self {
-        unsafe {
-            (*self.get_flags().get()).set(flags::Flags::IS_MARKED_3, marked);
-            self
-        }
+        self.flags_mut().set(flags::Flags::IS_MARKED_3, marked);
+        self
     }
 
-    fn get_flags(&self) -> &UnsafeCell<flags::Flags>;
+    fn flags(&self) -> impl Deref<Target = flags::Flags>;
+    fn flags_mut(&self) -> impl DerefMut<Target = flags::Flags>;
 }
