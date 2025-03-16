@@ -1,61 +1,79 @@
 use crate::{helpers::aliases::Vec3d, mesh::corner_table::prelude::CornerTableD, mesh::traits::*};
-use faer::{linalg::solvers::Solve, sparse as sp};
+use faer::{linalg::solvers::{ShapeCore, Solve}, sparse as sp};
 use nalgebra as na;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
-pub struct Deformation {}
+pub struct Deform;
 
-pub fn deform(
-    mesh: &mut CornerTableD,
-    handle: &BTreeSet<usize>,
-    region_of_interest: &BTreeSet<usize>,
-    target_transform: na::Matrix4<f64>,
-) {
-    let mut handle_transformed = Vec::with_capacity(handle.len());
-    let handle = Vec::from_iter(handle.iter().copied());
-    let region_of_interest = Vec::from_iter(region_of_interest.iter().copied());
+impl Deform {
+    pub fn prepare(
+        mesh: &CornerTableD,
+        handle: &HashSet<usize>,
+        region_of_interest: &HashSet<usize>
+    ) -> PreparedDeform {
+        let handle = Vec::from_iter(handle.iter().copied());
+        let region_of_interest = Vec::from_iter(region_of_interest.iter().copied());
 
-    for vertex in &handle {
-        let position = *mesh.vertex_position(vertex);
-        let transformed = target_transform.transform_point(&position.into());
-        handle_transformed.push(transformed.coords);
+        let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
+
+        for vert in &region_of_interest {
+            vertex_to_col.insert(*vert, vertex_to_col.len());
+        }
+
+        for vert in &handle {
+            vertex_to_col.insert(*vert, vertex_to_col.len());
+        }
+
+        let num_distortion_equations = region_of_interest.len() * 3;
+        let num_fitting_equations = handle.len() * 3;
+        let num_equations = num_distortion_equations + num_fitting_equations;
+
+        let mut coeffs = Vec::with_capacity(num_equations);
+        compute_distortion_term_coeffs(mesh, &region_of_interest, &vertex_to_col, &mut coeffs);
+        compute_fitting_term_coeffs(handle.len(), num_distortion_equations, &mut coeffs);
+
+        // Ax = b
+        let a_mat = sp::SparseColMat::try_new_from_triplets(num_equations, num_equations, &coeffs).unwrap(); // TODO: handle error
+        let factorization = a_mat.sp_qr().unwrap();
+
+        PreparedDeform {
+            factorization,
+            handle,
+            region_of_interest,
+        }
     }
+}
 
-    let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
+pub struct PreparedDeform {
+    factorization: faer::sparse::linalg::solvers::Qr<usize, f64>,
+    handle: Vec<usize>,
+    region_of_interest: Vec<usize>,
+}
 
-    for vert in &region_of_interest {
-        vertex_to_col.insert(*vert, vertex_to_col.len());
-    }
+impl PreparedDeform {
+    pub fn deform(&self, mesh: &mut CornerTableD, transform: na::Matrix4<f64>) {
+        let handle_transformed = self.handle.iter().map(|vertex| {
+            let position = *mesh.vertex_position(vertex);
+            transform.transform_point(&position.into()).coords
+        }).collect::<Vec<_>>();
 
-    for vert in &handle {
-        vertex_to_col.insert(*vert, vertex_to_col.len());
-    }
-
-    let num_distortion_equations = region_of_interest.len() * 3;
-    let num_fitting_equations = handle.len() * 3;
-    let num_equations = num_distortion_equations + num_fitting_equations;
-
-    let mut coeffs = Vec::with_capacity(num_equations);
-    compute_distortion_term_coeffs(mesh, &region_of_interest, &vertex_to_col, &mut coeffs);
-    compute_fitting_term_coeffs(handle.len(), num_distortion_equations, &mut coeffs);
-
-
-    let a = sp::SparseColMat::try_new_from_triplets(num_equations, num_equations, &coeffs).unwrap(); // TODO: handle error
-    let b = compute_b_vec(num_equations, num_distortion_equations, &handle_transformed);
-    let factorization = a.sp_qr().unwrap();
-    let solution = factorization.solve(&b);
-
-    for i in 0..region_of_interest.len() {
-        let point = Vec3d::new(solution[i * 3], solution[i * 3 + 1], solution[i * 3 + 2]);
-        mesh.get_vertex_mut(region_of_interest[i])
-            .unwrap()
-            .set_position(point);
-    }
-
-    for i in 0..handle.len() {
-        mesh.get_vertex_mut(handle[i])
-            .unwrap()
-            .set_position(handle_transformed[i]);
+        // Ax = b
+        let b = compute_b_vec(self.factorization.nrows(), self.region_of_interest.len() * 3, &handle_transformed);
+        let solution = self.factorization.solve(&b);
+    
+        for i in 0..self.region_of_interest.len() {
+            let point = Vec3d::new(solution[i * 3], solution[i * 3 + 1], solution[i * 3 + 2]);
+            
+            if let Some(vert) = mesh.get_vertex_mut(self.region_of_interest[i]) {
+                vert.set_position(point);
+            }
+        }
+    
+        for i in 0..self.handle.len() {
+            if let Some(vert) = mesh.get_vertex_mut(self.handle[i]) {
+                vert.set_position(handle_transformed[i]);
+            }
+        }
     }
 }
 
@@ -65,10 +83,8 @@ pub fn deform(
 // 2. CSE 554 Lecture 8: Laplacian Deformation
 //    https://www.cse.wustl.edu/~taoju/cse554/lectures/lect08_Deformation.pdf
 
-type CMatrix = na::OMatrix<f64, na::Dyn, na::U7>;
-
-fn c_mat(vertex_and_neighbors: &Vec<Vec3d>) -> CMatrix {
-    let mut a_mat = CMatrix::zeros(vertex_and_neighbors.len() * 3);
+fn c_mat(vertex_and_neighbors: &Vec<Vec3d>) -> na::OMatrix<f64, na::Dyn, na::U7> {
+    let mut a_mat = na::OMatrix::<f64, na::Dyn, na::U7>::zeros(vertex_and_neighbors.len() * 3);
 
     for i in 0..vertex_and_neighbors.len() {
         let first_row = i * 3;
