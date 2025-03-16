@@ -1,5 +1,5 @@
-use nalgebra::ClosedDiv;
-use num_traits::{NumCast, Float};
+use simba::scalar::ClosedDiv;
+use num_traits::{Float, FloatConst, NumCast};
 
 use crate::helpers::aliases::Vec3;
 
@@ -8,8 +8,8 @@ use super::primitives::{box3::Box3, triangle3::Triangle3, plane3::Plane3};
 pub trait Number: nalgebra_glm::Number + NumCast + ClosedDiv {}
 impl<T> Number for T where T: nalgebra_glm::Number + NumCast + ClosedDiv {}
 
-pub trait RealNumber: nalgebra_glm::RealNumber + Float {}
-impl<T> RealNumber for T where T: nalgebra_glm::RealNumber + Float {}
+pub trait RealNumber: nalgebra_glm::RealNumber + Float + FloatConst {}
+impl<T> RealNumber for T where T: nalgebra_glm::RealNumber + Float + FloatConst {}
 
 pub trait HasScalarType {
     type ScalarType: Number;

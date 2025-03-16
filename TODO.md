@@ -3,6 +3,10 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Refactor mesh property maps
+- [ ] Always use f64
+- [ ] Impl index by vert/face/edge for corner table
+
 - [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings

@@ -12,4 +12,7 @@ pub mod exports {
     pub use nalgebra as nalgebra;
 }
 
+mod deformation;
 mod helpers;
+
+pub use deformation::deform;
