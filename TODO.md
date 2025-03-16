@@ -6,6 +6,7 @@
 - [ ] Refactor mesh property maps
 - [ ] Always use f64
 - [ ] Impl index by vert/face/edge for corner table
+- [ ] `vertices_around_vertex` - return control flow
 
 - [ ] Add lightweighting to README
 - [ ] Prelude module

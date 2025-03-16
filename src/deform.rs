@@ -1,49 +1,73 @@
 use crate::{helpers::aliases::Vec3d, mesh::corner_table::prelude::CornerTableD, mesh::traits::*};
-use faer::{linalg::solvers::{ShapeCore, Solve}, sparse as sp};
+use faer::{
+    linalg::solvers::{ShapeCore, Solve},
+    sparse as sp,
+};
 use nalgebra as na;
 use std::collections::{HashMap, HashSet};
 
-pub struct Deform;
-
-impl Deform {
-    pub fn prepare(
-        mesh: &CornerTableD,
-        handle: &HashSet<usize>,
-        region_of_interest: &HashSet<usize>
-    ) -> PreparedDeform {
-        let handle = Vec::from_iter(handle.iter().copied());
-        let region_of_interest = Vec::from_iter(region_of_interest.iter().copied());
-
-        let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
-
-        for vert in &region_of_interest {
-            vertex_to_col.insert(*vert, vertex_to_col.len());
-        }
-
-        for vert in &handle {
-            vertex_to_col.insert(*vert, vertex_to_col.len());
-        }
-
-        let num_distortion_equations = region_of_interest.len() * 3;
-        let num_fitting_equations = handle.len() * 3;
-        let num_equations = num_distortion_equations + num_fitting_equations;
-
-        let mut coeffs = Vec::with_capacity(num_equations);
-        compute_distortion_term_coeffs(mesh, &region_of_interest, &vertex_to_col, &mut coeffs);
-        compute_fitting_term_coeffs(handle.len(), num_distortion_equations, &mut coeffs);
-
-        // Ax = b
-        let a_mat = sp::SparseColMat::try_new_from_triplets(num_equations, num_equations, &coeffs).unwrap(); // TODO: handle error
-        let factorization = a_mat.sp_qr().unwrap();
-
-        PreparedDeform {
-            factorization,
-            handle,
-            region_of_interest,
-        }
-    }
+#[derive(Debug)]
+pub enum DeformError {
+    InvalidHandle,
+    InvalidRegionOfInterest,
+    InternalError(&'static str),
 }
 
+pub fn prepare_deform(
+    mesh: &CornerTableD,
+    handle: &HashSet<usize>,
+    region_of_interest: &HashSet<usize>,
+) -> Result<PreparedDeform, DeformError> {
+    if handle.is_empty() {
+        return Err(DeformError::InvalidHandle);
+    }
+
+    if region_of_interest.is_empty() {
+        return Err(DeformError::InvalidRegionOfInterest);
+    }
+
+    // TODO: should we remove vertices from the handle that do not border with roi?
+    if !handle_borders_with_roi(mesh, handle, region_of_interest) {
+        return Err(DeformError::InvalidHandle);
+    }
+
+    let handle = Vec::from_iter(handle.iter().copied());
+    let region_of_interest = Vec::from_iter(region_of_interest.iter().copied());
+
+    let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
+
+    for vert in &region_of_interest {
+        vertex_to_col.insert(*vert, vertex_to_col.len());
+    }
+
+    for vert in &handle {
+        vertex_to_col.insert(*vert, vertex_to_col.len());
+    }
+
+    let num_distortion_equations = region_of_interest.len() * 3;
+    let num_fitting_equations = handle.len() * 3;
+    let num_equations = num_distortion_equations + num_fitting_equations;
+
+    let mut coeffs = Vec::with_capacity(num_equations);
+    compute_distortion_term_coeffs(mesh, &region_of_interest, &vertex_to_col, &mut coeffs);
+    compute_fitting_term_coeffs(handle.len(), num_distortion_equations, &mut coeffs);
+
+    // Ax = b
+    let Ok(a_mat) = sp::SparseColMat::try_new_from_triplets(num_equations, num_equations, &coeffs) else {
+        return Err(DeformError::InternalError("failed to create sparse matrix"));
+    };
+    let Ok(factorization) = a_mat.sp_qr() else {
+        return Err(DeformError::InternalError("failed to factorize matrix"));
+    };
+
+    Ok(PreparedDeform {
+        factorization,
+        handle,
+        region_of_interest,
+    })
+}
+
+#[derive(Debug)]
 pub struct PreparedDeform {
     factorization: faer::sparse::linalg::solvers::Qr<usize, f64>,
     handle: Vec<usize>,
@@ -52,29 +76,60 @@ pub struct PreparedDeform {
 
 impl PreparedDeform {
     pub fn deform(&self, mesh: &mut CornerTableD, transform: na::Matrix4<f64>) {
-        let handle_transformed = self.handle.iter().map(|vertex| {
-            let position = *mesh.vertex_position(vertex);
-            transform.transform_point(&position.into()).coords
-        }).collect::<Vec<_>>();
+        let handle_transformed = self
+            .handle
+            .iter()
+            .map(|vertex| {
+                let position = *mesh.vertex_position(vertex);
+                transform.transform_point(&position.into()).coords
+            })
+            .collect::<Vec<_>>();
 
         // Ax = b
-        let b = compute_b_vec(self.factorization.nrows(), self.region_of_interest.len() * 3, &handle_transformed);
-        let solution = self.factorization.solve(&b);
-    
+        let b_vec = compute_b_vec(
+            self.factorization.nrows(),
+            self.region_of_interest.len() * 3,
+            &handle_transformed,
+        );
+        let solution = self.factorization.solve(&b_vec);
+
         for i in 0..self.region_of_interest.len() {
             let point = Vec3d::new(solution[i * 3], solution[i * 3 + 1], solution[i * 3 + 2]);
-            
+
             if let Some(vert) = mesh.get_vertex_mut(self.region_of_interest[i]) {
                 vert.set_position(point);
             }
         }
-    
+
         for i in 0..self.handle.len() {
             if let Some(vert) = mesh.get_vertex_mut(self.handle[i]) {
                 vert.set_position(handle_transformed[i]);
             }
         }
     }
+}
+
+/// Remove vertices from the handle that are not significant.
+/// If vertex does not border with a vertex in the region of interest it will not compute the distortion term.
+fn handle_borders_with_roi(
+    mesh: &CornerTableD,
+    handle: &HashSet<usize>,
+    roi: &HashSet<usize>,
+) -> bool {
+    for &handle_vert in handle {
+        let mut is_significant = false;
+        mesh.vertices_around_vertex(&handle_vert, |neighbor| {
+            if roi.contains(neighbor) {
+                is_significant = true;
+            }
+        });
+
+        if is_significant {
+            return true;
+        }
+    }
+
+    false
 }
 
 // References:

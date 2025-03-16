@@ -9,11 +9,6 @@ use std::{collections::HashSet, path::Path};
 fn main() {
     let mut cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 20);
 
-    let writer = StlWriter::new();
-    writer
-        .write_stl_to_file(&cylinder, Path::new("cylinder_orig.stl"))
-        .unwrap();
-
     let transform = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 5.0));
     let handle = &HashSet::from_iter(
         cylinder
@@ -25,9 +20,11 @@ fn main() {
             cylinder.vertex_position(v).y != 0.0 && cylinder.vertex_position(v).y != 10.0
         }));
 
-    Deform::prepare(&cylinder, handle, roi).deform(&mut cylinder, transform);
+    prepare_deform(&cylinder, handle, roi)
+        .expect("failed to prepare deform")
+        .deform(&mut cylinder, transform);
 
-    writer
+    StlWriter::new()
         .write_stl_to_file(&cylinder, Path::new("cylinder.stl"))
         .unwrap();
 }

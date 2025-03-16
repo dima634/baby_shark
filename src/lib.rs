@@ -15,4 +15,4 @@ pub mod exports {
 mod deform;
 mod helpers;
 
-pub use deform::{Deform, PreparedDeform};
+pub use deform::{prepare_deform, PreparedDeform};
