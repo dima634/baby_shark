@@ -15,4 +15,8 @@ pub mod exports {
 mod deform;
 mod helpers;
 
-pub use deform::{prepare_deform, PreparedDeform};
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+
+pub use deform::*;
+pub use mesh::region::extend_region;

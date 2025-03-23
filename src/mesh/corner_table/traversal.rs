@@ -321,6 +321,12 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableFacesIter<'a, TScalar> {
             None => None,
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.table.corners.len() / 3;
+        (0, Some(size))
+    }
 }
 
 ///
