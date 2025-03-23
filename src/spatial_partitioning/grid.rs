@@ -249,7 +249,7 @@ mod tests {
     fn test_grid_creation_zero_volume_cases() {
         let expected_cell_size = Vec3f::new(0.793700516, 0.793700516, 0.793700516);
 
-        let x_0 = CornerTableF::from_vertices_and_indices(
+        let x_0 = CornerTableF::from_slices(
             &vec![
                 Vec3f::new(0.0, 0.0, 0.0),
                 Vec3f::new(0.0, 1.0, 0.0),
@@ -262,7 +262,7 @@ mod tests {
         let grid = Grid::from_mesh(&x_0);
         assert!((expected_cell_size - grid.cell_size).norm() < 1e-6);
 
-        let y_0 = CornerTableF::from_vertices_and_indices(
+        let y_0 = CornerTableF::from_slices(
             &vec![
                 Vec3f::new(0.0, 0.0, 0.0),
                 Vec3f::new(1.0, 0.0, 0.0),
@@ -275,7 +275,7 @@ mod tests {
         let grid = Grid::from_mesh(&y_0);
         assert!((expected_cell_size - grid.cell_size).norm() < 1e-6);
 
-        let z_0 = CornerTableF::from_vertices_and_indices(
+        let z_0 = CornerTableF::from_slices(
             &vec![
                 Vec3f::new(0.0, 0.0, 0.0),
                 Vec3f::new(1.0, 0.0, 0.0),
