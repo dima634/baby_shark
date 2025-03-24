@@ -25,6 +25,7 @@ pub struct CornerTable<TScalar: RealNumber> {
 }
 
 impl<TScalar: RealNumber> Default for CornerTable<TScalar> {
+    #[inline]
     fn default() -> Self {
         Self { 
             vertices: Vec::new(), 
@@ -37,6 +38,14 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     #[inline]
     pub fn new() -> Self {
         Default::default()
+    }
+
+    #[inline]
+    pub fn with_capacity(num_vertices: usize, num_faces: usize) -> Self {
+        Self {
+            vertices: Vec::with_capacity(num_vertices),
+            corners: Vec::with_capacity(num_faces * 3)
+        }
     }
 
     #[inline]
@@ -152,31 +161,31 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self {
-        assert!(faces.len() % 3 == 0, "Invalid number of face indices: {}", faces.len());
+    fn from_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, mut faces: impl Iterator<Item = usize>) -> Self {
+        let num_faces = faces.size_hint().1.unwrap_or(0);
+        let num_vertices = vertices.size_hint().1.unwrap_or(0);
+        let mut corner_table = Self::with_capacity(num_vertices, num_faces);
 
-        let mut edge_opposite_corner_map = HashMap::<helpers::Edge, usize>::new();
-        let mut corner_table = Self::new();
-
-        for vertex_index in 0..vertices.len() {
-            let v_position = vertices.get(vertex_index).unwrap();
+        for vert in vertices {
             let vertex = corner_table.create_vertex();
-            vertex.set_position(*v_position);
+            vertex.set_position(vert);
         }
 
-        for face_idx in (0..faces.len() - 1).step_by(3) {
-            let v1_index = faces[face_idx];
-            let v2_index = faces[face_idx + 1];
-            let v3_index = faces[face_idx + 2];
+        let mut edge_opposite_corner_map = HashMap::<helpers::Edge, usize>::new();
+
+        loop {
+            let Some(v1_index) = faces.next() else { break; };
+            let Some(v2_index) = faces.next() else { break; };
+            let Some(v3_index) = faces.next() else { break; };
 
             let edge1 = Edge::new(v2_index, v3_index);
             let edge2 = Edge::new(v3_index, v1_index);
             let edge3 = Edge::new(v1_index, v2_index);
 
-            // If edge already exist in map then it is non manifold. For now we will skip faces that introduces non-manifoldness.
-            if edge_opposite_corner_map.contains_key(&edge1) ||
-               edge_opposite_corner_map.contains_key(&edge2) ||
-               edge_opposite_corner_map.contains_key(&edge3) 
+            // If edge already exist in map then it is non manifold. For now we will skip faces that introduce non-manifoldness.
+            if edge_opposite_corner_map.contains_key(&edge1)
+               || edge_opposite_corner_map.contains_key(&edge2) 
+               || edge_opposite_corner_map.contains_key(&edge3) 
             {
                 continue;        
             }
@@ -401,7 +410,7 @@ mod tests {
 
     #[test]
     fn should_remove_face_that_introduces_non_manifold_edge() {
-        let mesh = CornerTableF::from_vertices_and_indices(&[
+        let mesh = CornerTableF::from_slices(&[
             Vec3::new(0.0, 1.0, 0.0),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(1.0, 0.0, 0.0),
