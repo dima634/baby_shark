@@ -7,20 +7,26 @@ use nalgebra as na;
 use std::{collections::HashSet, path::Path};
 
 fn main() {
-    let mut cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 20);
+    let mut cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 3);
 
-    let transform = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 5.0));
-    let handle = &HashSet::from_iter(
+    let transform = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 3.0));
+    let handle = HashSet::from_iter(
         cylinder
             .vertices()
             .filter(|v| cylinder.vertex_position(v).y == 10.0),
     );
     let roi =
-        &HashSet::from_iter(cylinder.vertices().filter(|v| {
+        HashSet::from_iter(cylinder.vertices().filter(|v| {
             cylinder.vertex_position(v).y != 0.0 && cylinder.vertex_position(v).y != 10.0
         }));
 
-    prepare_deform(&cylinder, handle, roi)
+    let anchor = HashSet::from_iter(
+        cylinder
+            .vertices()
+            .filter(|v| cylinder.vertex_position(v).y == 0.0),
+    );
+
+    prepare_deform(&cylinder, &handle, &roi, &anchor)
         .expect("failed to prepare deform")
         .deform(&mut cylinder, transform);
 

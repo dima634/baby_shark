@@ -17,6 +17,7 @@ pub fn prepare_deform(
     mesh: &CornerTableD,
     handle: &HashSet<usize>,
     region_of_interest: &HashSet<usize>,
+    anchor: &HashSet<usize>,
 ) -> Result<PreparedDeform, DeformError> {
     if handle.is_empty() {
         return Err(DeformError::InvalidHandle);
@@ -33,8 +34,9 @@ pub fn prepare_deform(
 
     let handle = Vec::from_iter(handle.iter().copied());
     let region_of_interest = Vec::from_iter(region_of_interest.iter().copied());
+    let anchor = Vec::from_iter(anchor.iter().copied());
 
-    let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
+    let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len() + anchor.len());
 
     for vert in &region_of_interest {
         vertex_to_col.insert(*vert, vertex_to_col.len());
@@ -44,18 +46,27 @@ pub fn prepare_deform(
         vertex_to_col.insert(*vert, vertex_to_col.len());
     }
 
+    for vert in &anchor {
+        vertex_to_col.insert(*vert, vertex_to_col.len());
+    }
+
     let num_distortion_equations = region_of_interest.len() * 3;
-    let num_fitting_equations = handle.len() * 3;
+    let num_fitting_equations = (handle.len() + anchor.len()) * 3;
     let num_equations = num_distortion_equations + num_fitting_equations;
 
     let mut coeffs = Vec::with_capacity(num_equations);
     compute_distortion_term_coeffs(mesh, &region_of_interest, &vertex_to_col, &mut coeffs);
-    compute_fitting_term_coeffs(handle.len(), num_distortion_equations, &mut coeffs);
+    compute_fitting_term_coeffs(handle.len() + anchor.len(), num_distortion_equations, &mut coeffs);
 
     // Ax = b
     let Ok(a_mat) = sp::SparseColMat::try_new_from_triplets(num_equations, num_equations, &coeffs) else {
         return Err(DeformError::InternalError("failed to create sparse matrix"));
     };
+
+    for row in a_mat.to_dense().row_iter() {
+        println!("{:+.2?}", row);
+    }
+
     let Ok(factorization) = a_mat.sp_qr() else {
         return Err(DeformError::InternalError("failed to factorize matrix"));
     };
@@ -64,6 +75,7 @@ pub fn prepare_deform(
         factorization,
         handle,
         region_of_interest,
+        anchor,
     })
 }
 
@@ -72,6 +84,7 @@ pub struct PreparedDeform {
     factorization: faer::sparse::linalg::solvers::Qr<usize, f64>,
     handle: Vec<usize>,
     region_of_interest: Vec<usize>,
+    anchor: Vec<usize>,
 }
 
 impl PreparedDeform {
@@ -85,13 +98,24 @@ impl PreparedDeform {
             })
             .collect::<Vec<_>>();
 
+        let anchor_positions: Vec<_> = self
+            .anchor
+            .iter()
+            .map(|vertex| *mesh.vertex_position(vertex))
+            .collect();
+
         // Ax = b
         let b_vec = compute_b_vec(
             self.factorization.nrows(),
             self.region_of_interest.len() * 3,
             &handle_transformed,
+            &anchor_positions,
         );
         let solution = self.factorization.solve(&b_vec);
+
+        println!("B = {:?}", b_vec);
+
+        println!("{solution:?}");
 
         for i in 0..self.region_of_interest.len() {
             let point = Vec3d::new(solution[i * 3], solution[i * 3 + 1], solution[i * 3 + 2]);
@@ -300,17 +324,26 @@ fn compute_b_vec(
     num_equations: usize,
     num_distortion_equations: usize,
     handle_final: &Vec<Vec3d>,
+    anchor: &Vec<Vec3d>,
 ) -> faer::Col<f64> {
     let mut b = faer::Col::zeros(num_equations);
     let mut handle_idx = 0;
 
-    for row in (num_distortion_equations..num_equations).step_by(3) {
+    for row in (num_distortion_equations..num_distortion_equations + handle_final.len() * 3).step_by(3) {
         let transformed = &handle_final[handle_idx];
         b[row + 0] = transformed.x;
         b[row + 1] = transformed.y;
         b[row + 2] = transformed.z;
 
         handle_idx += 1;
+    }
+
+    let mut anchor_idx = 0;
+    for row in (num_distortion_equations + handle_final.len() * 3..num_equations).step_by(3) {
+        b[row + 0] = anchor[anchor_idx].x;
+        b[row + 1] = anchor[anchor_idx].y;
+        b[row + 2] = anchor[anchor_idx].z;
+        anchor_idx += 1;
     }
 
     b

@@ -8,17 +8,26 @@ pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<usize>, ri
     }
 
     // (vertex_id, depth)
-    let mut stack = Vec::from_iter(vertex_region.iter().map(|vert| (*vert, 0)));
+    let mut current_ring = Vec::from_iter(vertex_region.iter().map(|vert| (*vert, 0)));
+    let mut next_ring = Vec::new();
 
-    while let Some((vertex, depth)) = stack.pop() {
-        if depth >= rings {
-            continue;
+    loop {
+        while let Some((vertex, depth)) = current_ring.pop() {
+            if depth >= rings {
+                continue;
+            }
+
+            mesh.vertices_around_vertex(&vertex, |&neighbor| {
+                if vertex_region.insert(neighbor) {
+                    next_ring.push((neighbor, depth + 1));
+                }
+            });
         }
 
-        mesh.vertices_around_vertex(&vertex, |&neighbor| {
-            if vertex_region.insert(neighbor) {
-                stack.push((neighbor, depth + 1));
-            }
-        });
+        if next_ring.is_empty() {
+            break;
+        }
+
+        std::mem::swap(&mut current_ring, &mut next_ring);
     }
 }
