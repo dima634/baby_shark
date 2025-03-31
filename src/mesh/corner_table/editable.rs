@@ -20,7 +20,7 @@ fn set_corner_for_wing_vertex<TScalar: RealNumber>(
     } else if let Some(corner) = opposite_corner_right {
         corner_table.vertices[vertex_index].set_corner_index(corner::next(corner));
     } else {
-        corner_table.vertices[vertex_index].set_deleted(true);
+        corner_table.vertices[vertex_index].set_deleted(true); // What is vertex is not manifold?
     }
 }
 
@@ -32,10 +32,12 @@ fn make_corners_opposite<TScalar: RealNumber>(
     c2: Option<usize>
 ) {
     if let Some(c1_idx) = c1 {
+        debug_assert!(!corner_table.corners[c1_idx].is_deleted());
         corner_table.corners[c1_idx].set_opposite_corner_index(c2);
     }
     
     if let Some(c2_idx) = c2 {
+        debug_assert!(!corner_table.corners[c2_idx].is_deleted());
         corner_table.corners[c2_idx].set_opposite_corner_index(c1);
     }
 }
@@ -164,8 +166,9 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
         let mut c6_idx = None;
         let mut c13_idx = None;
 
-        // If not boundary edge
-        if walker.get_corner().get_opposite_corner_index().is_some() {
+        let is_boundary_edge = walker.get_corner().get_opposite_corner_index().is_none();
+    
+        if !is_boundary_edge {
             let c9_idx = walker.opposite().get_corner_index();
             let v3_idx = walker.get_corner().get_vertex_index();
 
@@ -175,34 +178,38 @@ impl<TScalar: RealNumber> EditableMesh for CornerTable<TScalar> {
             let c11_idx = walker.next().get_corner_index();
             c13_idx = walker.get_corner().get_opposite_corner_index();
 
+            // Update vertex for corners around removed one
+            for corner_index in collect_corners_around_vertex(self, v9_idx) {
+                self.corners[corner_index].set_vertex_index(v8_idx);
+            }
+            
             // Make sure vertices are not referencing deleted corners
             set_corner_for_wing_vertex(self, v3_idx, c13_idx, c6_idx);
 
             // Delete face
-            self.get_corner_mut(c9_idx).unwrap().set_deleted(true);
-            self.get_corner_mut(c10_idx).unwrap().set_deleted(true);
-            self.get_corner_mut(c11_idx).unwrap().set_deleted(true);
+            self.corners[c9_idx].set_deleted(true);
+            self.corners[c10_idx].set_deleted(true);
+            self.corners[c11_idx].set_deleted(true);
+        } else {
+            // Update vertex for corners around removed one
+            for corner_index in collect_corners_around_vertex(self, v9_idx) {
+                self.corners[corner_index].set_vertex_index(v8_idx);
+            }
         }
-
         // Make sure vertices are not referencing deleted corners
         set_corner_for_wing_vertex(self, v7_idx, c28_idx, c21_idx);
 
         // Delete face
-        self.get_corner_mut(c24_idx).unwrap().set_deleted(true);
-        self.get_corner_mut(c25_idx).unwrap().set_deleted(true);
-        self.get_corner_mut(c26_idx).unwrap().set_deleted(true);
+        self.corners[c24_idx].set_deleted(true);
+        self.corners[c25_idx].set_deleted(true);
+        self.corners[c26_idx].set_deleted(true);
 
         // Remove vertex on edge end
-        let v9 = self.get_vertex_mut(v9_idx).unwrap();
-        v9.set_deleted(true);
+        self.vertices[v9_idx].set_deleted(true);
 
-        // Update vertex for corners around removed one
-        for corner_index in collect_corners_around_vertex(self, v9_idx) {
-            self.get_corner_mut(corner_index).unwrap().set_vertex_index(v8_idx);
-        }
 
         // Shift vertex on other side of edge
-        self.get_vertex_mut(v8_idx).unwrap().set_position(*at);
+        self.vertices[v8_idx].set_position(*at);
         set_corner_for_wing_vertex(self, v8_idx, c6_idx.or(c21_idx), c28_idx.or(c13_idx));
 
         // Setup new opposites

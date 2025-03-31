@@ -140,6 +140,8 @@ pub trait TopologicalMesh: Mesh + Sized{
 
     /// Returns edges of face
     fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor);
+
+    fn validate_topology(&self) -> bool;
 }
 
 ///

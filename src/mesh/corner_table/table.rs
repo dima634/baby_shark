@@ -14,7 +14,8 @@ use super::{
     }, 
     connectivity::{
         corner::{Corner, first_corner_from_corner}, 
-        vertex::Vertex
+        vertex::Vertex,
+        traits::Flags,
     }, 
     marker::CornerTableMarker, descriptors::EdgeRef
 };
@@ -256,6 +257,49 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     type Position<'a> = CornerWalker<'a, TScalar>;
     
+    fn validate_topology(&self) -> bool {
+        for corner_idx in 0..self.corners.len() {
+            let corner = &self.corners[corner_idx];
+
+            if corner.is_deleted() {
+                continue;
+            }
+
+            if !self.vertices[corner.get_vertex_index()].is_deleted() {
+                return false;
+            }
+
+            if let Some(opp_idx) = corner.get_opposite_corner_index() {
+                let opposite = &self.corners[opp_idx];
+                let valid = opposite.get_vertex_index() != corner.get_vertex_index()
+                    && opp_idx != corner_idx
+                    && !opposite.is_deleted()
+                    && opposite.get_opposite_corner_index() == Some(corner_idx);
+                    
+                if !valid {
+                    return false;
+                }
+            }
+        }
+
+        for vertex_idx in 0..self.vertices.len() {
+            let vertex = &self.vertices[vertex_idx];
+
+            if vertex.is_deleted() {
+                continue;
+            }
+
+            let corner = &self.corners[vertex.get_corner_index()];
+            let valid = !corner.is_deleted() && corner.get_vertex_index() == vertex_idx;
+
+            if !valid {
+                return false;
+            }
+        }
+
+        true
+    }
+
     #[inline]
     fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
         vertices_around_vertex(self, *vertex, visit);
