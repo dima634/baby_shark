@@ -12,13 +12,7 @@ fn main() {
         .read_stl_from_file(Path::new("./assets/bunny.stl"))
         .expect("Read mesh from STL");
 
-    let remesher = IncrementalRemesher::new()
-        .with_iterations_count(5)
-        .with_split_edges(true)
-        .with_collapse_edges(true)
-        .with_flip_edges(true)
-        .with_shift_vertices(true)
-        .with_project_vertices(true);
+    let remesher = IncrementalRemesher::default().with_iterations_count(5);
 
     let now = std::time::Instant::now();
     remesher.remesh(&mut mesh, 0.5f32);

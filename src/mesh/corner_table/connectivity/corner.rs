@@ -11,7 +11,7 @@ use tabled::Tabled;
 #[derive(Tabled)]
 pub struct Corner {
     #[tabled(display_with = "display_option")]
-    opposite_corner_index: Option<usize>,
+    opposite_corner_index: Option<usize>, // TODO: use usize::MAX as invalid value
     vertex_index: usize,
 
     #[tabled(display_with = "display_refcell")]
