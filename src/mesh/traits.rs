@@ -33,7 +33,7 @@ pub trait Mesh {
     type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor> where Self: 'iter;
 
     /// Creates mesh from vertices and face indices
-    fn from_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, faces: impl Iterator<Item = usize>) -> Self;
+    fn from_vertex_and_face_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, faces: impl Iterator<Item = usize>) -> Self;
 
     /// Iterator over mesh faces
     fn faces(&self) -> Self::FacesIter<'_>;
@@ -56,8 +56,8 @@ pub trait Mesh {
 
     /// Creates mesh from vertices and face indices saved in slices
     #[inline]
-    fn from_slices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self where Self: Sized {
-        Self::from_iters(vertices.iter().cloned(), faces.iter().cloned())
+    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self where Self: Sized {
+        Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
     }
 
     /// Returns positions of face vertices in ccw order

@@ -162,7 +162,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
 
-    fn from_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, mut faces: impl Iterator<Item = usize>) -> Self {
+    fn from_vertex_and_face_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, mut faces: impl Iterator<Item = usize>) -> Self {
         let num_faces = faces.size_hint().1.unwrap_or(0);
         let num_vertices = vertices.size_hint().1.unwrap_or(0);
         let mut corner_table = Self::with_capacity(num_vertices, num_faces);
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn should_remove_face_that_introduces_non_manifold_edge() {
-        let mesh = CornerTableF::from_slices(&[
+        let mesh = CornerTableF::from_vertex_and_face_slices(&[
             Vec3::new(0.0, 1.0, 0.0),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(1.0, 0.0, 0.0),

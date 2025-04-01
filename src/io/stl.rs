@@ -74,7 +74,7 @@ impl StlReader {
                 .collect();
         
         // Create mesh
-        Ok(TMesh::from_slices(&vertices, &merged_vertices.indices))
+        Ok(TMesh::from_vertex_and_face_slices(&vertices, &merged_vertices.indices))
     }
 
     fn read_face<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<()> {

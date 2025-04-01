@@ -24,5 +24,5 @@ pub fn cube<T: Mesh>(origin: Vec3<T::ScalarType>, x_size: T::ScalarType, y_size:
         1, 5, 6, 1, 6, 2
     ];
 
-    T::from_slices(&vertices, &faces)
+    T::from_vertex_and_face_slices(&vertices, &faces)
 }
