@@ -74,8 +74,7 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
 impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.corner_index  == other.corner_index && 
-            self.position      == other.position
+        self.corner_index == other.corner_index && self.position == other.position
     }
 }
 impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}

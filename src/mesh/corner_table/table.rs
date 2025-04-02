@@ -110,7 +110,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     fn corner_from(
         &mut self,
         edge_opposite_corner_map: &mut HashMap<Edge, usize>,
-        mut edge: Edge,
+        edge: Edge,
         vertex_index: usize
     ) {
         let corner_index = self.corners.len();
@@ -118,9 +118,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         corner.set_vertex_index(vertex_index);
 
         // Find opposite corner
-        edge.flip();
-        let opposite_corner_index = edge_opposite_corner_map.get(&edge);
-        edge.flip();
+        let opposite_corner_index = edge_opposite_corner_map.get(&edge.flipped());
 
         if let Some(opposite_corner_index) = opposite_corner_index {
             // Set opposite for corners
@@ -194,6 +192,13 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             corner_table.corner_from(&mut edge_opposite_corner_map, edge1, v1_index);
             corner_table.corner_from(&mut edge_opposite_corner_map, edge2, v2_index);
             corner_table.corner_from(&mut edge_opposite_corner_map, edge3, v3_index);
+        }
+
+        // Delete isolated vertices
+        for vertex in &mut corner_table.vertices {
+            if vertex.get_corner_index() == usize::MAX {
+                vertex.set_deleted(true);
+            }
         }
 
         corner_table
@@ -411,8 +416,11 @@ pub mod helpers {
         }
 
         #[inline]
-        pub fn flip(&mut self) {
-            swap(&mut self.start_vertex, &mut self.end_vertex);
+        pub fn flipped(&self) -> Self {
+            Self {
+                start_vertex: self.end_vertex,
+                end_vertex: self.start_vertex,
+            }
         }
     }
 }
