@@ -20,7 +20,7 @@ pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(
 
     // Count common vertices of edge vertices
     let (e_start, e_end) = mesh.edge_vertices(edge);
-    let mut e_start_neighbors = BTreeSet::new();
+    let mut e_start_neighbors = BTreeSet::new(); // TODO: nested loop
     mesh.vertices_around_vertex(&e_start, |vertex| {
         e_start_neighbors.insert(*vertex);
     });

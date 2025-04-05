@@ -155,16 +155,14 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
         // Perform laplacian smoothing for each vertex
         for vertex in vertices {
-            let vertex_normal = mesh.vertex_normal(&vertex);
-
-            if vertex_normal.is_none() {
+            let Some(vertex_normal) = mesh.vertex_normal(&vertex) else {
                 continue;
-            }
+            };
 
             let vertex_position = mesh.vertex_position(&vertex);
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(v)));
-            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal.unwrap()); 
+            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal); 
 
             let shift_vertex = 
                 !(self.keep_boundary && mesh.is_vertex_on_boundary(&vertex)) &&
