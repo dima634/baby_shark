@@ -169,10 +169,10 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
             // Duplicate vertex for each "corner fan"
             while let Some(corner_idx) = corners.pop_first() {
-                let vertex_id = corner_table.create_vertex(Some(corner_idx), vertex_pos);
+                let duplicate_vertex = corner_table.create_vertex(Some(corner_idx), vertex_pos);
 
-                for adj_corner in collect_corners_around_vertex(&corner_table, vertex_id) {
-                    corner_table[adj_corner].set_vertex(vertex_id);
+                for adj_corner in collect_corners_around_vertex(&corner_table, duplicate_vertex) {
+                    corner_table[adj_corner].set_vertex(duplicate_vertex);
                     corners.remove(&adj_corner);
                 }
             }
