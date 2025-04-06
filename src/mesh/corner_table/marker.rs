@@ -1,6 +1,5 @@
 use crate::{geometry::traits::RealNumber, mesh::traits::{Marker, Mesh}};
-
-use super::{table::CornerTable, connectivity::{traits::Flags, corner}};
+use super::{CornerTable, traits::Flags};
 
 /// Implementation of [Marker] API for [CornerTable] 
 pub struct CornerTableMarker<TScalar: RealNumber> {
@@ -21,14 +20,14 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
 
     #[inline]
     fn mark_face(&mut self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor, marked: bool) {
-        let first_corner = corner::first_corner_from_corner(*face);
-        unsafe { (*self.corner_table).corners[first_corner].set_marked_1(marked); }
+        let first_corner = face.corner();
+        unsafe { (*self.corner_table)[first_corner].set_marked_1(marked); }
     }
 
     #[inline]
     fn is_face_marked(&self, face: &<CornerTable<TScalar> as Mesh>::FaceDescriptor) -> bool {
-        let first_corner = corner::first_corner_from_corner(*face);
-        unsafe { (*self.corner_table).corners[first_corner].is_marked_1()}
+        let first_corner = face.corner();
+        unsafe { (*self.corner_table)[first_corner].is_marked_1()}
     }
 
     //
@@ -37,12 +36,12 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
 
     #[inline]
     fn mark_vertex(&mut self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor, marked: bool) {
-        unsafe { (*self.corner_table).vertices[*vertex].set_marked_1(marked); }
+        unsafe { (*self.corner_table)[*vertex].set_marked_1(marked); }
     }
 
     #[inline]
     fn is_vertex_marked(&self, vertex: &<CornerTable<TScalar> as Mesh>::VertexDescriptor) -> bool {
-        unsafe { (*self.corner_table).vertices[*vertex].is_marked_1()}
+        unsafe { (*self.corner_table)[*vertex].is_marked_1()}
     }
 
     //
@@ -52,17 +51,17 @@ impl<TScalar: RealNumber> Marker<CornerTable<TScalar>> for CornerTableMarker<TSc
     #[inline]
     fn mark_edge(&mut self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor, marked: bool)  {
         unsafe { 
-            let corner = &(*self.corner_table).corners[edge.get_corner_index()];
+            let corner = &(*self.corner_table)[edge.corner()];
             corner.set_marked_2(marked);
     
-            if let Some(opposite) = corner.get_opposite_corner_index() {
-                (*self.corner_table).corners[opposite].set_marked_2(marked); 
+            if let Some(opposite) = corner.opposite_corner() {
+                (*self.corner_table)[opposite].set_marked_2(marked); 
             }
         }
     }
 
     #[inline]
     fn is_edge_marked(&self, edge: &<CornerTable<TScalar> as Mesh>::EdgeDescriptor) -> bool {
-        unsafe { (*self.corner_table).corners[edge.get_corner_index()].is_marked_2()}
+        unsafe { (*self.corner_table)[edge.corner()].is_marked_2()}
     }
 }
