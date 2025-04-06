@@ -1,33 +1,17 @@
 use self::helpers::Edge;
 use super::{
-    connectivity::{
-        corner::{first_corner_from_corner, Corner},
-        traits::Flags,
-        vertex::Vertex,
-    },
-    descriptors::EdgeRef,
-    marker::CornerTableMarker,
-    traversal::{
+    corner::{first_corner_from_corner, Corner}, descriptors::EdgeRef, marker::CornerTableMarker, traits::Flags, traversal::{
         collect_corners_around_vertex, corners_around_vertex, edges_around_vertex,
         faces_around_vertex, vertices_around_vertex, CornerTableEdgesIter, CornerTableFacesIter,
         CornerTableVerticesIter, CornerWalker,
-    },
+    }, vertex::{Vertex, VertexId}, CornerTable
 };
 use crate::{
     geometry::traits::RealNumber,
     helpers::aliases::Vec3,
     mesh::traits::{Mesh, MeshMarker, TopologicalMesh},
 };
-use std::{
-    collections::{BTreeSet, HashMap},
-    fmt::Display,
-};
-use tabled::Table;
-
-pub struct CornerTable<TScalar: RealNumber> {
-    pub(super) vertices: Vec<Vertex<TScalar>>,
-    pub(super) corners: Vec<Corner>,
-}
+use std::collections::{BTreeSet, HashMap};
 
 impl<TScalar: RealNumber> Default for CornerTable<TScalar> {
     #[inline]
@@ -54,16 +38,6 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 
     #[inline]
-    pub fn get_vertex(&self, vertex_index: usize) -> Option<&Vertex<TScalar>> {
-        self.vertices.get(vertex_index)
-    }
-
-    #[inline]
-    pub fn get_vertex_mut(&mut self, vertex_index: usize) -> Option<&mut Vertex<TScalar>> {
-        self.vertices.get_mut(vertex_index)
-    }
-
-    #[inline]
     pub fn get_corner(&self, corner_index: usize) -> Option<&Corner> {
         self.corners.get(corner_index)
     }
@@ -83,23 +57,23 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
     /// Create new isolated vertex
     #[inline]
-    pub fn create_vertex(&mut self) -> &mut Vertex<TScalar> {
-        let idx = self.vertices.len();
+    pub fn create_vertex(&mut self) -> (VertexId, &mut Vertex<TScalar>) {
+        let id = VertexId::new(self.vertices.len());
         self.vertices.push(Default::default());
-        self.vertices.get_mut(idx).unwrap()
+        (id, &mut self[id])
     }
 
     /// Creates isolated face from existing vertices vertices
     /// Returns first corner of face
-    pub fn create_face_from_vertices(&mut self, v1: usize, v2: usize, v3: usize) -> usize {
+    pub fn create_face_from_vertices(&mut self, v1: VertexId, v2: VertexId, v3: VertexId) -> usize {
         let c1 = self.create_corner();
-        c1.set_vertex_index(v1);
+        c1.set_vertex(v1);
 
         let c2 = self.create_corner();
-        c2.set_vertex_index(v2);
+        c2.set_vertex(v2);
 
         let c3 = self.create_corner();
-        c3.set_vertex_index(v3);
+        c3.set_vertex(v3);
 
         self.corners.len() - 3
     }
@@ -115,11 +89,11 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         &mut self,
         edge_opposite_corner_map: &mut HashMap<Edge, usize>,
         edge: Edge,
-        vertex_index: usize,
+        vertex_id: VertexId,
     ) -> usize {
         let corner_index = self.corners.len();
         let corner = self.create_corner();
-        corner.set_vertex_index(vertex_index);
+        corner.set_vertex(vertex_id);
 
         // Find opposite corner
         let opposite_corner_index = edge_opposite_corner_map.get(&edge.flipped());
@@ -138,7 +112,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         }
 
         // Set corner index for vertex
-        let vertex = &mut self.vertices[vertex_index];
+        let vertex = &mut self[vertex_id];
         vertex.set_corner_index(corner_index);
 
         corner_index
@@ -158,7 +132,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     /// Index of corner opposite to edge
     type EdgeDescriptor = EdgeRef;
     /// Vertex index
-    type VertexDescriptor = usize;
+    type VertexDescriptor = VertexId;
     /// Index of one of face corners
     type FaceDescriptor = usize;
 
@@ -175,17 +149,17 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
         let mut corner_table = Self::with_capacity(num_vertices, num_faces);
 
         for vert in vertices {
-            let vertex = corner_table.create_vertex();
+            let (_, vertex) = corner_table.create_vertex();
             vertex.set_position(vert);
         }
 
         let mut edge_opposite_corner_map = HashMap::<helpers::Edge, usize>::with_capacity(num_faces * 3);
-        let mut vertex_corners = HashMap::<usize, BTreeSet<usize>>::with_capacity(num_vertices);
+        let mut vertex_corners = HashMap::<VertexId, BTreeSet<usize>>::with_capacity(num_vertices);
 
         loop {
-            let Some(v1_index) = faces.next() else { break; };
-            let Some(v2_index) = faces.next() else { break; };
-            let Some(v3_index) = faces.next() else { break; };
+            let Some(v1_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
+            let Some(v2_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
+            let Some(v3_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
 
             let edge1 = Edge::new(v2_index, v3_index);
             let edge2 = Edge::new(v3_index, v1_index);
@@ -210,33 +184,31 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
         // Delete isolated vertices
         for vertex in &mut corner_table.vertices {
-            if vertex.get_corner_index() == usize::MAX {
+            if vertex.corner_index() == usize::MAX {
                 vertex.set_deleted(true);
             }
         }
 
         // Duplicate non-manifold vertices
-        for (&vertex_index, corners) in vertex_corners.iter_mut() {
-            if corner_table.vertices[vertex_index].is_deleted() {
+        for (&vertex_id, corners) in vertex_corners.iter_mut() {
+            if corner_table[vertex_id].is_deleted() {
                 continue;
             }
 
-            corners_around_vertex(&corner_table, vertex_index, |corner_index| {
+            corners_around_vertex(&corner_table, vertex_id, |corner_index| {
                 corners.remove(corner_index);
             });
 
-            let vertex_pos = *corner_table.vertices[vertex_index].get_position();
+            let vertex_pos = *corner_table[vertex_id].position();
 
             // Duplicate vertex for each "corner fan"
             while let Some(corner_idx) = corners.pop_first() {
-                let duplicate_vert_idx = corner_table.vertices.len();
-                corner_table
-                    .create_vertex()
-                    .set_position(vertex_pos)
+                let (id, vertex) = corner_table.create_vertex();
+                vertex.set_position(vertex_pos)
                     .set_corner_index(corner_idx);
 
-                for adj_corner in collect_corners_around_vertex(&corner_table, duplicate_vert_idx) {
-                    corner_table.corners[adj_corner].set_vertex_index(duplicate_vert_idx);
+                for adj_corner in collect_corners_around_vertex(&corner_table, id) {
+                    corner_table.corners[adj_corner].set_vertex(id);
                     corners.remove(&adj_corner);
                 }
             }
@@ -265,9 +237,9 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
         let mut walker = CornerWalker::from_corner(self, *face);
 
         return (
-            walker.get_corner().get_vertex_index(),
-            walker.next().get_corner().get_vertex_index(),
-            walker.next().get_corner().get_vertex_index(),
+            walker.get_corner().vertex(),
+            walker.next().get_corner().vertex(),
+            walker.next().get_corner().vertex(),
         );
     }
 
@@ -275,8 +247,8 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
         return (
-            *walker.next().get_vertex().get_position(),
-            *walker.next().get_vertex().get_position(),
+            *walker.next().vertex().position(),
+            *walker.next().vertex().position(),
         );
     }
 
@@ -284,14 +256,14 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
         let mut walker = CornerWalker::from_corner(self, edge.get_corner_index());
         return (
-            walker.next().get_corner().get_vertex_index(),
-            walker.next().get_corner().get_vertex_index(),
+            walker.next().get_corner().vertex(),
+            walker.next().get_corner().vertex(),
         );
     }
 
     #[inline]
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
-        return self.vertices[*vertex].get_position();
+        return self[*vertex].position();
     }
 
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>> {
@@ -320,16 +292,16 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
                 continue;
             }
 
-            if !self.vertices[corner.get_vertex_index()].is_deleted() {
+            if !self[corner.vertex()].is_deleted() {
                 return false;
             }
 
-            if let Some(opp_idx) = corner.get_opposite_corner_index() {
+            if let Some(opp_idx) = corner.opposite_corner_index() {
                 let opposite = &self.corners[opp_idx];
-                let valid = opposite.get_vertex_index() != corner.get_vertex_index()
+                let valid = opposite.vertex() != corner.vertex()
                     && opp_idx != corner_idx
                     && !opposite.is_deleted()
-                    && opposite.get_opposite_corner_index() == Some(corner_idx);
+                    && opposite.opposite_corner_index() == Some(corner_idx);
 
                 if !valid {
                     return false;
@@ -344,8 +316,8 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
                 continue;
             }
 
-            let corner = &self.corners[vertex.get_corner_index()];
-            let valid = !corner.is_deleted() && corner.get_vertex_index() == vertex_idx;
+            let corner = &self.corners[vertex.corner_index()];
+            let valid = !corner.is_deleted() && corner.vertex() == VertexId::new(vertex_idx);
 
             if !valid {
                 return false;
@@ -376,7 +348,7 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
         let started_at = walker.get_corner_index();
 
         loop {
-            if walker.get_corner().get_opposite_corner_index().is_none() {
+            if walker.get_corner().opposite_corner_index().is_none() {
                 return true;
             }
 
@@ -393,14 +365,14 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     #[inline]
     fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool {
         self.corners[edge.get_corner_index()]
-            .get_opposite_corner_index()
+            .opposite_corner_index()
             .is_none()
     }
 
     #[inline]
     fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>) {
         let f1 = edge.get_corner_index();
-        (f1, self.corners[f1].get_opposite_corner_index())
+        (f1, self.corners[f1].opposite_corner_index())
     }
 
     #[inline]
@@ -423,30 +395,17 @@ impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: RealNumber> Display for CornerTable<TScalar> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let vertices = Table::new(self.vertices.iter());
-        let corners = Table::new(self.corners.iter());
-
-        writeln!(f, "### VERTICES ###")?;
-        writeln!(f, "{}", vertices)?;
-        writeln!(f)?;
-        writeln!(f, "### CORNERS ###")?;
-        writeln!(f, "{}", corners)?;
-
-        Ok(())
-    }
-}
-
 pub mod helpers {
+    use crate::mesh::corner_table::vertex::VertexId;
+
     #[derive(Hash, PartialEq, Eq, Clone, Copy)]
     pub struct Edge {
-        start_vertex: usize,
-        end_vertex: usize,
+        start_vertex: VertexId,
+        end_vertex: VertexId,
     }
 
     impl Edge {
-        pub fn new(start: usize, end: usize) -> Self {
+        pub fn new(start: VertexId, end: VertexId) -> Self {
             Self {
                 start_vertex: start,
                 end_vertex: end,
@@ -469,9 +428,7 @@ mod tests {
         helpers::aliases::{Vec3, Vec3f},
         mesh::{
             corner_table::{
-                connectivity::{corner::Corner, vertex::VertexF},
-                prelude::CornerTableF,
-                test_helpers::{assert_mesh_eq, create_unit_square_mesh},
+                corner::Corner, prelude::CornerTableF, test_helpers::{assert_mesh_eq, create_unit_square_mesh}, vertex::*
             },
             traits::Mesh,
         },
@@ -489,13 +446,13 @@ mod tests {
         ];
 
         let expected_corners = vec![
-            Corner::new(None,    0, Default::default()),
-            Corner::new(Some(4), 1, Default::default()),
-            Corner::new(None,    2, Default::default()),
+            Corner::new(None,    VertexId::new(0)),
+            Corner::new(Some(4), VertexId::new(1)),
+            Corner::new(None,    VertexId::new(2)),
 
-            Corner::new(None,    2, Default::default()),
-            Corner::new(Some(1), 3, Default::default()),
-            Corner::new(None,    0, Default::default())
+            Corner::new(None,    VertexId::new(2)),
+            Corner::new(Some(1), VertexId::new(3)),
+            Corner::new(None,    VertexId::new(0))
         ];
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);

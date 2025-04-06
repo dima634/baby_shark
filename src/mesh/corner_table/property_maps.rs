@@ -1,8 +1,6 @@
 use std::ops::{Index, IndexMut};
-
 use crate::{mesh::traits::{PropertyMap, VertexProperties}, geometry::traits::RealNumber};
-
-use super::table::CornerTable;
+use super::{vertex::VertexId, CornerTable};
 
 /// Property map for corner table vertices
 pub struct VertexPropertyMap<TProperty: Default> {
@@ -17,31 +15,33 @@ impl<TProperty: Default> VertexPropertyMap<TProperty> {
     }
 }
 
-impl<TProperty: Default> Index<usize> for VertexPropertyMap<TProperty> {
+impl<TProperty: Default> Index<VertexId> for VertexPropertyMap<TProperty> {
     type Output = TProperty;
 
     #[inline]
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.props[index]
+    fn index(&self, index: VertexId) -> &Self::Output {
+        debug_assert!(index.is_valid());
+        &self.props[index.index()]
     }
 }
 
-impl<TProperty: Default> IndexMut<usize> for VertexPropertyMap<TProperty> {
+impl<TProperty: Default> IndexMut<VertexId> for VertexPropertyMap<TProperty> {
     #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.props[index]
+    fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
+        debug_assert!(index.is_valid());
+        &mut self.props[index.index()]
     }
 }
 
-impl<TProperty: Default> PropertyMap<usize, TProperty> for VertexPropertyMap<TProperty> {
+impl<TProperty: Default> PropertyMap<VertexId, TProperty> for VertexPropertyMap<TProperty> {
     #[inline]
-    fn get(&self, key: &usize) -> Option<&TProperty> {
-        return self.props.get(*key);
+    fn get(&self, key: &VertexId) -> Option<&TProperty> {
+        return self.props.get(key.index());
     }
 
     #[inline]
-    fn get_mut(&mut self, key: &usize) -> Option<&mut TProperty> {
-        return self.props.get_mut(*key);
+    fn get_mut(&mut self, key: &VertexId) -> Option<&mut TProperty> {
+        return self.props.get_mut(key.index());
     }
 }
 

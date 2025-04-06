@@ -1,9 +1,7 @@
 
 use std::{hash::Hash, fmt::{Display, Debug}};
-
 use crate::geometry::traits::RealNumber;
-
-use super::table::CornerTable;
+use super::CornerTable;
 
 /// 
 /// Edge descriptor for corner table.
@@ -18,7 +16,7 @@ impl EdgeRef {
     pub fn new<TScalar: RealNumber>(corner_index: usize, corner_table: &CornerTable<TScalar>) -> Self { 
         let corner = &corner_table.corners[corner_index];
         Self { 
-            corner_index: corner_index.min(corner.get_opposite_corner_index().unwrap_or(usize::MAX))
+            corner_index: corner_index.min(corner.opposite_corner_index().unwrap_or(usize::MAX))
         }
     }
 

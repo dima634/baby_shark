@@ -1,38 +1,29 @@
+use super::vertex::VertexId;
 use super::{flags, traits::Flags};
-use crate::helpers::display::{display_option, display_refcell};
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
-use tabled::Tabled;
 
-///
-/// Default implementation for Corner trait
-///
-#[derive(Tabled)]
 pub struct Corner {
-    #[tabled(display_with = "display_option")]
     opposite_corner_index: Option<usize>, // TODO: use usize::MAX as invalid value
-    vertex_index: usize,
-
-    #[tabled(display_with = "display_refcell")]
+    vertex: VertexId,
     flags: RefCell<flags::Flags>,
 }
 
 impl Corner {
     pub fn new(
         opposite_corner_index: Option<usize>,
-        vertex_index: usize,
-        flags: flags::Flags,
+        vertex: VertexId,
     ) -> Self {
         Self {
             opposite_corner_index,
-            vertex_index,
-            flags: RefCell::new(flags),
+            vertex,
+            flags: RefCell::new(flags::Flags::default()),
         }
     }
 
     #[inline]
-    pub fn get_opposite_corner_index(&self) -> Option<usize> {
+    pub fn opposite_corner_index(&self) -> Option<usize> {
         self.opposite_corner_index
     }
 
@@ -43,13 +34,13 @@ impl Corner {
     }
 
     #[inline]
-    pub fn get_vertex_index(&self) -> usize {
-        self.vertex_index
+    pub fn vertex(&self) -> VertexId {
+        self.vertex
     }
 
     #[inline]
-    pub fn set_vertex_index(&mut self, index: usize) -> &mut Self {
-        self.vertex_index = index;
+    pub fn set_vertex(&mut self, vertex: VertexId) -> &mut Self {
+        self.vertex = vertex;
         self
     }
 }
@@ -58,7 +49,7 @@ impl Default for Corner {
     fn default() -> Self {
         Self {
             opposite_corner_index: None,
-            vertex_index: usize::max_value(),
+            vertex: VertexId::new_invalid(),
             flags: Default::default(),
         }
     }
@@ -80,7 +71,7 @@ impl PartialEq for Corner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.opposite_corner_index == other.opposite_corner_index
-            && self.vertex_index == other.vertex_index
+            && self.vertex == other.vertex
     }
 }
 impl Eq for Corner {}
@@ -89,7 +80,7 @@ impl Debug for Corner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Corner")
             .field("opposite_corner_index", &self.opposite_corner_index)
-            .field("vertex_index", &self.vertex_index)
+            .field("vertex_index", &self.vertex)
             .field("flags", &self.flags.borrow().bits())
             .finish()
     }

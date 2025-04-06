@@ -1,21 +1,42 @@
-use std::{cell::{Ref, RefCell, RefMut}, fmt::Debug, ops::{Deref, DerefMut}};
-use tabled::Tabled;
-use crate::{helpers::{display::display_refcell, aliases::Vec3}, geometry::traits::RealNumber};
-use super::{traits::Flags, flags};
+use std::{cell::{Ref, RefCell, RefMut}, fmt::Debug, ops::{Deref, DerefMut, Index, IndexMut}};
+use crate::{helpers::aliases::Vec3, geometry::traits::RealNumber};
+use super::{traits::Flags, *};
 
-///
-/// Default implementation for Vertex trait
-/// 
-#[derive(Tabled)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VertexId(usize);
+
+impl VertexId {
+    #[inline]
+    pub(super) fn new(index: usize) -> Self {
+        debug_assert!(index != usize::MAX, "VertexId cannot be created with invalid index");
+        Self(index)
+    }
+
+    #[inline]
+    pub fn new_invalid() -> Self {
+        Self(usize::MAX)
+    }
+
+    #[inline]
+    pub fn is_valid(&self) -> bool {
+        self.0 != usize::MAX
+    }
+
+    #[inline]
+    pub(super) fn index(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Vertex<TScalarType: RealNumber> {
     corner_index: usize,
     position: Vec3<TScalarType>,
-
-    #[tabled(display_with = "display_refcell")]
     flags: RefCell<flags::Flags>
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
+    #[inline]
     pub fn new(corner_index: usize, position: Vec3<TScalarType>, flags: flags::Flags) -> Self { 
         Self { 
             corner_index, 
@@ -49,7 +70,7 @@ impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
-    pub fn get_position(&self) -> &Vec3<TScalarType> {
+    pub fn position(&self) -> &Vec3<TScalarType> {
         &self.position
     }
 
@@ -60,7 +81,7 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 
     #[inline]
-    pub fn get_corner_index(&self) ->  usize {
+    pub fn corner_index(&self) ->  usize {
         self.corner_index
     }
 
@@ -79,13 +100,21 @@ impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
 }
 impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}
 
-impl<T: RealNumber> Debug for Vertex<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Vertex")
-            .field("corner_index", &self.corner_index)
-            .field("position", &self.position)
-            .field("flags", &self.flags.borrow().bits())
-            .finish()
+impl<TScalar: RealNumber> Index<VertexId> for CornerTable<TScalar> {
+    type Output = Vertex<TScalar>;
+
+    #[inline]
+    fn index(&self, index: VertexId) -> &Self::Output {
+        debug_assert!(index.is_valid());
+        &self.vertices[index.0]
+    }
+}
+
+impl<TScalar: RealNumber> IndexMut<VertexId> for CornerTable<TScalar> {
+    #[inline]
+    fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
+        debug_assert!(index.is_valid());
+        &mut self.vertices[index.0]
     }
 }
 
