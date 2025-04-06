@@ -3,6 +3,7 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Use u32 as index for vertices and corners
 - [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings

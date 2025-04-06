@@ -8,18 +8,12 @@ pub struct VertexId(usize);
 impl VertexId {
     #[inline]
     pub(super) fn new(index: usize) -> Self {
-        debug_assert!(index != usize::MAX, "VertexId cannot be created with invalid index");
         Self(index)
     }
 
     #[inline]
     pub fn new_invalid() -> Self {
         Self(usize::MAX)
-    }
-
-    #[inline]
-    pub fn is_valid(&self) -> bool {
-        self.0 != usize::MAX
     }
 
     #[inline]
@@ -30,28 +24,18 @@ impl VertexId {
 
 #[derive(Debug, Clone)]
 pub struct Vertex<TScalarType: RealNumber> {
-    corner_index: usize,
+    corner: CornerId,
     position: Vec3<TScalarType>,
     flags: RefCell<flags::Flags>
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
-    pub fn new(corner_index: usize, position: Vec3<TScalarType>, flags: flags::Flags) -> Self { 
+    pub fn new(corner: CornerId, position: Vec3<TScalarType>) -> Self { 
         Self { 
-            corner_index, 
+            corner, 
             position, 
-            flags: RefCell::new(flags)
-        }
-    }
-}
-
-impl<TScalarType: RealNumber> Default for Vertex<TScalarType> {
-    fn default() -> Self {
-        Self {
-            corner_index: usize::max_value(), 
-            position: Vec3::zeros(), 
-            flags: Default::default() 
+            flags: RefCell::new(flags::Flags::default())
         }
     }
 }
@@ -81,13 +65,13 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 
     #[inline]
-    pub fn corner_index(&self) ->  usize {
-        self.corner_index
+    pub fn corner(&self) -> CornerId {
+        self.corner
     }
 
     #[inline]
-    pub fn set_corner_index(&mut self, index: usize) -> &mut Self {
-        self.corner_index = index;
+    pub fn set_corner(&mut self, corner: CornerId) -> &mut Self {
+        self.corner = corner;
         self
     }
 }
@@ -95,7 +79,7 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
 impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.corner_index == other.corner_index && self.position == other.position
+        self.corner == other.corner && self.position == other.position
     }
 }
 impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}
@@ -105,7 +89,6 @@ impl<TScalar: RealNumber> Index<VertexId> for CornerTable<TScalar> {
 
     #[inline]
     fn index(&self, index: VertexId) -> &Self::Output {
-        debug_assert!(index.is_valid());
         &self.vertices[index.0]
     }
 }
@@ -113,11 +96,9 @@ impl<TScalar: RealNumber> Index<VertexId> for CornerTable<TScalar> {
 impl<TScalar: RealNumber> IndexMut<VertexId> for CornerTable<TScalar> {
     #[inline]
     fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
-        debug_assert!(index.is_valid());
         &mut self.vertices[index.0]
     }
 }
 
 /// Aliases
 pub type VertexF = Vertex<f32>;
-pub type VertexD = Vertex<f64>;

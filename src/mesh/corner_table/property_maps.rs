@@ -20,7 +20,6 @@ impl<TProperty: Default> Index<VertexId> for VertexPropertyMap<TProperty> {
 
     #[inline]
     fn index(&self, index: VertexId) -> &Self::Output {
-        debug_assert!(index.is_valid());
         &self.props[index.index()]
     }
 }
@@ -28,7 +27,6 @@ impl<TProperty: Default> Index<VertexId> for VertexPropertyMap<TProperty> {
 impl<TProperty: Default> IndexMut<VertexId> for VertexPropertyMap<TProperty> {
     #[inline]
     fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
-        debug_assert!(index.is_valid());
         &mut self.props[index.index()]
     }
 }

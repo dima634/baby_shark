@@ -9,10 +9,11 @@ pub mod traversal;
 
 mod marker;
 mod edit;
-mod descriptors;
+mod edge;
 mod property_maps;
 mod vertex;
 mod corner;
+mod face;
 mod traits;
 mod flags;
 

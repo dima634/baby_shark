@@ -1,10 +1,11 @@
 use super::{
-    corner::{face, face_contains_corner, first_corner, next, previous, Corner},
-    descriptors::EdgeRef,
+    CornerTable,
+    corner::{Corner, CornerId},
+    vertex::{Vertex, VertexId},
+    edge::EdgeId,
+    face::FaceId,
     flags::clear_visited,
     traits::Flags,
-    vertex::{Vertex, VertexId},
-    CornerTable,
 };
 use crate::{
     geometry::traits::RealNumber,
@@ -16,88 +17,89 @@ use crate::{
 ///
 pub struct CornerWalker<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
-    corner_index: usize,
+    corner: CornerId,
 }
 
 impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Creates walker starting at given corner
     #[inline]
-    pub fn from_corner(table: &'a CornerTable<TScalar>, corner_index: usize) -> Self {
-        debug_assert!(!table.corners[corner_index].is_deleted());
+    pub fn from_corner(table: &'a CornerTable<TScalar>, corner: CornerId) -> Self {
+        debug_assert!(!table[corner].is_deleted());
         Self {
             table,
-            corner_index,
+            corner,
         }
     }
 
     /// Creates walker starting at random corner of given vertex
     #[inline]
     pub fn from_vertex(table: &'a CornerTable<TScalar>, vertex_id: VertexId) -> Self {
-        Self::from_corner(table, table[vertex_id].corner_index())
+        Self::from_corner(table, table[vertex_id].corner())
     }
 
     /// Jumps to given corner
     #[inline]
-    pub fn set_current_corner(&mut self, corner_index: usize) -> &mut Self {
-        self.corner_index = corner_index;
-        debug_assert!(!self.table.corners[self.corner_index].is_deleted());
+    pub fn set_current_corner(&mut self, corner: CornerId) -> &mut Self {
+        self.corner = corner;
+        debug_assert!(!self.table[self.corner].is_deleted());
         self
     }
 
     /// Moves to next corner
     #[allow(clippy::should_implement_trait)]
     #[inline]
-    pub fn next(&mut self) -> &mut Self {
-        self.corner_index = next(self.get_corner_index());
-        debug_assert!(!self.table.corners[self.corner_index].is_deleted());
+    pub fn move_to_next(&mut self) -> &mut Self {
+        self.corner = self.corner.next();
+        debug_assert!(!self.table[self.corner].is_deleted());
         self
     }
 
     /// Moves to opposite corner if exist, otherwise corner stays still
     #[inline]
-    pub fn opposite(&mut self) -> &mut Self {
-        if let Some(opposite) = self.get_corner().opposite_corner_index() {
-            self.corner_index = opposite;
+    pub fn move_to_opposite(&mut self) -> &mut Self {
+        if let Some(opposite) = self.corner().opposite_corner() {
+            self.corner = opposite;
         } else {
             debug_assert!(false, "Moving to not existing corner");
         }
 
-        debug_assert!(!self.table.corners[self.corner_index].is_deleted());
+        debug_assert!(!self.table[self.corner].is_deleted());
 
         self
     }
 
     /// Moves to previous corner. Shorthand for next().next()
     #[inline]
-    pub fn previous(&mut self) -> &mut Self {
-        self.corner_index = previous(self.get_corner_index());
-        debug_assert!(!self.table.corners[self.corner_index].is_deleted());
+    pub fn move_to_previous(&mut self) -> &mut Self {
+        self.corner = self.corner_id().previous();
+        debug_assert!(!self.table[self.corner].is_deleted());
         self
     }
 
     /// Swings to right around corner vertex
     #[inline]
     pub fn swing_right(&mut self) -> &mut Self {
-        return self.previous().opposite().previous();
+        return self.move_to_previous().move_to_opposite().move_to_previous();
     }
 
     /// Swings to left around corner vertex
     #[inline]
     pub fn swing_left(&mut self) -> &mut Self {
-        return self.next().opposite().next();
+        return self.move_to_next().move_to_opposite().move_to_next();
     }
 
-    /// Returns `true` if it is possible to [`Self::swing_right()`] (corner is not on the border), `false` otherwise
-    #[inline]
-    pub fn can_swing_right(&self) -> bool {
-        return self.get_previous_corner().opposite_corner_index().is_some();
-    }
+    // TODO
+    // /// Returns `true` if it is possible to [`Self::swing_right()`] (corner is not on the border), `false` otherwise
+    // #[inline]
+    // pub fn can_swing_right(&self) -> bool {
+    //     return self.previous_corner().opposite_corner().is_some();
+    // }
 
-    /// Returns `true` if it is possible to [`Self::swing_left()`] (corner is not on the border), `false` otherwise
-    #[inline]
-    pub fn can_swing_left(&self) -> bool {
-        return self.get_next_corner().opposite_corner_index().is_some();
-    }
+    // /// Returns `true` if it is possible to [`Self::swing_left()`] (corner is not on the border), `false` otherwise
+    // #[inline]
+    // pub fn can_swing_left(&self) -> bool {
+    //     return self.next_corner().opposite_corner().is_some();
+    // }
 
     ///
     /// Trying to swing left and returns `true` if operation succeeded, `false otherwise`.
@@ -105,14 +107,14 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     ///
     #[inline]
     pub fn swing_left_or_stay(&mut self) -> bool {
-        self.next();
+        self.move_to_next();
 
-        if let Some(opposite) = self.get_corner().opposite_corner_index() {
+        if let Some(opposite) = self.corner().opposite_corner() {
             self.set_current_corner(opposite);
-            self.next();
+            self.move_to_next();
             true
         } else {
-            self.previous();
+            self.move_to_previous();
             false
         }
     }
@@ -123,98 +125,82 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     ///
     #[inline]
     pub fn swing_right_or_stay(&mut self) -> bool {
-        self.previous();
+        self.move_to_previous();
 
-        if let Some(opposite) = self.get_corner().opposite_corner_index() {
+        if let Some(opposite) = self.corner().opposite_corner() {
             self.set_current_corner(opposite);
-            self.previous();
+            self.move_to_previous();
             true
         } else {
-            self.next();
+            self.move_to_next();
             false
         }
     }
 
     /// Returns next corner
     #[inline]
-    pub fn get_next_corner(&self) -> &Corner {
-        return self
-            .table
-            .get_corner(next(self.get_corner_index()))
-            .unwrap();
-    }
-
-    /// Returns next corner index
-    #[inline]
-    pub fn get_next_corner_index(&self) -> usize {
-        next(self.get_corner_index())
+    pub fn next_corner(&self) -> &Corner {
+        &self.table[self.corner.next()]
     }
 
     /// Returns previous corner index
     #[inline]
-    pub fn get_previous_corner_index(&self) -> usize {
-        previous(self.get_corner_index())
+    pub fn previous_corner_id(&self) -> CornerId {
+        self.corner_id().previous()
     }
 
     /// Returns previous corner
     #[inline]
-    pub fn get_previous_corner(&self) -> &Corner {
-        return self
-            .table
-            .get_corner(self.get_previous_corner_index())
-            .unwrap();
+    pub fn previous_corner(&self) -> &Corner {
+        &self.table[self.corner.previous()]
     }
 
     /// Returns opposite corner
     #[inline]
-    pub fn get_opposite_corner(&self) -> Option<&Corner> {
-        if let Some(opposite) = self.get_corner().opposite_corner_index() {
-            return Some(self.table.get_corner(opposite).unwrap());
-        } else {
-            None
-        }
+    pub fn opposite_corner(&self) -> Option<&Corner> {
+        self.corner().opposite_corner().map(|corner| &self.table[corner])
     }
 
     /// Returns current corner
     #[inline]
-    pub fn get_corner(&self) -> &Corner {
-        return self.table.get_corner(self.corner_index).unwrap();
+    pub fn corner(&self) -> &Corner {
+        &self.table[self.corner]
     }
 
     /// Returns current corner index
     #[inline]
-    pub fn get_corner_index(&self) -> usize {
-        self.corner_index
+    pub fn corner_id(&self) -> CornerId {
+        self.corner
     }
 
     /// Returns vertex of current corner
     #[inline]
     pub fn vertex(&self) -> &Vertex<TScalar> {
-        &self.table[self.get_corner().vertex()]
+        &self.table[self.corner().vertex()]
     }
 }
 
 impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalker<'a, TScalar> {
     fn from_vertex_on_face(
         mesh: &'a CornerTable<TScalar>,
-        corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
+        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
         vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor,
     ) -> Self {
-        let mut walker = CornerWalker::from_corner(mesh, *corner);
+        let mut walker = CornerWalker::from_corner(mesh, face.corner());
 
-        if walker.get_corner().vertex() == *vertex {
+        if walker.corner().vertex() == *vertex {
             return walker;
         }
 
-        walker.next();
+        walker.move_to_next();
 
-        if walker.get_corner().vertex() == *vertex {
+        if walker.corner().vertex() == *vertex {
             return walker;
         }
 
-        walker.next();
+        walker.move_to_next();
 
-        if walker.get_corner().vertex() == *vertex {
+        if walker.corner().vertex() == *vertex {
             return walker;
         }
 
@@ -224,14 +210,14 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
     #[inline]
     fn from_edge_on_face(
         mesh: &'a CornerTable<TScalar>,
-        f: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
+        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
         edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor,
     ) -> Self {
-        let corner = if face_contains_corner(face(*f), edge.get_corner_index()) {
-            edge.get_corner_index()
+        let corner = if *face == edge.corner().face() {
+            edge.corner()
         } else {
-            mesh.corners[edge.get_corner_index()]
-                .opposite_corner_index()
+            mesh[edge.corner()]
+                .opposite_corner()
                 .unwrap()
         };
 
@@ -241,13 +227,13 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
     #[inline]
     fn set_from_vertex_on_face(
         &mut self,
-        corner: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
+        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
         vertex: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor,
     ) -> &mut Self {
-        self.set_current_corner(first_corner(face(*corner)));
+        self.set_current_corner(face.corner());
 
-        while self.get_corner().vertex() != *vertex {
-            self.next();
+        while self.corner().vertex() != *vertex {
+            self.move_to_next();
         }
 
         self
@@ -256,14 +242,14 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
     #[inline]
     fn set_from_edge_on_face(
         &mut self,
-        f: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
+        face: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::FaceDescriptor,
         edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor,
     ) -> &mut Self {
-        if face_contains_corner(face(*f), edge.get_corner_index()) {
-            self.set_current_corner(edge.get_corner_index());
+        if *face == edge.corner().face() {
+            self.set_current_corner(edge.corner());
         } else {
-            let corner = self.table.corners[edge.get_corner_index()]
-                .opposite_corner_index()
+            let corner = self.table[edge.corner()]
+                .opposite_corner()
                 .unwrap();
             self.set_current_corner(corner);
         };
@@ -273,12 +259,12 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
 
     #[inline]
     fn next(&mut self) -> &mut Self {
-        return self.next();
+        return self.move_to_next();
     }
 
     #[inline]
     fn get_vertex(&self) -> <CornerTable<TScalar> as crate::mesh::traits::Mesh>::VertexDescriptor {
-        return self.get_corner().vertex();
+        return self.corner().vertex();
     }
 
     #[inline]
@@ -286,12 +272,12 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
         mesh: &'a CornerTable<TScalar>,
         edge: &<CornerTable<TScalar> as crate::mesh::traits::Mesh>::EdgeDescriptor,
     ) -> Self {
-        return CornerWalker::from_corner(mesh, edge.get_corner_index());
+        return CornerWalker::from_corner(mesh, edge.corner());
     }
 
     #[inline]
     fn opposite(&mut self) -> &mut Self {
-        return self.opposite();
+        return self.move_to_opposite();
     }
 }
 
@@ -300,39 +286,38 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
 ///
 pub struct CornerTableFacesIter<'a, TScalar: RealNumber> {
     table: &'a CornerTable<TScalar>,
-    corner_index: usize,
+    face_index: usize,
 }
 
 impl<'a, TScalar: RealNumber> CornerTableFacesIter<'a, TScalar> {
-    pub fn new(corner_table: &'a CornerTable<TScalar>) -> Self {
+    pub fn new(table: &'a CornerTable<TScalar>) -> Self {
         Self {
-            table: corner_table,
-            corner_index: 0,
+            table,
+            face_index: 0,
         }
     }
 }
 
 impl<'a, TScalar: RealNumber> Iterator for CornerTableFacesIter<'a, TScalar> {
-    type Item = usize;
+    type Item = FaceId;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(next) = self.table.get_corner(self.corner_index) {
-            if !next.is_deleted() {
+        loop {
+            let corner_index = self.face_index * 3;
+            if corner_index >= self.table.corners.len() {
+                return None;
+            }
+
+            if self.table.corners[corner_index].is_deleted() {
+                self.face_index += 1;
+            } else {
                 break;
             }
-
-            self.corner_index += 3;
         }
 
-        match self.table.get_corner(self.corner_index) {
-            Some(_) => {
-                let current = self.corner_index;
-                self.corner_index += 3;
-
-                Some(current)
-            }
-            None => None,
-        }
+        let face = FaceId::new(self.face_index);
+        self.face_index += 1;
+        Some(face)
     }
 }
 
@@ -394,83 +379,80 @@ impl<'a, TScalar: RealNumber> CornerTableEdgesIter<'a, TScalar> {
 }
 
 impl<'a, TScalar: RealNumber> Iterator for CornerTableEdgesIter<'a, TScalar> {
-    type Item = EdgeRef;
+    type Item = EdgeId;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(n) = self.table.get_corner(self.corner_index) {
-            if !(n.is_visited() || n.is_deleted()) {
+        loop {
+            if self.corner_index >= self.table.corners.len() {
+                return None;
+            }
+
+            let corner = &self.table.corners[self.corner_index];
+
+            if corner.is_visited() || corner.is_deleted() {
+                self.corner_index += 1;
+            } else {
                 break;
             }
-
-            self.corner_index += 1;
         }
 
-        match self.table.get_corner(self.corner_index) {
-            Some(next) => {
-                // Visit current
-                next.set_visited(true);
+        // Visit current
+        let corner = &self.table.corners[self.corner_index];
+        corner.set_visited(true);
 
-                // Visit opposite, it is referencing same edge as current
-                if let Some(opposite_index) = next.opposite_corner_index() {
-                    self.table
-                        .get_corner(opposite_index)
-                        .unwrap()
-                        .set_visited(true);
-                }
-
-                // Move to next
-                let current = self.corner_index;
-                self.corner_index += 1;
-
-                let edge = EdgeRef::new(current, self.table);
-                Some(edge)
-            }
-            None => None,
+        // Visit opposite, it is referencing same edge as current
+        if let Some(opposite_index) = corner.opposite_corner() {
+            self.table[opposite_index].set_visited(true);
         }
+
+        // Move to next
+        let edge = EdgeId::new(CornerId::new(self.corner_index), self.table);
+        self.corner_index += 1;
+        Some(edge)
     }
 }
 
 /// Iterates over corners that are adjacent to given vertex
-pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize)>(
+pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(CornerId)>(
     corner_table: &CornerTable<TScalar>,
     vertex_id: VertexId,
     mut visit: TFunc,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
-    walker.previous();
-    let started_at = walker.get_corner_index();
+    walker.move_to_previous();
+    let started_at = walker.corner_id();
     let mut border_reached = false;
 
     loop {
-        visit(&walker.get_next_corner_index());
-        walker.previous();
+        visit(walker.corner_id().next());
+        walker.move_to_previous();
 
-        if walker.get_corner().opposite_corner_index().is_none() {
+        if walker.corner().opposite_corner().is_none() {
             border_reached = true;
             break;
         }
 
-        walker.opposite();
+        walker.move_to_opposite();
 
-        if started_at == walker.get_corner_index() {
+        if started_at == walker.corner_id() {
             break;
         }
     }
 
     walker.set_current_corner(started_at);
 
-    if border_reached && walker.get_corner().opposite_corner_index().is_some() {
-        walker.opposite();
+    if border_reached && walker.corner().opposite_corner().is_some() {
+        walker.move_to_opposite();
 
         loop {
-            visit(&walker.get_previous_corner_index());
-            walker.next();
+            visit(walker.previous_corner_id());
+            walker.move_to_next();
 
-            if walker.get_corner().opposite_corner_index().is_none() {
+            if walker.corner().opposite_corner().is_none() {
                 break;
             }
 
-            walker.opposite();
+            walker.move_to_opposite();
         }
     }
 }
@@ -478,10 +460,10 @@ pub fn corners_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize)>(
 pub fn collect_corners_around_vertex<TScalar: RealNumber>(
     corner_table: &CornerTable<TScalar>,
     vertex_id: VertexId,
-) -> Vec<usize> {
+) -> Vec<CornerId> {
     let mut corners = Vec::with_capacity(MAX_VERTEX_VALENCE);
-    corners_around_vertex(corner_table, vertex_id, |corner_index| {
-        corners.push(*corner_index)
+    corners_around_vertex(corner_table, vertex_id, |corner_id| {
+        corners.push(corner_id)
     });
 
     corners
@@ -494,128 +476,128 @@ pub fn vertices_around_vertex<TScalar: RealNumber, TFunc: FnMut(&VertexId)>(
     mut visit: TFunc,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
-    walker.previous();
-    let started_at = walker.get_corner_index();
+    walker.move_to_previous();
+    let started_at = walker.corner_id();
     let mut border_reached = false;
 
     loop {
-        visit(&walker.get_corner().vertex());
+        visit(&walker.corner().vertex());
 
-        walker.previous();
+        walker.move_to_previous();
 
-        if walker.get_corner().opposite_corner_index().is_none() {
+        if walker.corner().opposite_corner().is_none() {
             border_reached = true;
             break;
         }
 
-        walker.opposite();
+        walker.move_to_opposite();
 
-        if started_at == walker.get_corner_index() {
+        if started_at == walker.corner_id() {
             break;
         }
     }
 
     if border_reached {
-        walker.set_current_corner(started_at).previous();
+        walker.set_current_corner(started_at).move_to_previous();
         loop {
-            visit(&walker.get_corner().vertex());
+            visit(&walker.corner().vertex());
 
-            walker.next();
+            walker.move_to_next();
 
-            if walker.get_corner().opposite_corner_index().is_none() {
+            if walker.corner().opposite_corner().is_none() {
                 break;
             }
 
-            walker.opposite();
+            walker.move_to_opposite();
         }
     }
 }
 
 /// Iterates over one-ring faces of vertex. Face is returned as one of it`s corners.
-pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&usize)>(
+pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&FaceId)>(
     corner_table: &CornerTable<TScalar>,
     vertex_id: VertexId,
     mut visit: TFunc,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
-    walker.previous();
-    let started_at = walker.get_corner_index();
+    walker.move_to_previous();
+    let started_at = walker.corner_id();
     let mut border_reached = false;
 
     loop {
-        visit(&walker.get_corner_index());
+        visit(&walker.corner_id().face());
 
-        walker.previous();
+        walker.move_to_previous();
 
-        if walker.get_corner().opposite_corner_index().is_none() {
+        if walker.corner().opposite_corner().is_none() {
             border_reached = true;
             break;
         }
 
-        walker.opposite();
+        walker.move_to_opposite();
 
-        if started_at == walker.get_corner_index() {
+        if started_at == walker.corner_id() {
             break;
         }
     }
 
     walker.set_current_corner(started_at);
 
-    if border_reached && walker.get_corner().opposite_corner_index().is_some() {
-        walker.opposite();
+    if border_reached && walker.corner().opposite_corner().is_some() {
+        walker.move_to_opposite();
 
         loop {
-            visit(&walker.get_corner_index());
+            visit(&walker.corner_id().face());
 
-            walker.next();
+            walker.move_to_next();
 
-            if walker.get_corner().opposite_corner_index().is_none() {
+            if walker.corner().opposite_corner().is_none() {
                 break;
             }
 
-            walker.opposite();
+            walker.move_to_opposite();
         }
     }
 }
 
 /// Iterates over edges incident to vertex. Edge is represented by opposite corner index.
-pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeRef)>(
+pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
     corner_table: &CornerTable<TScalar>,
     vertex_id: VertexId,
     mut visit: TFunc,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
-    walker.next();
-    let started_at = walker.get_corner_index();
+    walker.move_to_next();
+    let started_at = walker.corner_id();
     let mut border_reached = false;
 
     loop {
-        visit(&EdgeRef::new(walker.get_corner_index(), corner_table));
+        visit(&EdgeId::new(walker.corner_id(), corner_table));
 
-        if walker.get_corner().opposite_corner_index().is_none() {
+        if walker.corner().opposite_corner().is_none() {
             border_reached = true;
             break;
         }
 
-        walker.opposite().previous();
+        walker.move_to_opposite().move_to_previous();
 
-        if started_at == walker.get_corner_index() {
+        if started_at == walker.corner_id() {
             break;
         }
     }
 
     if border_reached {
         walker.set_current_corner(started_at);
-        walker.next();
+        walker.move_to_next();
 
         loop {
-            visit(&EdgeRef::new(walker.get_corner_index(), corner_table));
+            visit(&EdgeId::new(walker.corner_id(), corner_table));
 
-            if walker.get_corner().opposite_corner_index().is_none() {
+            if walker.corner().opposite_corner().is_none() {
                 break;
             }
 
-            walker.opposite().next();
+            walker.move_to_opposite().move_to_next();
         }
     }
 }
@@ -624,10 +606,12 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeRef)>(
 mod tests {
     use crate::mesh::{
         corner_table::{
-            descriptors::EdgeRef,
-            test_helpers::{create_unit_cross_square_mesh, create_unit_square_mesh},
-            traversal::{corners_around_vertex, faces_around_vertex, vertices_around_vertex},
+            corner::CornerId, 
+            edge::EdgeId, 
+            face::FaceId,
             vertex::VertexId,
+            test_helpers::{create_unit_cross_square_mesh, create_unit_square_mesh}, 
+            traversal::{corners_around_vertex, faces_around_vertex, vertices_around_vertex},
         },
         traits::Mesh,
     };
@@ -635,12 +619,12 @@ mod tests {
     #[test]
     fn edges_iterator() {
         let mesh = create_unit_square_mesh();
-        let expected_edges: Vec<EdgeRef> = vec![
-            EdgeRef::new(0, &mesh),
-            EdgeRef::new(1, &mesh),
-            EdgeRef::new(2, &mesh),
-            EdgeRef::new(3, &mesh),
-            EdgeRef::new(5, &mesh),
+        let expected_edges: Vec<EdgeId> = vec![
+            EdgeId::new(CornerId::new(0), &mesh),
+            EdgeId::new(CornerId::new(1), &mesh),
+            EdgeId::new(CornerId::new(2), &mesh),
+            EdgeId::new(CornerId::new(3), &mesh),
+            EdgeId::new(CornerId::new(5), &mesh),
         ];
 
         assert_eq!(expected_edges.len(), mesh.edges().count());
@@ -657,11 +641,11 @@ mod tests {
     #[test]
     fn corners_around_internal_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
-        let expected_corners: Vec<usize> = vec![11, 2, 5, 8];
-        let mut corners: Vec<usize> = Vec::new();
+        let expected_corners = [11, 2, 5, 8].map(|el| CornerId::new(el)).to_vec();
+        let mut corners = Vec::new();
 
         corners_around_vertex(&mesh, VertexId::new(4), |corner_index| {
-            corners.push(*corner_index)
+            corners.push(corner_index)
         });
 
         assert_eq!(corners, expected_corners);
@@ -670,11 +654,11 @@ mod tests {
     #[test]
     fn corners_around_boundary_vertex_macro() {
         let mesh = create_unit_cross_square_mesh();
-        let expected_corners: Vec<usize> = vec![10, 0];
-        let mut corners: Vec<usize> = Vec::new();
+        let expected_corners = [10, 0].map(|el| CornerId::new(el)).to_vec();
+        let mut corners = Vec::new();
 
         corners_around_vertex(&mesh, VertexId::new(0), |corner_index| {
-            corners.push(*corner_index)
+            corners.push(corner_index)
         });
 
         assert_eq!(corners, expected_corners);
@@ -705,9 +689,9 @@ mod tests {
     // Faces iter macro
 
     #[test]
-    fn faces_around_internal_vertex_macro() {
+    fn test_faces_around_internal_vertex() {
         let mesh = create_unit_cross_square_mesh();
-        let expected_faces = vec![10, 1, 4, 7];
+        let expected_faces = [3, 0, 1, 2].map(|el| FaceId::new(el)).to_vec();
         let mut faces = Vec::new();
         faces_around_vertex(&mesh, VertexId::new(4), |face_index| faces.push(*face_index));
 
@@ -715,9 +699,9 @@ mod tests {
     }
 
     #[test]
-    fn faces_around_boundary_vertex_macro() {
+    fn test_faces_around_boundary_vertex() {
         let mesh = create_unit_cross_square_mesh();
-        let expected_faces = vec![9, 1];
+        let expected_faces = [3, 0].map(|el| FaceId::new(el)).to_vec();
         let mut faces = Vec::new();
         faces_around_vertex(&mesh, VertexId::new(0), |face_index| faces.push(*face_index));
 
