@@ -93,8 +93,8 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
             return;
         }
 
-        let old_normal = Triangle3::normal(v1, v2, v3);
-        let new_normal = Triangle3::normal(new_position, v2, v3);
+        let Some(old_normal) = Triangle3::normal(v1, v2, v3) else { bad_collapse = true; return; };
+        let Some(new_normal) = Triangle3::normal(new_position, v2, v3) else { bad_collapse = true; return; };
 
         // Normal flipped?
         if old_normal.dot(&new_normal) < cast(0.7).unwrap() {

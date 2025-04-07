@@ -3,6 +3,7 @@
  - [ ] VDB: tree traverse using coroutines/generators
 
 ## TODO/IDEAS:
+- [ ] Avoid creating degenerate triangles during remeshing and compare normal to epsilon
 - [ ] Refactor prelude
 - [ ] Use u32 as index for vertices and corners
 - [ ] Add lightweighting to README

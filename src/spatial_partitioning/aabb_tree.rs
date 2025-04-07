@@ -787,10 +787,7 @@ pub mod winding_numbers {
 
         for t in node.left..node.right {
             let (tri, _) = &tree.objects[t];
-            let n = match tri.try_get_normal() {
-                Some(n) => n,
-                None => continue, // Skip degenerate triangles
-            };
+            let Some(n) = tri.get_normal() else { continue; };
             let area = tri.get_area();
 
             total_area += area;
