@@ -103,7 +103,7 @@ pub trait Mesh {
 
     /// Returns face normal
     #[inline]
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> Option<Vector3<Self::ScalarType>> {
         let triangle = self.face_positions(face);
         triangle.get_normal()
     }

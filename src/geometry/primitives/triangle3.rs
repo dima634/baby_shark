@@ -95,8 +95,9 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn basis(&self) -> Basis2<TScalar> {
-        Basis2::from_normal_and_point(self.get_normal(), self.a.into())
+    pub fn basis(&self) -> Option<Basis2<TScalar>> {
+        let normal = self.get_normal()?;
+        Some(Basis2::from_normal_and_point(normal, self.a.into()))
     }
 
     #[inline]
@@ -138,24 +139,13 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn get_normal(&self) -> Vec3<TScalar> {
+    pub fn get_normal(&self) -> Option<Vec3<TScalar>> {
         Triangle3::normal(&self.a, &self.b, &self.c)
     }
 
     #[inline]
     pub fn get_area(&self) -> TScalar {
         Triangle3::area(&self.a, &self.b, &self.c)
-    }
-
-    #[inline]
-    pub fn try_get_normal(&self) -> Option<Vector3<TScalar>> {
-        let cross = (self.b - self.a).cross(&(self.c - self.a));
-
-        if cross.norm_squared() == TScalar::zero() {
-            return None;
-        }
-
-        Some(cross.normalize())
     }
 
     #[inline]
@@ -265,16 +255,14 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Vec3<TScalar> {
+    pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Option<Vec3<TScalar>> {
         let cross = (b - a).cross(&(c - a));
-        debug_assert!(
-            cross.norm_squared() > TScalar::zero(),
-            "Triangle3: degenerate face {} {} {}",
-            a,
-            b,
-            c
-        );
-        cross.normalize()
+        
+        if cross.norm_squared() == TScalar::zero() {
+            return None;
+        }
+
+        Some(cross.normalize())
     }
 
     #[inline]

@@ -264,16 +264,16 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             return false;
         }
 
-        let old_normal1 = Triangle3::normal(v0, v1, v2);
-        let new_normal1 = Triangle3::normal(v1, v2, v3);
+        let Some(old_normal1) = Triangle3::normal(v0, v1, v2) else { return false; };
+        let Some(new_normal1) = Triangle3::normal(v1, v2, v3) else { return false; };
         let threshold = cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians();
 
         if old_normal1.angle(&new_normal1) > threshold {
             return false;
         }
 
-        let old_normal2 = Triangle3::normal(v0, v2, v3);
-        let new_normal2 = Triangle3::normal(v0, v1, v3);
+        let Some(old_normal2) = Triangle3::normal(v0, v2, v3) else { return false; };
+        let Some(new_normal2) = Triangle3::normal(v0, v1, v3) else { return false; };
 
         if old_normal2.angle(&new_normal2) > threshold
             || old_normal2.angle(&new_normal1) > threshold

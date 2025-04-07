@@ -234,10 +234,10 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
         let mut sum = Vec3::zeros();
 
         faces_around_vertex(self, *vertex, |face_index| {
-            sum += self.face_normal(&face_index);
+            sum += self.face_normal(&face_index).unwrap_or(Vec3::zeros());
         });
 
-        if sum.iter().all(|i| i.is_zero()) {
+        if sum.norm_squared() == TScalar::zero() {
             return None;
         }
 
