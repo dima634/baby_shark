@@ -360,3 +360,34 @@ impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMes
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use crate::{io::stl::{StlReader, StlWriter}, mesh::{corner_table::CornerTable, traits::Mesh}};
+    use super::IncrementalRemesher;
+
+    #[test]
+    fn should_collapse_short_edges() {
+        let mut mesh: CornerTable<f32> = StlReader::default()
+            .read_stl_from_file(Path::new("./assets/tube.stl"))
+            .expect("Read mesh");
+
+        // Only collapse edges
+        let target_edge_length = 0.1f32;
+        IncrementalRemesher::default()
+            .with_iterations_count(5)
+            .remesh(&mut mesh, target_edge_length);
+
+        let has_short_edges = mesh.edges().any(|edge| {
+            let length = mesh.edge_length(&edge);
+            length < target_edge_length * 0.8
+        });
+
+        StlWriter::default()
+            .write_stl_to_file(&mesh, Path::new("./tube_collapse.stl"))
+            .expect("Write mesh");
+
+        assert!(!has_short_edges, "should not have short edges after remeshing");
+    }
+}
