@@ -364,7 +364,10 @@ impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMes
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use crate::{io::stl::{StlReader, StlWriter}, mesh::{corner_table::CornerTable, traits::Mesh}};
+    use crate::{
+        io::stl::StlReader,
+        mesh::{corner_table::CornerTable, traits::Mesh}
+    };
     use super::IncrementalRemesher;
 
     #[test]
@@ -383,10 +386,6 @@ mod tests {
             let length = mesh.edge_length(&edge);
             length < target_edge_length * 0.8
         });
-
-        StlWriter::default()
-            .write_stl_to_file(&mesh, Path::new("./tube_collapse.stl"))
-            .expect("Write mesh");
 
         assert!(!has_short_edges, "should not have short edges after remeshing");
     }
