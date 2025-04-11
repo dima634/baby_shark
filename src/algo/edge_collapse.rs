@@ -1,12 +1,22 @@
 use std::collections::BTreeSet;
-
 use num_traits::{cast, Float};
-
 use crate::{
     geometry::primitives::triangle3::Triangle3,
     helpers::aliases::Vec3,
     mesh::traits::{EditableMesh, Position, TopologicalMesh},
 };
+
+/// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
+#[inline]
+pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
+    mesh: &TMesh,
+    edge: &TMesh::EdgeDescriptor,
+    collapse_at: &Vec3<TMesh::ScalarType>,
+    min_quality: TMesh::ScalarType,
+) -> bool {
+    is_topologically_safe(mesh, edge)
+        && is_geometrically_safe(mesh, edge, collapse_at, min_quality)
+}
 
 /// Returns `true` when edge collapse is topologically safe, `false` otherwise
 pub fn is_topologically_safe<TMesh: TopologicalMesh + EditableMesh>(
@@ -47,31 +57,26 @@ pub fn is_geometrically_safe<TMesh: TopologicalMesh + EditableMesh>(
 ) -> bool {
     // Check new normals (geometrical safety)
     let (e_start, e_end) = mesh.edge_vertices(edge);
-    check_faces_after_collapse(mesh, &e_start, new_position, min_quality)
-        && check_faces_after_collapse(mesh, &e_end, new_position, min_quality)
-}
-
-/// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
-#[inline]
-pub fn is_safe<TMesh: TopologicalMesh + EditableMesh>(
-    mesh: &TMesh,
-    edge: &TMesh::EdgeDescriptor,
-    collapse_at: &Vec3<TMesh::ScalarType>,
-    min_quality: TMesh::ScalarType,
-) -> bool {
-    is_topologically_safe(mesh, edge)
-        && is_geometrically_safe(mesh, edge, collapse_at, min_quality)
+    let (f1, f2) = mesh.edge_faces(edge);
+    check_faces_after_collapse(mesh, f1, f2, &e_start, new_position, min_quality)
+        && check_faces_after_collapse(mesh, f1, f2, &e_end, new_position, min_quality)
 }
 
 fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
     mesh: &TMesh,
+    removed_face1: TMesh::FaceDescriptor,
+    removed_face2: Option<TMesh::FaceDescriptor>,
     collapsed_vertex: &TMesh::VertexDescriptor,
     new_position: &Vec3<TMesh::ScalarType>,
-    min_quality: TMesh::ScalarType,
+    min_quality_perc: TMesh::ScalarType,
 ) -> bool {
     let mut bad_collapse = false;
 
     mesh.faces_around_vertex(collapsed_vertex, |face| {
+        if *face == removed_face1 || Some(*face) == removed_face2 {
+            return;
+        }
+
         let mut pos = TMesh::Position::from_vertex_on_face(mesh, face, collapsed_vertex);
 
         let v1 = mesh.vertex_position(&pos.get_vertex());
@@ -88,7 +93,7 @@ fn check_faces_after_collapse<TMesh: TopologicalMesh + EditableMesh>(
         let old_quality = Triangle3::quality(v1, v2, v3);
 
         // Quality become too bad?
-        if new_quality < old_quality * min_quality {
+        if new_quality < old_quality * min_quality_perc {
             bad_collapse = true;
             return;
         }

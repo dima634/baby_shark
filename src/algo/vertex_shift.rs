@@ -27,14 +27,8 @@ pub fn is_vertex_shift_safe<TMesh: TopologicalMesh>(
         let v2 = pos.next().get_vertex();
         let v2_pos = mesh.vertex_position(&v2);
 
-
-        let old_quality = Triangle3::quality(old_position, v1_pos, v2_pos);
         let new_quality = Triangle3::quality(new_position, v1_pos, v2_pos);
-
-        let bad_quality =
-            new_quality < (old_quality * cast(0.5).unwrap()) ||
-            new_quality == cast(0).unwrap();
-        damages_quality |= bad_quality;
+        damages_quality |= new_quality < cast(0.001).unwrap();
     });
 
     !damages_quality
