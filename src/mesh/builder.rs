@@ -30,7 +30,7 @@ pub fn cube<T: Mesh>(
         1, 5, 6, 1, 6, 2
     ];
 
-    T::from_vertices_and_indices(&vertices, &faces)
+    T::from_vertex_and_face_slices(&vertices, &faces)
 }
 
 pub fn cylinder<T: Mesh>(

@@ -4,6 +4,7 @@ use bitflags::bitflags;
 use super::traits;
 
 bitflags! {
+    #[derive(Debug, Clone, Copy)]
     pub struct Flags: u8 {
         const IS_DELETED   = 0b00000001;
         const IS_VISITED   = 0b00000010;

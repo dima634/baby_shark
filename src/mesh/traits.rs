@@ -1,8 +1,12 @@
-use std::{hash::Hash, fmt::Display, ops::{Index, IndexMut}};
-
+use crate::{
+    geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
+    helpers::aliases::Vec3,
+};
 use nalgebra::{Point3, Vector3};
-
-use crate::{geometry::{traits::RealNumber, primitives::triangle3::Triangle3}, helpers::aliases::Vec3};
+use std::{
+    hash::Hash,
+    ops::{Index, IndexMut},
+};
 
 pub trait Edge {
     type VertexDescriptor;
@@ -20,20 +24,29 @@ pub trait Vertex {
 
 ///
 /// Triangular mesh
-/// 
+///
 pub trait Mesh {
     type ScalarType: RealNumber;
 
-    type EdgeDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
-    type VertexDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
-    type FaceDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash + Display;
+    type EdgeDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash;
+    type VertexDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash;
+    type FaceDescriptor: PartialEq + Eq + Ord + Clone + Copy + Hash;
 
-    type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor> where Self: 'iter;
-    type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor> where Self: 'iter;
-    type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor> where Self: 'iter;
+    type FacesIter<'iter>: Iterator<Item = Self::FaceDescriptor>
+    where
+        Self: 'iter;
+    type VerticesIter<'iter>: Iterator<Item = Self::VertexDescriptor>
+    where
+        Self: 'iter;
+    type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor>
+    where
+        Self: 'iter;
 
     /// Creates mesh from vertices and face indices
-    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self;
+    fn from_vertex_and_face_iters(
+        vertices: impl Iterator<Item = Vec3<Self::ScalarType>>,
+        faces: impl Iterator<Item = usize>,
+    ) -> Self;
 
     /// Iterator over mesh faces
     fn faces(&self) -> Self::FacesIter<'_>;
@@ -43,16 +56,38 @@ pub trait Mesh {
     fn edges(&self) -> Self::EdgesIter<'_>;
 
     /// Return vertices of given face
-    fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor);
+    fn face_vertices(
+        &self,
+        face: &Self::FaceDescriptor,
+    ) -> (
+        Self::VertexDescriptor,
+        Self::VertexDescriptor,
+        Self::VertexDescriptor,
+    );
     /// Returns edge length
-    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>);
+    fn edge_positions(
+        &self,
+        edge: &Self::EdgeDescriptor,
+    ) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>);
     /// Return vertices of given edge
-    fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor);
+    fn edge_vertices(
+        &self,
+        edge: &Self::EdgeDescriptor,
+    ) -> (Self::VertexDescriptor, Self::VertexDescriptor);
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType>;
     /// Returns vertex normal (average of one-ring face normals)
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>>;
+
+    /// Creates mesh from vertices and face indices saved in slices
+    #[inline]
+    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self
+    where
+        Self: Sized,
+    {
+        Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
+    }
 
     /// Returns positions of face vertices in ccw order
     #[allow(clippy::type_complexity)]
@@ -62,13 +97,13 @@ pub trait Mesh {
         return Triangle3::new(
             *self.vertex_position(&v1),
             *self.vertex_position(&v2),
-            *self.vertex_position(&v3)
+            *self.vertex_position(&v3),
         );
     }
 
     /// Returns face normal
     #[inline]
-    fn face_normal(&self, face: &Self::FaceDescriptor) -> Vector3<Self::ScalarType> {
+    fn face_normal(&self, face: &Self::FaceDescriptor) -> Option<Vector3<Self::ScalarType>> {
         let triangle = self.face_positions(face);
         triangle.get_normal()
     }
@@ -90,22 +125,38 @@ pub trait Mesh {
 
 ///
 /// Position on face corner
-/// 
+///
 pub trait Position<'a, TMesh: Mesh> {
     /// Create new position on face corner
-    fn from_vertex_on_face(mesh: &'a TMesh, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> Self;
+    fn from_vertex_on_face(
+        mesh: &'a TMesh,
+        face: &TMesh::FaceDescriptor,
+        vertex: &TMesh::VertexDescriptor,
+    ) -> Self;
 
     /// Create new position on `face` corner opposite to `edge`
-    fn from_edge_on_face(mesh: &'a TMesh, face: &TMesh::FaceDescriptor, edge: &TMesh::EdgeDescriptor) -> Self;
+    fn from_edge_on_face(
+        mesh: &'a TMesh,
+        face: &TMesh::FaceDescriptor,
+        edge: &TMesh::EdgeDescriptor,
+    ) -> Self;
 
     /// Create new position on any corner opposite to `edge`
     fn from_edge(mesh: &'a TMesh, edge: &TMesh::EdgeDescriptor) -> Self;
 
     /// Set position to given corner at vertex on `face`
-    fn set_from_vertex_on_face(&mut self, face: &TMesh::FaceDescriptor, vertex: &TMesh::VertexDescriptor) -> &mut Self;
+    fn set_from_vertex_on_face(
+        &mut self,
+        face: &TMesh::FaceDescriptor,
+        vertex: &TMesh::VertexDescriptor,
+    ) -> &mut Self;
 
     /// Set position to corner opposite to given `edge` on `face`
-    fn set_from_edge_on_face(&mut self, face: &TMesh::FaceDescriptor, edge: &TMesh::EdgeDescriptor) -> &mut Self;
+    fn set_from_edge_on_face(
+        &mut self,
+        face: &TMesh::FaceDescriptor,
+        edge: &TMesh::EdgeDescriptor,
+    ) -> &mut Self;
 
     /// Move to next vertex on face
     fn next(&mut self) -> &mut Self;
@@ -119,16 +170,28 @@ pub trait Position<'a, TMesh: Mesh> {
 
 ///
 /// Triangular mesh that supports topological queries
-/// 
-pub trait TopologicalMesh: Mesh + Sized{
+///
+pub trait TopologicalMesh: Mesh + Sized {
     type Position<'a>: Position<'a, Self>;
 
     /// Iterates over one-ring vertices of vertex
-    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(
+        &self,
+        vertex: &Self::VertexDescriptor,
+        visit: TVisit,
+    );
     /// Iterates over one-ring faces of vertex
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor)>(
+        &self,
+        vertex: &Self::VertexDescriptor,
+        visit: TVisit,
+    );
     /// Iterates over edges incident to vertex
-    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit);
+    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(
+        &self,
+        vertex: &Self::VertexDescriptor,
+        visit: TVisit,
+    );
 
     /// Return `true` if vertex is on boundary, `false` otherwise
     fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool;
@@ -136,15 +199,27 @@ pub trait TopologicalMesh: Mesh + Sized{
     fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool;
 
     /// Returns incident faces of edge
-    fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>);
+    fn edge_faces(
+        &self,
+        edge: &Self::EdgeDescriptor,
+    ) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>);
 
     /// Returns edges of face
-    fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor);
+    fn face_edges(
+        &self,
+        face: &Self::FaceDescriptor,
+    ) -> (
+        Self::EdgeDescriptor,
+        Self::EdgeDescriptor,
+        Self::EdgeDescriptor,
+    );
+
+    fn validate_topology(&self) -> bool;
 }
 
 ///
 /// Triangular mesh that supports editing operations
-/// 
+///
 pub trait EditableMesh: Mesh {
     /// Collapse `edge` at given point. This method do not perform checks if operation is safe.
     fn collapse_edge(&mut self, edge: &Self::EdgeDescriptor, at: &Vec3<Self::ScalarType>);
@@ -163,14 +238,14 @@ pub trait EditableMesh: Mesh {
 ///
 /// Can be used to set flags for mesh primitives.
 /// Is used by some algorithms to mark processed faces/edges/vertices.
-/// 
+///
 pub trait Marker<TMesh: Mesh> {
     fn mark_face(&mut self, face: &TMesh::FaceDescriptor, marked: bool);
     fn is_face_marked(&self, face: &TMesh::FaceDescriptor) -> bool;
-    
+
     fn mark_vertex(&mut self, vertex: &TMesh::VertexDescriptor, marked: bool);
     fn is_vertex_marked(&self, vertex: &TMesh::VertexDescriptor) -> bool;
-    
+
     fn mark_edge(&mut self, edge: &TMesh::EdgeDescriptor, marked: bool);
     fn is_edge_marked(&self, edge: &TMesh::EdgeDescriptor) -> bool;
 }
@@ -184,9 +259,8 @@ pub trait MeshMarker: Mesh + Sized {
 }
 
 /// Property map. Can be used for fast access to properties of given entity.
-pub trait PropertyMap<TKey, TProperty>: 
-    Index<TKey, Output = TProperty> +
-    IndexMut<TKey, Output = TProperty>
+pub trait PropertyMap<TKey, TProperty>:
+    Index<TKey, Output = TProperty> + IndexMut<TKey, Output = TProperty>
 {
     fn get(&self, key: &TKey) -> Option<&TProperty>;
     fn get_mut(&mut self, key: &TKey) -> Option<&mut TProperty>;
@@ -196,15 +270,17 @@ pub trait PropertyMap<TKey, TProperty>:
 /// Mesh that supports property maps for vertices.
 /// Vertex-property map can be used to associate arbitrary data with vertices of mesh with fast access to it by vertex reference.
 /// Property map is guaranteed to be valid as far as mesh is not modified.
-/// 
+///
 pub trait VertexProperties: Mesh {
     type VertexPropertyMap<TProperty: Default>: PropertyMap<Self::VertexDescriptor, TProperty>;
 
-    fn create_vertex_properties_map<TProperty: Default>(&self) -> Self::VertexPropertyMap<TProperty>;
+    fn create_vertex_properties_map<TProperty: Default>(
+        &self,
+    ) -> Self::VertexPropertyMap<TProperty>;
 }
 
 pub trait SplitFaceAtPoint: Mesh {
-    fn split_face(&mut self, face: & Self::FaceDescriptor, point: Vec3<Self::ScalarType>);
+    fn split_face(&mut self, face: &Self::FaceDescriptor, point: Vec3<Self::ScalarType>);
 }
 
 /// Contains constants which defines what is good mesh

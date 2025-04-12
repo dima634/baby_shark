@@ -1,4 +1,4 @@
-use crate::voxel::{utils::CUBE_OFFSETS, Tile, TreeNode, Visitor};
+use crate::voxel::{utils::CUBE_OFFSETS, volume::Volume, Tile, TreeNode, Visitor};
 use nalgebra::Vector3;
 
 pub struct ActiveVoxelsMesher {
@@ -9,12 +9,15 @@ pub struct ActiveVoxelsMesher {
 impl ActiveVoxelsMesher {
     /// Returns a list where each tree consecutive vertices form a triangle
     #[allow(dead_code)]
-    pub fn mesh(&mut self, grid: &impl TreeNode) -> Vec<Vector3<isize>> {
+    pub fn mesh(&mut self, volume: &Volume) -> Vec<Vector3<isize>> {
         self.vertices.clear();
 
-        let mut visitor = ActiveVoxelsVisitor { grid, mesher: self };
+        let mut visitor = ActiveVoxelsVisitor {
+            grid: volume.grid(),
+            mesher: self,
+        };
 
-        grid.visit_leafs(&mut visitor);
+        volume.grid().visit_leafs(&mut visitor);
         std::mem::take(&mut self.vertices)
     }
 

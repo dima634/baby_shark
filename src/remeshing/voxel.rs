@@ -73,7 +73,7 @@ impl VoxelRemesher {
         };
 
         let indexed_faces = merge_points(&faces);
-        let mesh = T::from_vertices_and_indices(&indexed_faces.points, &indexed_faces.indices);
+        let mesh = T::from_vertex_and_face_slices(&indexed_faces.points, &indexed_faces.indices);
 
         Some(mesh)
     }

@@ -49,16 +49,28 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     type VerticesIter<'iter> = VerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = EdgesIter<'iter, TScalar>;
 
-    fn from_vertices_and_indices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self {
-        let mut soup = Vec::with_capacity(faces.len());
+    fn from_vertex_and_face_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, faces: impl Iterator<Item = usize>) -> Self {
+        let num_faces = faces.size_hint().1.unwrap_or(0);
+        let mut soup = Vec::with_capacity(num_faces * 3);
+        let vertices: Vec<_> = vertices.collect();
 
         for vertex_index in faces {
-            soup.push(vertices[*vertex_index]);
+            soup.push(vertices[vertex_index]);
         }
 
         Self {
             vertices: soup
         }
+    }
+
+    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::ScalarType>], faces: &[usize]) -> Self where Self: Sized {
+        let mut soup = Vec::with_capacity(faces.len());
+
+        for &vertex_index in faces {
+            soup.push(vertices[vertex_index]);
+        }
+        
+        Self { vertices: soup }
     }
 
     #[inline]

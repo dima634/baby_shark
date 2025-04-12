@@ -315,6 +315,10 @@ where
             if !self.not_safe_collapses.is_empty() {
                 // Reinsert unsafe collapses (mb they are safe now)
                 for collapse in self.not_safe_collapses.iter() {
+                    if !mesh.edge_exist(&collapse.edge) {
+                        continue;
+                    }
+
                     let new_cost = self.collapse_strategy.get_cost(mesh, &collapse.edge);
                     let (v1_pos, v2_pos) = mesh.edge_positions(&collapse.edge);
                     let new_position =

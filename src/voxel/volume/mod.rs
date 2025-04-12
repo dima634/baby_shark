@@ -93,7 +93,7 @@ impl Volume {
     }
 
     pub fn offset(mut self, distance: f32) -> Self {
-        self.grid.remove_if(|val| val.abs() > self.voxel_size);
+        self.grid.remove_if(|val| val.abs() > self.voxel_size * 2.0);
 
         let mut extension_distance = distance.abs() + self.voxel_size + self.voxel_size;
         extension_distance.set_sign(distance.sign());
@@ -119,5 +119,36 @@ impl Clone for Volume {
             grid: self.grid.clone(),
             voxel_size: self.voxel_size,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::{
+        io::stl::StlReader,
+        mesh::polygon_soup::data_structure::PolygonSoup,
+        voxel::{meshing::MarchingCubesMesher, prelude::MeshToVolume},
+    };
+
+    #[test]
+    fn test_volume_offset() {
+        let mut reader = StlReader::new();
+        let mesh: PolygonSoup<f32> = reader
+            .read_stl_from_file(Path::new("./assets/box2.stl"))
+            .expect("Read mesh");
+
+        let volume = MeshToVolume::default()
+            .with_voxel_size(0.2)
+            .convert(&mesh)
+            .unwrap()
+            .offset(0.5);
+
+        let vertices: Vec<_> = MarchingCubesMesher::default()
+            .with_voxel_size(volume.voxel_size())
+            .mesh(&volume);
+
+        assert_eq!(vertices.len(), 7944);
     }
 }

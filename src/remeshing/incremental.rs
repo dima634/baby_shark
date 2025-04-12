@@ -1,19 +1,19 @@
-use std::marker::PhantomData;
-use num_traits::{cast, Float};
 use crate::{
-    mesh::traits::{TopologicalMesh, EditableMesh, Position, mesh_stats }, 
-    algo::{utils::tangential_relaxation, edge_collapse, vertex_shift},
-    spatial_partitioning::grid::Grid, 
-    geometry::primitives::triangle3::Triangle3
+    algo::{edge_collapse, utils::tangential_relaxation, vertex_shift},
+    geometry::primitives::triangle3::Triangle3,
+    mesh::traits::{mesh_stats, EditableMesh, Position, TopologicalMesh},
+    spatial_partitioning::grid::Grid,
 };
+use num_traits::{cast, Float};
+use std::marker::PhantomData;
 
 ///
-/// Incremental isotropic remesher. 
-/// This algorithm incrementally performs simple operations such as edge splits, 
-/// edge collapses, edge flips, and Laplacian smoothing. 
-/// All the vertices of the remeshed patch are reprojected to 
+/// Incremental isotropic remesher.
+/// This algorithm incrementally performs simple operations such as edge splits,
+/// edge collapses, edge flips, and Laplacian smoothing.
+/// All the vertices of the remeshed patch are reprojected to
 /// the original surface to keep a good approximation of the input.
-/// 
+///
 /// ## Example
 /// ```ignore
 /// let remesher = IncrementalRemesher::new()
@@ -25,7 +25,7 @@ use crate::{
 ///     .with_project_vertices(true);
 /// remesher.remesh(&mut mesh, 0.002f32);
 /// ```
-/// 
+///
 pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     split_edges: bool,
     shift_vertices: bool,
@@ -35,7 +35,7 @@ pub struct IncrementalRemesher<TMesh: TopologicalMesh + EditableMesh> {
     iterations: u16,
     keep_boundary: bool,
 
-    mesh_type: PhantomData<TMesh>
+    mesh_type: PhantomData<TMesh>,
 }
 
 impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
@@ -97,11 +97,13 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     /// ## Arguments
     /// * `mesh` - triangular mesh
     /// * `target_edge_length` - desired length of edge
-    /// 
+    ///
     pub fn remesh(&self, mesh: &mut TMesh, target_edge_length: TMesh::ScalarType) {
-        let max_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 3.0).unwrap() * target_edge_length;
-        let min_edge_length = cast::<f64, TMesh::ScalarType>(4.0 / 5.0).unwrap() * target_edge_length;
-        
+        let max_edge_length =
+            cast::<f64, TMesh::ScalarType>(4.0 / 3.0).unwrap() * target_edge_length;
+        let min_edge_length =
+            cast::<f64, TMesh::ScalarType>(4.0 / 5.0).unwrap() * target_edge_length;
+
         let mut reference_mesh = Grid::empty();
         if self.project_vertices {
             reference_mesh = Grid::from_mesh(mesh);
@@ -153,23 +155,21 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
         // Perform laplacian smoothing for each vertex
         for vertex in vertices {
-            let vertex_normal = mesh.vertex_normal(&vertex);
-
-            if vertex_normal.is_none() {
+            let Some(vertex_normal) = mesh.vertex_normal(&vertex) else {
                 continue;
-            }
-            
+            };
+
             let vertex_position = mesh.vertex_position(&vertex);
             one_ring.clear();
             mesh.vertices_around_vertex(&vertex, |v| one_ring.push(*mesh.vertex_position(v)));
-            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal.unwrap()); 
+            let new_position = tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal); 
 
             let shift_vertex = 
                 !(self.keep_boundary && mesh.is_vertex_on_boundary(&vertex)) &&
                 vertex_shift::is_vertex_shift_safe(&vertex, vertex_position, &new_position, target_edge_length_squared,  mesh);
 
             if shift_vertex {
-                mesh.shift_vertex(&vertex, &new_position); 
+                mesh.shift_vertex(&vertex, &new_position);
             }
         }
     }
@@ -216,13 +216,18 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         }
     }
 
-    fn project_vertices(&self, mesh: &mut TMesh, grid: &Grid<Triangle3<TMesh::ScalarType>>, target_edge_length: TMesh::ScalarType) {
+    fn project_vertices(
+        &self,
+        mesh: &mut TMesh,
+        grid: &Grid<Triangle3<TMesh::ScalarType>>,
+        target_edge_length: TMesh::ScalarType,
+    ) {
         let vertices: Vec<TMesh::VertexDescriptor> = mesh.vertices().collect();
 
         // Project vertices back on original mesh
         for vertex in vertices {
             let vertex_position = mesh.vertex_position(&vertex);
-            
+
             if let Some(closest_point) = grid.closest_point(vertex_position, target_edge_length) {
                 mesh.shift_vertex(&vertex, &closest_point);
             }
@@ -235,33 +240,44 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
             return false;
         }
 
+        // Check that flipped edge doest not already exist
+        let mut pos = TMesh::Position::from_edge(mesh, edge);
+        let v1_idx = pos.get_vertex();
+        let v2_idx = pos.opposite().get_vertex();
+
+        let mut safe = true;
+        mesh.vertices_around_vertex(&v2_idx, |v| safe &= v1_idx != *v);
+
+        if !safe {
+            return false;
+        }
+
         // Check normals after flip (geometrical safety)
         let mut pos = TMesh::Position::from_edge(mesh, edge);
-        
+
         let v1 = mesh.vertex_position(&pos.get_vertex());
         let v2 = mesh.vertex_position(&pos.next().get_vertex());
         let v0 = mesh.vertex_position(&pos.next().get_vertex());
         let v3 = mesh.vertex_position(&pos.next().opposite().get_vertex());
 
-        if Triangle3::is_degenerate(v1, v2, v3) ||
-           Triangle3::is_degenerate(v0, v1, v3) {
+        if Triangle3::is_degenerate(v1, v2, v3) || Triangle3::is_degenerate(v0, v1, v3) {
             return false;
         }
 
-        let old_normal1 = Triangle3::normal(v0, v1, v2);
-        let new_normal1 = Triangle3::normal(v1, v2, v3);
+        let Some(old_normal1) = Triangle3::normal(v0, v1, v2) else { return false; };
+        let Some(new_normal1) = Triangle3::normal(v1, v2, v3) else { return false; };
         let threshold = cast::<f64, TMesh::ScalarType>(5.0).unwrap().to_radians();
 
         if old_normal1.angle(&new_normal1) > threshold {
             return false;
         }
 
-        let old_normal2 = Triangle3::normal(v0, v2, v3);
-        let new_normal2 = Triangle3::normal(v0, v1, v3);
+        let Some(old_normal2) = Triangle3::normal(v0, v2, v3) else { return false; };
+        let Some(new_normal2) = Triangle3::normal(v0, v1, v3) else { return false; };
 
-        if old_normal2.angle(&new_normal2) > threshold || 
-           old_normal2.angle(&new_normal1) > threshold || 
-           old_normal1.angle(&new_normal2) > threshold 
+        if old_normal2.angle(&new_normal2) > threshold
+            || old_normal2.angle(&new_normal1) > threshold
+            || old_normal1.angle(&new_normal2) > threshold
         {
             return false;
         }
@@ -287,29 +303,29 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         let v2_val = self.valence(mesh, &v2);
         let v3_val = self.valence(mesh, &v3);
 
-        let old_deviation =
-            (v0_val - v0_ideal_val).abs() +
-            (v1_val - v1_ideal_val).abs() +
-            (v2_val - v2_ideal_val).abs() +
-            (v3_val - v3_ideal_val).abs();
+        let old_deviation = (v0_val - v0_ideal_val).abs()
+            + (v1_val - v1_ideal_val).abs()
+            + (v2_val - v2_ideal_val).abs()
+            + (v3_val - v3_ideal_val).abs();
 
-        let new_deviation = 
-            (v0_val - 1 - v0_ideal_val).abs() +
-            (v1_val + 1 - v1_ideal_val).abs() +
-            (v2_val - 1 - v2_ideal_val).abs() +
-            (v3_val + 1 - v3_ideal_val).abs();
+        let new_deviation = (v0_val - 1 - v0_ideal_val).abs()
+            + (v1_val + 1 - v1_ideal_val).abs()
+            + (v2_val - 1 - v2_ideal_val).abs()
+            + (v3_val + 1 - v3_ideal_val).abs();
 
         let v0_pos = mesh.vertex_position(&v0);
         let v1_pos = mesh.vertex_position(&v1);
         let v2_pos = mesh.vertex_position(&v2);
         let v3_pos = mesh.vertex_position(&v3);
 
-        let old_face_quality = Triangle3::quality(v0_pos, v1_pos, v2_pos).min(Triangle3::quality(v0_pos, v2_pos, v3_pos));
-        let new_face_quality = Triangle3::quality(v1_pos, v2_pos, v3_pos).min(Triangle3::quality(v0_pos, v1_pos, v3_pos));
+        let old_face_quality = Triangle3::quality(v0_pos, v1_pos, v2_pos)
+            .min(Triangle3::quality(v0_pos, v2_pos, v3_pos));
+        let new_face_quality = Triangle3::quality(v1_pos, v2_pos, v3_pos)
+            .min(Triangle3::quality(v0_pos, v1_pos, v3_pos));
 
         (new_deviation < old_deviation && new_face_quality >= old_face_quality * cast(0.5).unwrap()) ||
                (new_deviation == old_deviation && new_face_quality > old_face_quality) || // Same valence but better quality
-               (new_face_quality > old_face_quality * cast(1.5).unwrap())// Hurt valence but improve quality by much
+               (new_face_quality > old_face_quality * cast(1.5).unwrap()) // Hurt valence but improve quality by much
     }
 
     #[inline]
@@ -318,8 +334,8 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
         mesh.vertices_around_vertex(vertex, |_| valence += 1);
 
         valence
-    }    
-    
+    }
+
     #[inline]
     fn ideal_valence(&self, mesh: &TMesh, vertex: &TMesh::VertexDescriptor) -> isize {
         if mesh.is_vertex_on_boundary(vertex) {
@@ -340,7 +356,37 @@ impl<TMesh: TopologicalMesh + EditableMesh> Default for IncrementalRemesher<TMes
             project_vertices: true,
             iterations: 10,
             keep_boundary: true,
-            mesh_type: PhantomData
+            mesh_type: PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use crate::{
+        io::stl::StlReader,
+        mesh::{corner_table::CornerTable, traits::Mesh}
+    };
+    use super::IncrementalRemesher;
+
+    #[test]
+    fn should_collapse_short_edges() {
+        let mut mesh: CornerTable<f32> = StlReader::default()
+            .read_stl_from_file(Path::new("./assets/tube.stl"))
+            .expect("Read mesh");
+
+        // Only collapse edges
+        let target_edge_length = 0.1f32;
+        IncrementalRemesher::default()
+            .with_iterations_count(5)
+            .remesh(&mut mesh, target_edge_length);
+
+        let has_short_edges = mesh.edges().any(|edge| {
+            let length = mesh.edge_length(&edge);
+            length < target_edge_length * 0.8
+        });
+
+        assert!(!has_short_edges, "should not have short edges after remeshing");
     }
 }

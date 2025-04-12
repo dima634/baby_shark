@@ -74,7 +74,7 @@ impl StlReader {
                 .collect();
         
         // Create mesh
-        Ok(TMesh::from_vertices_and_indices(&vertices, &merged_vertices.indices))
+        Ok(TMesh::from_vertex_and_face_slices(&vertices, &merged_vertices.indices))
     }
 
     fn read_face<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<()> {
@@ -153,7 +153,7 @@ impl StlWriter {
     
         for face in mesh.faces() {
             let triangle = mesh.face_positions(&face);
-            let normal = triangle.get_normal();
+            let normal = triangle.get_normal().unwrap_or(Vector3::zeros()); // Write zeros for degenerate faces
             
             let p1 = cast(triangle.p1()).into();
             let p2 = cast(triangle.p2()).into();
