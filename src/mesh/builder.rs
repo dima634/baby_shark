@@ -108,5 +108,5 @@ pub fn cylinder<T: Mesh>(
         indices.push(bottom_next);
     }
 
-    T::from_vertices_and_indices(&vertices, &indices)
+    T::from_vertex_and_face_slices(&vertices, &indices)
 }

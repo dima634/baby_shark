@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use super::{corner_table::prelude::CornerTableD, traits::TopologicalMesh};
+use super::{corner_table::{prelude::CornerTableD, VertexId}, traits::TopologicalMesh};
 
 /// Extends the region of a vertices by including all vertices within a given number of rings.
-pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<usize>, rings: usize) {
+pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<VertexId>, rings: usize) {
     if rings == 0 {
         return;
     }

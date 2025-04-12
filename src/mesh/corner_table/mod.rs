@@ -1,3 +1,8 @@
+pub use corner::CornerId;
+pub use vertex::VertexId;
+pub use face::FaceId;
+pub use edge::EdgeId;
+
 use corner::*;
 use vertex::*;
 

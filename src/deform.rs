@@ -1,4 +1,4 @@
-use crate::{helpers::aliases::Vec3d, mesh::corner_table::prelude::CornerTableD, mesh::traits::*};
+use crate::{helpers::aliases::Vec3d, mesh::{corner_table::{prelude::CornerTableD, VertexId}, traits::*}};
 use faer::{
     linalg::solvers::{ShapeCore, Solve},
     sparse as sp,
@@ -15,9 +15,9 @@ pub enum DeformError {
 
 pub fn prepare_deform(
     mesh: &CornerTableD,
-    handle: &HashSet<usize>,
-    region_of_interest: &HashSet<usize>,
-    anchor: &HashSet<usize>,
+    handle: &HashSet<VertexId>,
+    region_of_interest: &HashSet<VertexId>,
+    anchor: &HashSet<VertexId>,
 ) -> Result<PreparedDeform, DeformError> {
     if handle.is_empty() {
         return Err(DeformError::InvalidHandle);
@@ -82,9 +82,9 @@ pub fn prepare_deform(
 #[derive(Debug)]
 pub struct PreparedDeform {
     factorization: faer::sparse::linalg::solvers::Qr<usize, f64>,
-    handle: Vec<usize>,
-    region_of_interest: Vec<usize>,
-    anchor: Vec<usize>,
+    handle: Vec<VertexId>,
+    region_of_interest: Vec<VertexId>,
+    anchor: Vec<VertexId>,
 }
 
 impl PreparedDeform {
@@ -119,16 +119,11 @@ impl PreparedDeform {
 
         for i in 0..self.region_of_interest.len() {
             let point = Vec3d::new(solution[i * 3], solution[i * 3 + 1], solution[i * 3 + 2]);
-
-            if let Some(vert) = mesh.get_vertex_mut(self.region_of_interest[i]) {
-                vert.set_position(point);
-            }
+            mesh[self.region_of_interest[i]].set_position(point);
         }
 
         for i in 0..self.handle.len() {
-            if let Some(vert) = mesh.get_vertex_mut(self.handle[i]) {
-                vert.set_position(handle_transformed[i]);
-            }
+            mesh[self.handle[i]].set_position(handle_transformed[i]);
         }
     }
 }
@@ -137,8 +132,8 @@ impl PreparedDeform {
 /// If vertex does not border with a vertex in the region of interest it will not compute the distortion term.
 fn handle_borders_with_roi(
     mesh: &CornerTableD,
-    handle: &HashSet<usize>,
-    roi: &HashSet<usize>,
+    handle: &HashSet<VertexId>,
+    roi: &HashSet<VertexId>,
 ) -> bool {
     for &handle_vert in handle {
         let mut is_significant = false;
@@ -249,8 +244,8 @@ type Triplet = sp::Triplet<usize, usize, f64>;
 
 fn compute_distortion_term_coeffs(
     mesh: &CornerTableD,
-    roi: &Vec<usize>,
-    vertex_to_col: &HashMap<usize, usize>,
+    roi: &Vec<VertexId>,
+    vertex_to_col: &HashMap<VertexId, usize>,
     coeffs: &mut Vec<Triplet>,
 ) {
     let mut vertex_and_neighbors = Vec::new();
