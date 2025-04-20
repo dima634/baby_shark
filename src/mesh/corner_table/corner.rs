@@ -29,6 +29,11 @@ impl CornerId {
     pub(super) fn from_option(corner: Option<CornerId>) -> Self {
         corner.unwrap_or(Self(usize::MAX))
     }
+    
+    #[inline]
+    pub(super) fn index(&self) -> usize {
+        self.0
+    }
 
     #[inline]
     pub fn next(&self) -> CornerId {
@@ -54,7 +59,7 @@ impl CornerId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Corner {
     opposite_corner: CornerId,
     vertex: VertexId,

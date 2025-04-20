@@ -1,34 +1,41 @@
 use baby_shark::{
-    io::stl::StlWriter,
-    mesh::{builder::cylinder, corner_table::prelude::CornerTableD, traits::Mesh},
-    *,
+    io::stl::StlWriter, mesh::{builder::cylinder, corner_table::prelude::CornerTableD, traits::Mesh}, remeshing::incremental::IncrementalRemesher, *
 };
 use nalgebra as na;
-use std::{collections::HashSet, path::Path};
+use std::{collections::{BTreeSet, HashSet}, f64::consts::PI, path::Path};
 
 fn main() {
-    let mut cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 3);
+    let mut cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 15);
 
-    let transform = na::Matrix4::new_translation(&na::Vector3::new(0.0, 0.0, 3.0));
-    let handle = HashSet::from_iter(
+    // IncrementalRemesher::default()
+    //     .remesh(&mut cylinder, 0.3);
+
+    StlWriter::new()
+        .write_stl_to_file(&cylinder, Path::new("orig.stl"))
+        .unwrap();
+
+    let transform = na::Matrix4::new_rotation(na::Vector3::new(0.0, PI / 2.0, 0.0));
+    let handle = BTreeSet::from_iter(
         cylinder
             .vertices()
             .filter(|v| cylinder.vertex_position(v).y == 10.0),
     );
     let roi =
-        HashSet::from_iter(cylinder.vertices().filter(|v| {
+        BTreeSet::from_iter(cylinder.vertices().filter(|v| {
             cylinder.vertex_position(v).y != 0.0 && cylinder.vertex_position(v).y != 10.0
         }));
 
-    let anchor = HashSet::from_iter(
+    let anchor = BTreeSet::from_iter(
         cylinder
             .vertices()
             .filter(|v| cylinder.vertex_position(v).y == 0.0),
     );
 
-    prepare_deform(&cylinder, &handle, &roi, &anchor)
+    //let anchor = BTreeSet::new();
+
+    let cylinder = prepare_deform_arap(&cylinder, &handle, &roi, &anchor)
         .expect("failed to prepare deform")
-        .deform(&mut cylinder, transform);
+        .deform_arap(&cylinder, transform);
 
     StlWriter::new()
         .write_stl_to_file(&cylinder, Path::new("cylinder.stl"))

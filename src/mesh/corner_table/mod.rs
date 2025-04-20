@@ -2,10 +2,10 @@ pub use corner::CornerId;
 pub use vertex::VertexId;
 pub use face::FaceId;
 pub use edge::EdgeId;
+pub use attribute::EdgeAttribute;
 
 use corner::*;
 use vertex::*;
-
 use crate::geometry::traits::RealNumber;
 
 pub mod create;
@@ -21,10 +21,12 @@ mod corner;
 mod face;
 mod traits;
 mod flags;
+mod attribute;
 
 #[cfg(test)]
 mod test_helpers;
 
+#[derive(Debug, Clone)]
 pub struct CornerTable<TScalar: RealNumber> {
     vertices: Vec<Vertex<TScalar>>,
     corners: Vec<Corner>,
