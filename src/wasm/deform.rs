@@ -1,28 +1,67 @@
-use std::collections::HashSet;
-use super::mesh::*;
-use wasm_bindgen::prelude::*;
+use crate::DeformError;
+
+use super::Mesh;
 use nalgebra as na;
+use std::{collections::{HashMap, HashSet}, time::Instant};
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct PreparedDeform(crate::PreparedDeform);
+pub struct PreparedDeform {
+    inner: crate::PreparedDeform,
+    handle: Vec<usize>,
+}
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn time(s: &str);
+
+    #[wasm_bindgen(js_namespace = console)]
+    fn timeEnd(s: &str);
+}
 
 #[wasm_bindgen]
 impl PreparedDeform {
     pub fn new(
         mesh: &mut Mesh,
-        handle: &[usize],
+        handle_region: &[usize],
         region_of_interest: &[usize],
-    ) -> Option<PreparedDeform> {
-        let handle = HashSet::from_iter(handle.iter().copied());
-        let region_of_interest = HashSet::from_iter(region_of_interest.iter().copied());
-        let prep_deform =
-            crate::prepare_deform(mesh.inner_mut(), &handle, &region_of_interest).ok()?;
-        Some(PreparedDeform(prep_deform))
+    ) -> Result<PreparedDeform, String> {
+        let handle = HashSet::from_iter(mesh.vertex_indices_to_ids(handle_region.into_iter().copied()));
+        let region_of_interest =  HashSet::from_iter(mesh.vertex_indices_to_ids(region_of_interest.into_iter().copied()));
+
+        crate::prepare_deform(mesh.inner_mut(), &handle, &region_of_interest)
+            .map(|prepared| PreparedDeform {
+                inner: prepared,
+                handle: handle_region.to_vec(),
+            })
+            .map_err(|err| err.to_string())
     }
 
-    pub fn deform(&self, mesh: &mut Mesh, transform: &[f64]) {
-        assert!(transform.len() == 16);
-        let transform = na::Matrix4::from_column_slice(transform);
-        self.0.deform(mesh.inner_mut(), transform);
+    pub fn deform(&self, mesh: &mut Mesh, target: &[f64]) -> Result<Mesh, String> {
+        if target.len() != 3 * self.handle.len() {
+            return Err("Target positions do not match handle size".to_string());
+        }
+
+
+        time("convert");
+        let handle_ids = mesh.vertex_indices_to_ids(self.handle.iter().copied());
+        let target = HashMap::from_iter(
+            handle_ids
+                .into_iter()
+                .zip(target.chunks_exact(3).map(|chunk| {
+                    na::Vector3::new(chunk[0], chunk[1], chunk[2])
+                })),
+        );
+        timeEnd("convert");
+
+        time("deform");
+        let result = self.inner.deform(mesh.inner_mut(), &target)
+            .map(|mesh| Mesh(mesh))
+            .map_err(|err| err.to_string());
+        timeEnd("deform");
+
+        result
     }
 }

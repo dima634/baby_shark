@@ -19,4 +19,4 @@ mod helpers;
 mod wasm;
 
 pub use deform::*;
-pub use mesh::region::extend_region;
+pub use mesh::region::*;

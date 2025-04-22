@@ -3,6 +3,7 @@ pub use vertex::VertexId;
 pub use face::FaceId;
 pub use edge::EdgeId;
 pub use attribute::EdgeAttribute;
+pub use boundary::*;
 
 use corner::*;
 use vertex::*;
@@ -22,6 +23,7 @@ mod face;
 mod traits;
 mod flags;
 mod attribute;
+mod boundary;
 
 #[cfg(test)]
 mod test_helpers;

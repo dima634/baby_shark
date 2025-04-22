@@ -82,6 +82,19 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
         return self.move_to_previous().move_to_opposite().move_to_previous();
     }
 
+    pub fn try_swing_right(&mut self) -> bool {
+        self.move_to_previous();
+
+        if let Some(opposite) = self.corner().opposite_corner() {
+            self.set_current_corner(opposite);
+            self.move_to_previous();
+            true
+        } else {
+            self.move_to_next();
+            false
+        }
+    }
+
     /// Swings to left around corner vertex
     #[inline]
     pub fn swing_left(&mut self) -> &mut Self {

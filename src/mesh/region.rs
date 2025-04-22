@@ -31,3 +31,19 @@ pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<VertexId>,
         std::mem::swap(&mut current_ring, &mut next_ring);
     }
 }
+
+pub fn region_boundary(mesh: &CornerTableD, vertex_region: &HashSet<VertexId>) -> Vec<VertexId> {
+    let mut boundary = Vec::new();
+
+    for vert in vertex_region {
+        let mut added = false;
+        mesh.vertices_around_vertex(vert, |neighbor| {
+            if !added && !vertex_region.contains(&neighbor) {
+                boundary.push(*vert);
+                added = true;
+            }
+        });
+    }
+
+    boundary
+}
