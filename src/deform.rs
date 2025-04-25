@@ -66,7 +66,7 @@ pub fn prepare_deform(
         region_of_interest,
         edge_weights,
         vertex_to_col,
-        max_iters: 2,
+        max_iters: 5,
     })
 }
 
@@ -96,6 +96,18 @@ pub struct PreparedDeform {
 }
 
 impl PreparedDeform {
+    #[inline]
+    pub fn with_max_iters(mut self, max_iters: usize) -> Self {
+        self.max_iters = max_iters;
+        self
+    }
+
+    #[inline]
+    pub fn set_max_iters(&mut self, max_iters: usize) -> &mut Self {
+        self.max_iters = max_iters;
+        self
+    }
+
     #[inline(never)]
     pub fn deform(&self, mesh: &CornerTableD, target: &HashMap<VertexId, Vec3d>) -> Result<CornerTableD, DeformError> {
         if target.is_empty() {
@@ -121,36 +133,7 @@ impl PreparedDeform {
         for _ in 0..self.max_iters {
             use rayon::prelude::*;
 
-            rotations = self.vertices().enumerate().par_bridge().into_par_iter().map(|(i, vert)| {
-                let mut s = na::Matrix3::<f64>::zeros();
-
-                mesh.edges_around_vertex(vert, |edge| {
-                    let (v1, v2) = mesh.edge_vertices(edge);
-                    let other_vert = if vert == &v1 { v2 } else { v1 }; // TODO: ordered edges
-
-                    let vi = mesh.vertex_position(vert);
-                    let vj = mesh.vertex_position(&other_vert);
-
-                    let vi_deformed = deformed.vertex_position(vert); // IDs after clone may not be the same
-                    let vj_deformed = deformed.vertex_position(&other_vert);
-
-                    let e0 = vi - vj;
-                    let e1 = vi_deformed - vj_deformed;
-                    let weight = self.edge_weights[*edge];
-
-                    s += weight * (e0 * e1.transpose());
-                });
-                
-                let svd = s.svd_unordered(true, true);
-                let u = svd.u.unwrap();
-                let v = svd.v_t.map(|v_t| v_t.transpose()).unwrap();
-                let det = (v * u.transpose()).determinant();
-                let d = na::Vector3::new(1.0, 1.0, det);
-
-                v * na::Matrix3::from_diagonal(&d) * u.transpose()
-            }).collect();
-
-            // for (i, vert) in self.vertices().enumerate() {
+            // rotations = self.vertices().enumerate().par_bridge().into_par_iter().map(|(i, vert)| {
             //     let mut s = na::Matrix3::<f64>::zeros();
 
             //     mesh.edges_around_vertex(vert, |edge| {
@@ -171,13 +154,42 @@ impl PreparedDeform {
             //     });
                 
             //     let svd = s.svd_unordered(true, true);
-            //     let Some(u) = svd.u else { return Err(DeformError::InternalError("failed to compute SVD")); };
-            //     let Some(v) = svd.v_t.map(|v_t| v_t.transpose()) else { return Err(DeformError::InternalError("failed to compute SVD")); };
+            //     let u = svd.u.unwrap();
+            //     let v = svd.v_t.map(|v_t| v_t.transpose()).unwrap();
             //     let det = (v * u.transpose()).determinant();
             //     let d = na::Vector3::new(1.0, 1.0, det);
 
-            //     rotations[i] = v * na::Matrix3::from_diagonal(&d) * u.transpose();
-            // }
+            //     v * na::Matrix3::from_diagonal(&d) * u.transpose()
+            // }).collect();
+
+            for (i, vert) in self.vertices().enumerate() {
+                let mut s = na::Matrix3::<f64>::zeros();
+
+                mesh.edges_around_vertex(vert, |edge| {
+                    let (v1, v2) = mesh.edge_vertices(edge);
+                    let other_vert = if vert == &v1 { v2 } else { v1 }; // TODO: ordered edges
+
+                    let vi = mesh.vertex_position(vert);
+                    let vj = mesh.vertex_position(&other_vert);
+
+                    let vi_deformed = deformed.vertex_position(vert); // IDs after clone may not be the same
+                    let vj_deformed = deformed.vertex_position(&other_vert);
+
+                    let e0 = vi - vj;
+                    let e1 = vi_deformed - vj_deformed;
+                    let weight = self.edge_weights[*edge];
+
+                    s += weight * (e0 * e1.transpose());
+                });
+                
+                let svd = s.svd_unordered(true, true);
+                let Some(u) = svd.u else { return Err(DeformError::InternalError("failed to compute SVD")); };
+                let Some(v) = svd.v_t.map(|v_t| v_t.transpose()) else { return Err(DeformError::InternalError("failed to compute SVD")); };
+                let det = (v * u.transpose()).determinant();
+                let d = na::Vector3::new(1.0, 1.0, det);
+
+                rotations[i] = v * na::Matrix3::from_diagonal(&d) * u.transpose();
+            }
 
             for (i, &vi) in self.vertices().enumerate() {
                 let mut bi = na::Vector3::zeros();

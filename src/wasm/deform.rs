@@ -39,6 +39,11 @@ impl PreparedDeform {
             .map_err(|err| err.to_string())
     }
 
+    #[inline]
+    pub fn set_max_iters(&mut self, max_iters: usize) {
+        self.inner.set_max_iters(max_iters);
+    }
+
     pub fn deform(&self, mesh: &mut Mesh, target: &[f64]) -> Result<Mesh, String> {
         if target.len() != 3 * self.handle.len() {
             return Err("Target positions do not match handle size".to_string());
