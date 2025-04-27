@@ -52,7 +52,7 @@ pub trait Mesh {
     fn faces(&self) -> Self::FacesIter<'_>;
     /// Iterator over mesh vertices
     fn vertices(&self) -> Self::VerticesIter<'_>;
-    /// Iterator over mesh edges
+    /// Iterator over mesh oriented edges
     fn edges(&self) -> Self::EdgesIter<'_>;
 
     /// Return vertices of given face
@@ -74,6 +74,7 @@ pub trait Mesh {
         &self,
         edge: &Self::EdgeDescriptor,
     ) -> (Self::VertexDescriptor, Self::VertexDescriptor);
+    fn opposite_edge(&self, edge: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor>;
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType>;

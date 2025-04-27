@@ -199,35 +199,41 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     #[inline]
     fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         let mut walker = CornerWalker::from_corner(self, face.corner());
-
-        return (
+        (
             walker.corner().vertex(),
             walker.move_to_next().corner().vertex(),
             walker.move_to_next().corner().vertex(),
-        );
+        )
     }
 
     #[inline]
     fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
         let mut walker = CornerWalker::from_corner(self, edge.corner());
-        return (
+        (
             *walker.move_to_next().vertex().position(),
             *walker.move_to_next().vertex().position(),
-        );
+        )
     }
 
     #[inline]
     fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
         let mut walker = CornerWalker::from_corner(self, edge.corner());
-        return (
+        (
             walker.move_to_next().corner().vertex(),
             walker.move_to_next().corner().vertex(),
-        );
+        )
+    }
+    
+    #[inline]
+    fn opposite_edge(&self, edge: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor> {
+        self[edge.corner()]
+            .opposite_corner()
+            .map(|corner| EdgeId::new(corner))
     }
 
     #[inline]
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
-        return self[*vertex].position();
+        self[*vertex].position()
     }
 
     fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>> {
@@ -344,9 +350,9 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
     fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor) {
         let (c1, c2, c3) = face.corners();
         (
-            Self::EdgeDescriptor::new(c1, self),
-            Self::EdgeDescriptor::new(c2, self),
-            Self::EdgeDescriptor::new(c3, self),
+            Self::EdgeDescriptor::new(c1),
+            Self::EdgeDescriptor::new(c2),
+            Self::EdgeDescriptor::new(c3),
         )
     }
 }
@@ -405,10 +411,10 @@ mod tests {
         let mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0)),
-            VertexF::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)),
-            VertexF::new(CornerId::new(3), Vec3f::new(1.0, 0.0, 0.0)),
-            VertexF::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0)),
+            Vertex::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0)),
+            Vertex::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)),
+            Vertex::new(CornerId::new(3), Vec3f::new(1.0, 0.0, 0.0)),
+            Vertex::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0)),
         ];
 
         let expected_corners = vec![

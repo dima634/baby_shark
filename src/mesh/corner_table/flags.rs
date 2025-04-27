@@ -1,8 +1,6 @@
 use std::fmt::Display;
 use bitflags::bitflags;
 
-use super::traits;
-
 bitflags! {
     #[derive(Debug, Clone, Copy)]
     pub struct Flags: u8 {
@@ -18,34 +16,6 @@ impl Default for Flags {
     #[inline]
     fn default() -> Self {
         Self(Default::default())
-    }
-}
-
-///
-/// Sets visited flag to `false`
-/// 
-#[inline]
-pub fn clear_visited<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
-    where TEntity: 'a + traits::Flags, 
-    TEntitiesIter: Iterator<Item = &'a TEntity> 
-{
-    for entity in iter {
-        entity.set_visited(false);
-    }
-}
-
-///
-/// Sets all 'marked' flags to `false`
-/// 
-#[inline]
-pub fn clear_marked<'a, TEntity, TEntitiesIter>(iter: TEntitiesIter) 
-    where TEntity: 'a + traits::Flags, 
-    TEntitiesIter: Iterator<Item = &'a TEntity> 
-{
-    for entity in iter {
-        entity.set_marked_1(false);
-        entity.set_marked_2(false);
-        entity.set_marked_3(false);
     }
 }
 

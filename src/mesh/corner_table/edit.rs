@@ -325,16 +325,9 @@ impl<TScalar: RealNumber> SplitFaceAtPoint for CornerTable<TScalar> {
 mod tests {
     use crate::{
         helpers::aliases::Vec3f, 
-        mesh::{
-            corner_table::{
-                corner::{Corner, CornerId},
-                vertex::{VertexF, VertexId},
-                edge::EdgeId, 
-                face::FaceId, 
-                test_helpers::*,
-            },
-            traits::{EditableMesh, SplitFaceAtPoint}
-        }
+        mesh::corner_table::*,
+        mesh::corner_table::test_helpers::*,
+        mesh::traits::{EditableMesh, SplitFaceAtPoint},
     };
 
     #[test]
@@ -342,11 +335,11 @@ mod tests {
         let mut mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0), ), // 0
-            VertexF::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0), ), // 1
-            VertexF::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0), ), // 2
-            VertexF::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0), ), // 3
-            VertexF::new(CornerId::new(7), Vec3f::new(1.0, 0.0, 0.0), )  // 4
+            Vertex::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0), ), // 0
+            Vertex::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0), ), // 1
+            Vertex::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0), ), // 2
+            Vertex::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0), ), // 3
+            Vertex::new(CornerId::new(7), Vec3f::new(1.0, 0.0, 0.0), )  // 4
         ];
 
         let expected_corners = vec![
@@ -365,7 +358,7 @@ mod tests {
             Corner::new(None,                    VertexId::new(2)), // 11
         ];
 
-        mesh.split_edge(&EdgeId::new(CornerId::new(1), &mesh), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.split_edge(&EdgeId::new(CornerId::new(1)), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -375,12 +368,12 @@ mod tests {
         let mut mesh = create_unit_cross_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(10), Vec3f::new(0.0, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(3),  Vec3f::new(0.0, 0.0, 0.0)), // 1
-            VertexF::new(CornerId::new(6),  Vec3f::new(1.0, 0.0, 0.0)), // 2
-            VertexF::new(CornerId::new(7),  Vec3f::new(0.75, 0.75, 0.0)), // 3
-            VertexF::new(CornerId::new(11), Vec3f::new(0.5, 0.5, 0.0)), // 4
-            VertexF::new(CornerId::new(13), Vec3f::new(1.0, 1.0, 0.0))  // 5
+            Vertex::new(CornerId::new(10), Vec3f::new(0.0, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(3),  Vec3f::new(0.0, 0.0, 0.0)), // 1
+            Vertex::new(CornerId::new(6),  Vec3f::new(1.0, 0.0, 0.0)), // 2
+            Vertex::new(CornerId::new(7),  Vec3f::new(0.75, 0.75, 0.0)), // 3
+            Vertex::new(CornerId::new(11), Vec3f::new(0.5, 0.5, 0.0)), // 4
+            Vertex::new(CornerId::new(13), Vec3f::new(1.0, 1.0, 0.0))  // 5
         ];
 
         let expected_corners = vec![
@@ -405,7 +398,7 @@ mod tests {
             Corner::new(None,                    VertexId::new(3)), // 17
         ];
 
-        mesh.split_edge(&EdgeId::new(CornerId::new(6), &mesh), &Vec3f::new(0.75, 0.75, 0.0));
+        mesh.split_edge(&EdgeId::new(CornerId::new(6)), &Vec3f::new(0.75, 0.75, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -415,10 +408,10 @@ mod tests {
         let mut mesh = create_single_face_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(0), Vec3f::new(0.0, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)), // 1
-            VertexF::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0)), // 2
-            VertexF::new(CornerId::new(4), Vec3f::new(1.0, 0.0, 0.0)), // 3
+            Vertex::new(CornerId::new(0), Vec3f::new(0.0, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)), // 1
+            Vertex::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0)), // 2
+            Vertex::new(CornerId::new(4), Vec3f::new(1.0, 0.0, 0.0)), // 3
         ];
 
         let expected_corners = vec![
@@ -431,7 +424,7 @@ mod tests {
             Corner::new(None,                   VertexId::new(2)), // 5
         ];
 
-        mesh.split_edge(&EdgeId::new(CornerId::new(1), &mesh), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.split_edge(&EdgeId::new(CornerId::new(1)), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -441,16 +434,16 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh1();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(28), Vec3f::new(0.0, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(3), Vec3f::new(0.0, 0.5, 0.0)), // 1
-            VertexF::new(CornerId::new(6), Vec3f::new(0.0, 0.0, 0.0)), // 2
-            VertexF::new(CornerId::new(12), Vec3f::new(0.5, 0.0, 0.0)), // 3
-            VertexF::new(CornerId::new(15), Vec3f::new(1.0, 0.0, 0.0)), // 4
-            VertexF::new(CornerId::new(18), Vec3f::new(1.0, 0.5, 0.0)), // 5
-            VertexF::new(CornerId::new(21), Vec3f::new(1.0, 1.0, 0.0)), // 6
-            VertexF::new(CornerId::new(27), Vec3f::new(0.5, 1.0, 0.0)), // 7
-            VertexF::new(CornerId::new(29), Vec3f::new(0.25, 0.5, 0.0)), // 8
-            VertexF::new(CornerId::new(23), Vec3f::new(0.5, 0.5, 0.0)), // 9
+            Vertex::new(CornerId::new(28), Vec3f::new(0.0, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(3), Vec3f::new(0.0, 0.5, 0.0)), // 1
+            Vertex::new(CornerId::new(6), Vec3f::new(0.0, 0.0, 0.0)), // 2
+            Vertex::new(CornerId::new(12), Vec3f::new(0.5, 0.0, 0.0)), // 3
+            Vertex::new(CornerId::new(15), Vec3f::new(1.0, 0.0, 0.0)), // 4
+            Vertex::new(CornerId::new(18), Vec3f::new(1.0, 0.5, 0.0)), // 5
+            Vertex::new(CornerId::new(21), Vec3f::new(1.0, 1.0, 0.0)), // 6
+            Vertex::new(CornerId::new(27), Vec3f::new(0.5, 1.0, 0.0)), // 7
+            Vertex::new(CornerId::new(29), Vec3f::new(0.25, 0.5, 0.0)), // 8
+            Vertex::new(CornerId::new(23), Vec3f::new(0.5, 0.5, 0.0)), // 9
         ];
 
         let expected_corners = vec![
@@ -487,7 +480,7 @@ mod tests {
             Corner::new(None,                    VertexId::new(9)), // 29
         ];
 
-        mesh.collapse_edge(&EdgeId::new(CornerId::new(9), &mesh), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.collapse_edge(&EdgeId::new(CornerId::new(9)), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -497,13 +490,13 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh2();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(0),  Vec3f::new(0.5, 0.0, 0.0)), // 0
-            VertexF::new(CornerId::new(3), Vec3f::new(1.0, 0.0, 0.0)), // 1
-            VertexF::new(CornerId::new(6), Vec3f::new(1.0, 0.5, 0.0)), // 2
-            VertexF::new(CornerId::new(9), Vec3f::new(1.0, 1.0, 0.0)), // 3
-            VertexF::new(CornerId::new(10), Vec3f::new(0.5, 1.0, 0.0)), // 4
-            VertexF::new(CornerId::new(11), Vec3f::new(0.5, 0.5, 0.0)), // 5
-            VertexF::new(CornerId::new(17), Vec3f::new(0.75, 0.5, 0.0)), // 6
+            Vertex::new(CornerId::new(0),  Vec3f::new(0.5, 0.0, 0.0)), // 0
+            Vertex::new(CornerId::new(3), Vec3f::new(1.0, 0.0, 0.0)), // 1
+            Vertex::new(CornerId::new(6), Vec3f::new(1.0, 0.5, 0.0)), // 2
+            Vertex::new(CornerId::new(9), Vec3f::new(1.0, 1.0, 0.0)), // 3
+            Vertex::new(CornerId::new(10), Vec3f::new(0.5, 1.0, 0.0)), // 4
+            Vertex::new(CornerId::new(11), Vec3f::new(0.5, 0.5, 0.0)), // 5
+            Vertex::new(CornerId::new(17), Vec3f::new(0.75, 0.5, 0.0)), // 6
         ];
 
         let expected_corners = vec![
@@ -528,7 +521,7 @@ mod tests {
             Corner::new(None,                       VertexId::new(5)), // 17
         ];
 
-        mesh.collapse_edge(&EdgeId::new(CornerId::new(12), &mesh), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.collapse_edge(&EdgeId::new(CornerId::new(12)), &Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -538,11 +531,11 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh3();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(0),  Vec3f::new(0.0, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(6),  Vec3f::new(2.0, 0.0, 0.0)), // 1
-            VertexF::new(CornerId::new(6),  Vec3f::new(3.0, 0.0, 0.0)), // 2
-            VertexF::new(CornerId::new(7),  Vec3f::new(4.0, 1.0, 0.0)), // 3
-            VertexF::new(CornerId::new(2),  Vec3f::new(2.0, 1.0, 0.0)), // 4
+            Vertex::new(CornerId::new(0),  Vec3f::new(0.0, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(6),  Vec3f::new(2.0, 0.0, 0.0)), // 1
+            Vertex::new(CornerId::new(6),  Vec3f::new(3.0, 0.0, 0.0)), // 2
+            Vertex::new(CornerId::new(7),  Vec3f::new(4.0, 1.0, 0.0)), // 3
+            Vertex::new(CornerId::new(2),  Vec3f::new(2.0, 1.0, 0.0)), // 4
         ];
 
         let expected_corners = vec![
@@ -558,7 +551,7 @@ mod tests {
             Corner::new(None,                   VertexId::new(4)), // 8
         ];
 
-        mesh.collapse_edge(&EdgeId::new(CornerId::new(5), &mesh), &Vec3f::new(2.0, 0.0, 0.0));
+        mesh.collapse_edge(&EdgeId::new(CornerId::new(5)), &Vec3f::new(2.0, 0.0, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -568,14 +561,14 @@ mod tests {
         let mut mesh = create_flip_edge_sample_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(4), Vec3f::new(0.5, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(0), Vec3f::new(0.0, 0.5, 0.0)), // 1
-            VertexF::new(CornerId::new(1), Vec3f::new(0.5, 0.0, 0.0)), // 2
-            VertexF::new(CornerId::new(2), Vec3f::new(1.0, 0.5, 0.0)), // 3
-            VertexF::new(CornerId::new(13), Vec3f::new(1.0, 1.0, 0.0)), // 4
-            VertexF::new(CornerId::new(16), Vec3f::new(0.0, 1.0, 0.0)), // 5
-            VertexF::new(CornerId::new(7), Vec3f::new(0.0, 0.0, 0.0)), // 6
-            VertexF::new(CornerId::new(10), Vec3f::new(1.0, 0.0, 0.0)), // 7
+            Vertex::new(CornerId::new(4), Vec3f::new(0.5, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(0), Vec3f::new(0.0, 0.5, 0.0)), // 1
+            Vertex::new(CornerId::new(1), Vec3f::new(0.5, 0.0, 0.0)), // 2
+            Vertex::new(CornerId::new(2), Vec3f::new(1.0, 0.5, 0.0)), // 3
+            Vertex::new(CornerId::new(13), Vec3f::new(1.0, 1.0, 0.0)), // 4
+            Vertex::new(CornerId::new(16), Vec3f::new(0.0, 1.0, 0.0)), // 5
+            Vertex::new(CornerId::new(7), Vec3f::new(0.0, 0.0, 0.0)), // 6
+            Vertex::new(CornerId::new(10), Vec3f::new(1.0, 0.0, 0.0)), // 7
         ];
 
         let expected_corners = vec![
@@ -600,7 +593,7 @@ mod tests {
             Corner::new(None,                    VertexId::new(1)), // 17
         ];
 
-        mesh.flip_edge(&EdgeId::new(CornerId::new(1), &mesh));
+        mesh.flip_edge(&EdgeId::new(CornerId::new(1)));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -610,11 +603,11 @@ mod tests {
         let mut mesh = create_unit_square_mesh();
 
         let expected_vertices = vec![
-            VertexF::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0)), // 0
-            VertexF::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)), // 1
-            VertexF::new(CornerId::new(7), Vec3f::new(1.0, 0.0, 0.0)), // 2
-            VertexF::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0)), // 3
-            VertexF::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0)), // 4
+            Vertex::new(CornerId::new(5), Vec3f::new(0.0, 1.0, 0.0)), // 0
+            Vertex::new(CornerId::new(1), Vec3f::new(0.0, 0.0, 0.0)), // 1
+            Vertex::new(CornerId::new(7), Vec3f::new(1.0, 0.0, 0.0)), // 2
+            Vertex::new(CornerId::new(4), Vec3f::new(1.0, 1.0, 0.0)), // 3
+            Vertex::new(CornerId::new(2), Vec3f::new(0.5, 0.5, 0.0)), // 4
         ];
 
         let expected_corners = vec![

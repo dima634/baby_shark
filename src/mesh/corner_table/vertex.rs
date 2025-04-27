@@ -104,6 +104,3 @@ impl<TScalar: RealNumber> IndexMut<VertexId> for CornerTable<TScalar> {
         &mut self.vertices[index.0]
     }
 }
-
-/// Aliases
-pub type VertexF = Vertex<f32>;

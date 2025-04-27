@@ -90,7 +90,7 @@ pub fn prepare_deform(
         region_of_interest,
         edge_weights,
         vertex_to_idx,
-        max_iters: 5,
+        max_iters: 20,
     })
 }
 
@@ -264,8 +264,14 @@ type Triplet = sp::Triplet<usize, usize, f64>;
 /// Computes cotangent edge weight
 fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
     let mut edge_weights = mesh.create_edge_attribute::<f64>();
+    edge_weights.fill(f64::INFINITY);
 
     for edge in mesh.edges() {
+        if edge_weights[edge] != f64::INFINITY {
+            // Already computed for opposite oriented edge
+            continue;
+        }
+
         let mut walker = CornerWalker::from_corner(mesh, edge.corner());
         let v0 = *walker.vertex().position();
         let v1 = *walker.move_to_next().vertex().position();
@@ -283,7 +289,13 @@ fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
         }
 
         edge_weights[edge] = weight * 0.5; // max(weight, 0.0)?
+
+        if let Some(opposite) = mesh.opposite_edge(edge) {
+            edge_weights[opposite] = weight * 0.5; // Opposite oriented edge has the same weight
+        }
     }
+
+    debug_assert!(mesh.edges().all(|edge| edge_weights[edge].is_finite()));
 
     edge_weights
 }

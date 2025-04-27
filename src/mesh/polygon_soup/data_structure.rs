@@ -117,6 +117,10 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     fn face_vertices(&self, _face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
         todo!()
     }
+    
+    fn opposite_edge(&self, edge: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor> {
+        todo!()
+    }
 }
 
 impl<TScalar: RealNumber> From<Vec<Vec3<TScalar>>> for PolygonSoup<TScalar> {

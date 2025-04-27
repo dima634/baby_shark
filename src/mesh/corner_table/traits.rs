@@ -14,11 +14,6 @@ pub trait Flags {
     }
 
     #[inline]
-    fn is_visited(&self) -> bool {
-        self.flags().contains(flags::Flags::IS_VISITED)
-    }
-
-    #[inline]
     fn set_visited(&self, visited: bool) -> &Self {
         self.flags_mut().set(flags::Flags::IS_VISITED, visited);
         self

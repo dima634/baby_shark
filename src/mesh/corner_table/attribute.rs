@@ -33,6 +33,13 @@ impl<T> IndexMut<EdgeId> for EdgeAttribute<T> {
     }
 }
 
+impl<T: Clone> EdgeAttribute<T> {
+    #[inline]
+    pub fn fill(&mut self, value: T) {
+        self.data.fill(value);
+    }
+}
+
 impl<S: RealNumber> CornerTable<S> {
     /// Creates a new edge attribute with the same number of elements as the number of edges in the mesh.
     /// It is not guaranteed that the attribute will stay valid if the mesh is modified.

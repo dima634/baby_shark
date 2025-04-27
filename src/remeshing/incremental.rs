@@ -379,7 +379,7 @@ mod tests {
         // Only collapse edges
         let target_edge_length = 0.1f32;
         IncrementalRemesher::default()
-            .with_iterations_count(5)
+            .with_iterations_count(6)
             .remesh(&mut mesh, target_edge_length);
 
         let has_short_edges = mesh.edges().any(|edge| {

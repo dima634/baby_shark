@@ -4,7 +4,6 @@ use super::{
     vertex::{Vertex, VertexId},
     edge::EdgeId,
     face::FaceId,
-    flags::clear_visited,
     traits::Flags,
 };
 use crate::{
@@ -378,7 +377,6 @@ pub struct CornerTableEdgesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> CornerTableEdgesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
-        clear_visited(table.corners.iter());
         Self {
             table,
             corner_index: 0,
@@ -397,24 +395,15 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableEdgesIter<'a, TScalar> {
 
             let corner = &self.table.corners[self.corner_index];
 
-            if corner.is_visited() || corner.is_deleted() {
+            if corner.is_deleted() {
                 self.corner_index += 1;
             } else {
                 break;
             }
         }
 
-        // Visit current
-        let corner = &self.table.corners[self.corner_index];
-        corner.set_visited(true);
-
-        // Visit opposite, it is referencing same edge as current
-        if let Some(opposite_index) = corner.opposite_corner() {
-            self.table[opposite_index].set_visited(true);
-        }
-
         // Move to next
-        let edge = EdgeId::new(CornerId::new(self.corner_index), self.table);
+        let edge = EdgeId::new(CornerId::new(self.corner_index));
         self.corner_index += 1;
         Some(edge)
     }
@@ -580,7 +569,7 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
     let mut border_reached = false;
 
     loop {
-        visit(&EdgeId::new(walker.corner_id(), corner_table));
+        visit(&EdgeId::new(walker.corner_id()));
 
         if walker.corner().opposite_corner().is_none() {
             border_reached = true;
@@ -599,7 +588,7 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
         walker.move_to_next();
 
         loop {
-            visit(&EdgeId::new(walker.corner_id(), corner_table));
+            visit(&EdgeId::new(walker.corner_id()));
 
             if walker.corner().opposite_corner().is_none() {
                 break;
@@ -628,20 +617,16 @@ mod tests {
     fn edges_iterator() {
         let mesh = create_unit_square_mesh();
         let expected_edges: Vec<EdgeId> = vec![
-            EdgeId::new(CornerId::new(0), &mesh),
-            EdgeId::new(CornerId::new(1), &mesh),
-            EdgeId::new(CornerId::new(2), &mesh),
-            EdgeId::new(CornerId::new(3), &mesh),
-            EdgeId::new(CornerId::new(5), &mesh),
+            EdgeId::new(CornerId::new(0)),
+            EdgeId::new(CornerId::new(1)),
+            EdgeId::new(CornerId::new(2)),
+            EdgeId::new(CornerId::new(3)),
+            EdgeId::new(CornerId::new(4)),
+            EdgeId::new(CornerId::new(5)),
         ];
+        let actual_edges = mesh.edges().collect::<Vec<_>>();
 
-        assert_eq!(expected_edges.len(), mesh.edges().count());
-
-        let pairs = mesh.edges().zip(expected_edges.iter());
-
-        for pair in pairs {
-            assert_eq!(pair.0, *pair.1);
-        }
+        assert_eq!(expected_edges, actual_edges);
     }
 
     // Corners iter macro
