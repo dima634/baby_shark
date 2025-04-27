@@ -48,6 +48,7 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     type FacesIter<'iter> = FacesIter<'iter, TScalar>;
     type VerticesIter<'iter> = VerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = EdgesIter<'iter, TScalar>;
+    type UniqueEdgesIter<'iter> = EdgesIter<'iter, TScalar>;
 
     fn from_vertex_and_face_iters(vertices: impl Iterator<Item = Vec3<Self::ScalarType>>, faces: impl Iterator<Item = usize>) -> Self {
         let num_faces = faces.size_hint().1.unwrap_or(0);
@@ -85,7 +86,12 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
 
     #[inline]
     fn edges(&self) -> Self::EdgesIter<'_> {
-        return EdgesIter::new(self);
+        EdgesIter::new(self)
+    }
+    
+    #[inline]
+    fn unique_edges(&self) -> Self::UniqueEdgesIter<'_> {
+        self.edges()
     }
 
     #[inline]
@@ -115,6 +121,10 @@ impl<TScalar: RealNumber> Mesh for PolygonSoup<TScalar> {
     }
 
     fn face_vertices(&self, _face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
+        todo!()
+    }
+    
+    fn opposite_edge(&self, _: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor> {
         todo!()
     }
 }

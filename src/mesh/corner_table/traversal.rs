@@ -1,15 +1,7 @@
-use super::{
-    CornerTable,
-    corner::{Corner, CornerId},
-    vertex::{Vertex, VertexId},
-    edge::EdgeId,
-    face::FaceId,
-    flags::clear_visited,
-    traits::Flags,
-};
+use super::*;
 use crate::{
     geometry::traits::RealNumber,
-    mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Position},
+    mesh::traits::{mesh_stats::MAX_VERTEX_VALENCE, Mesh, Position},
 };
 
 ///
@@ -25,10 +17,7 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     #[inline]
     pub fn from_corner(table: &'a CornerTable<TScalar>, corner: CornerId) -> Self {
         debug_assert!(!table[corner].is_deleted());
-        Self {
-            table,
-            corner,
-        }
+        Self { table, corner }
     }
 
     /// Creates walker starting at random corner of given vertex
@@ -79,7 +68,9 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Swings to right around corner vertex
     #[inline]
     pub fn swing_right(&mut self) -> &mut Self {
-        return self.move_to_previous().move_to_opposite().move_to_previous();
+        self.move_to_previous()
+            .move_to_opposite()
+            .move_to_previous()
     }
 
     /// Swings to right around corner vertex and returns `true` if it is possible to do so, `false` otherwise.
@@ -160,7 +151,9 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     /// Returns opposite corner
     #[inline]
     pub fn opposite_corner(&self) -> Option<&Corner> {
-        self.corner().opposite_corner().map(|corner| &self.table[corner])
+        self.corner()
+            .opposite_corner()
+            .map(|corner| &self.table[corner])
     }
 
     /// Returns current corner
@@ -218,9 +211,7 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
         let corner = if *face == edge.corner().face() {
             edge.corner()
         } else {
-            mesh[edge.corner()]
-                .opposite_corner()
-                .unwrap()
+            mesh[edge.corner()].opposite_corner().unwrap()
         };
 
         return CornerWalker::from_corner(mesh, corner);
@@ -250,9 +241,7 @@ impl<'a, TScalar: RealNumber> Position<'a, CornerTable<TScalar>> for CornerWalke
         if *face == edge.corner().face() {
             self.set_current_corner(edge.corner());
         } else {
-            let corner = self.table[edge.corner()]
-                .opposite_corner()
-                .unwrap();
+            let corner = self.table[edge.corner()].opposite_corner().unwrap();
             self.set_current_corner(corner);
         };
 
@@ -378,7 +367,6 @@ pub struct CornerTableEdgesIter<'a, TScalar: RealNumber> {
 
 impl<'a, TScalar: RealNumber> CornerTableEdgesIter<'a, TScalar> {
     pub fn new(table: &'a CornerTable<TScalar>) -> Self {
-        clear_visited(table.corners.iter());
         Self {
             table,
             corner_index: 0,
@@ -397,26 +385,52 @@ impl<'a, TScalar: RealNumber> Iterator for CornerTableEdgesIter<'a, TScalar> {
 
             let corner = &self.table.corners[self.corner_index];
 
-            if corner.is_visited() || corner.is_deleted() {
+            if corner.is_deleted() {
                 self.corner_index += 1;
             } else {
                 break;
             }
         }
 
-        // Visit current
-        let corner = &self.table.corners[self.corner_index];
-        corner.set_visited(true);
-
-        // Visit opposite, it is referencing same edge as current
-        if let Some(opposite_index) = corner.opposite_corner() {
-            self.table[opposite_index].set_visited(true);
-        }
-
         // Move to next
-        let edge = EdgeId::new(CornerId::new(self.corner_index), self.table);
+        let edge = EdgeId::new(CornerId::new(self.corner_index));
         self.corner_index += 1;
         Some(edge)
+    }
+}
+
+pub struct UniqueEdgesIter<'mesh, TScalar: RealNumber> {
+    inner: CornerTableEdgesIter<'mesh, TScalar>,
+    visited: EdgeAttribute<bool>,
+}
+
+impl<'mesh, TScalar: RealNumber> UniqueEdgesIter<'mesh, TScalar> {
+    pub fn new(corner_table: &'mesh CornerTable<TScalar>) -> Self {
+        Self {
+            inner: CornerTableEdgesIter::new(corner_table),
+            visited: corner_table.create_edge_attribute(),
+        }
+    }
+
+    fn visit(&mut self, edge: EdgeId) {
+        self.visited[edge] = true;
+        if let Some(opposite) = self.inner.table.opposite_edge(edge) {
+            self.visited[opposite] = true;
+        }
+    }
+}
+
+impl<'mesh, TScalar: RealNumber> Iterator for UniqueEdgesIter<'mesh, TScalar> {
+    type Item = EdgeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next_edge = self.inner.next()?;
+        while self.visited[next_edge] {
+            next_edge = self.inner.next()?;
+        }
+
+        self.visit(next_edge);
+        Some(next_edge)
     }
 }
 
@@ -470,9 +484,7 @@ pub fn collect_corners_around_vertex<TScalar: RealNumber>(
     vertex_id: VertexId,
 ) -> Vec<CornerId> {
     let mut corners = Vec::with_capacity(MAX_VERTEX_VALENCE);
-    corners_around_vertex(corner_table, vertex_id, |corner_id| {
-        corners.push(corner_id)
-    });
+    corners_around_vertex(corner_table, vertex_id, |corner_id| corners.push(corner_id));
 
     corners
 }
@@ -568,11 +580,11 @@ pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&FaceId)>(
     }
 }
 
-/// Iterates over edges incident to vertex. Edge is represented by opposite corner index.
-pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
-    corner_table: &CornerTable<TScalar>,
+/// Iterates over incoming edges of vertex (i.e. second endpoint of edge is `vertex_id`)
+pub fn edges_around_vertex<S: RealNumber, F: FnMut(&EdgeId)>(
+    corner_table: &CornerTable<S>,
     vertex_id: VertexId,
-    mut visit: TFunc,
+    mut visit: F,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
     walker.move_to_next();
@@ -580,7 +592,7 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
     let mut border_reached = false;
 
     loop {
-        visit(&EdgeId::new(walker.corner_id(), corner_table));
+        visit(&EdgeId::new(walker.corner_id()));
 
         if walker.corner().opposite_corner().is_none() {
             border_reached = true;
@@ -599,7 +611,7 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
         walker.move_to_next();
 
         loop {
-            visit(&EdgeId::new(walker.corner_id(), corner_table));
+            visit(&EdgeId::new(walker.corner_id()));
 
             if walker.corner().opposite_corner().is_none() {
                 break;
@@ -614,12 +626,9 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
 mod tests {
     use crate::mesh::{
         corner_table::{
-            corner::CornerId, 
-            edge::EdgeId, 
-            face::FaceId,
-            vertex::VertexId,
-            test_helpers::{create_unit_cross_square_mesh, create_unit_square_mesh}, 
+            test_helpers::{create_unit_cross_square_mesh, create_unit_square_mesh},
             traversal::{corners_around_vertex, faces_around_vertex, vertices_around_vertex},
+            *,
         },
         traits::Mesh,
     };
@@ -628,20 +637,17 @@ mod tests {
     fn edges_iterator() {
         let mesh = create_unit_square_mesh();
         let expected_edges: Vec<EdgeId> = vec![
-            EdgeId::new(CornerId::new(0), &mesh),
-            EdgeId::new(CornerId::new(1), &mesh),
-            EdgeId::new(CornerId::new(2), &mesh),
-            EdgeId::new(CornerId::new(3), &mesh),
-            EdgeId::new(CornerId::new(5), &mesh),
+            EdgeId::new(CornerId::new(0)),
+            EdgeId::new(CornerId::new(1)),
+            EdgeId::new(CornerId::new(2)),
+            EdgeId::new(CornerId::new(3)),
+            EdgeId::new(CornerId::new(4)),
+            EdgeId::new(CornerId::new(5)),
         ];
+        let actual_edges = mesh.edges().collect::<Vec<_>>();
 
-        assert_eq!(expected_edges.len(), mesh.edges().count());
-
-        let pairs = mesh.edges().zip(expected_edges.iter());
-
-        for pair in pairs {
-            assert_eq!(pair.0, *pair.1);
-        }
+        assert_eq!(expected_edges, actual_edges);
+        assert_eq!(mesh.unique_edges().count(), 5);
     }
 
     // Corners iter macro
@@ -679,7 +685,9 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_vertices = [0, 1, 2, 3].map(|el| VertexId::new(el)).to_vec();
         let mut vertices = Vec::new();
-        vertices_around_vertex(&mesh, VertexId::new(4), |vertex_index| vertices.push(*vertex_index));
+        vertices_around_vertex(&mesh, VertexId::new(4), |vertex_index| {
+            vertices.push(*vertex_index)
+        });
 
         assert_eq!(vertices, expected_vertices);
     }
@@ -689,7 +697,9 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_vertices = [3, 4, 1].map(|el| VertexId::new(el)).to_vec();
         let mut vertices = Vec::new();
-        vertices_around_vertex(&mesh, VertexId::new(0), |vertex_index| vertices.push(*vertex_index));
+        vertices_around_vertex(&mesh, VertexId::new(0), |vertex_index| {
+            vertices.push(*vertex_index)
+        });
 
         assert_eq!(vertices, expected_vertices);
     }
@@ -701,7 +711,9 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_faces = [3, 0, 1, 2].map(|el| FaceId::new(el)).to_vec();
         let mut faces = Vec::new();
-        faces_around_vertex(&mesh, VertexId::new(4), |face_index| faces.push(*face_index));
+        faces_around_vertex(&mesh, VertexId::new(4), |face_index| {
+            faces.push(*face_index)
+        });
 
         assert_eq!(faces, expected_faces);
     }
@@ -711,7 +723,9 @@ mod tests {
         let mesh = create_unit_cross_square_mesh();
         let expected_faces = [3, 0].map(|el| FaceId::new(el)).to_vec();
         let mut faces = Vec::new();
-        faces_around_vertex(&mesh, VertexId::new(0), |face_index| faces.push(*face_index));
+        faces_around_vertex(&mesh, VertexId::new(0), |face_index| {
+            faces.push(*face_index)
+        });
 
         assert_eq!(faces, expected_faces);
     }

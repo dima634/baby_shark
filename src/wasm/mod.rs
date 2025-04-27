@@ -6,7 +6,7 @@ use crate::{
     algo::merge_points::merge_points,
     helpers::aliases::Vec3,
     mesh::{
-        corner_table::{prelude::CornerTableD, VertexId},
+        corner_table::*,
         traits::{Mesh as MeshTrait, VertexProperties},
     },
 };

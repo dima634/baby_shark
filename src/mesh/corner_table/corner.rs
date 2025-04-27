@@ -1,11 +1,8 @@
-use super::face::FaceId;
-use super::vertex::VertexId;
-use super::CornerTable;
-use super::{flags, traits::Flags};
+use super::*;
 use crate::geometry::traits::RealNumber;
-use std::cell::{Ref, RefCell, RefMut};
+use bitflags::bitflags;
 use std::fmt::Debug;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CornerId(usize);
@@ -63,15 +60,15 @@ impl CornerId {
 pub struct Corner {
     opposite_corner: CornerId,
     vertex: VertexId,
-    flags: RefCell<flags::Flags>,
+    flags: CornerFlags,
 }
 
 impl Corner {
     pub fn new(opposite_corner: Option<CornerId>, vertex: VertexId) -> Self {
         Self {
             opposite_corner: CornerId::from_option(opposite_corner),
-            flags: RefCell::new(flags::Flags::default()),
-            vertex,
+            flags: CornerFlags::default(),
+            vertex, 
         }
     }
 
@@ -100,17 +97,15 @@ impl Corner {
         self.vertex = vertex;
         self
     }
-}
 
-impl Flags for Corner {
     #[inline]
-    fn flags(&self) -> impl Deref<Target = flags::Flags> {
-        Ref::map(self.flags.borrow(), |flags| flags)
+    pub fn is_deleted(&self) -> bool {
+        self.flags.contains(CornerFlags::IS_DELETED)
     }
 
     #[inline]
-    fn flags_mut(&self) -> impl DerefMut<Target = flags::Flags> {
-        RefMut::map(self.flags.borrow_mut(), |flags| flags)
+    pub fn set_deleted(&mut self, deleted: bool) {
+        self.flags.set(CornerFlags::IS_DELETED, deleted);
     }
 }
 
@@ -137,5 +132,19 @@ impl<TScalar: RealNumber> IndexMut<CornerId> for CornerTable<TScalar> {
     fn index_mut(&mut self, index: CornerId) -> &mut Self::Output {
         assert!(index.is_valid());
         &mut self.corners[index.0]
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    struct CornerFlags: u32 {
+        const IS_DELETED = 1;
+    }
+}
+
+impl Default for CornerFlags {
+    #[inline]
+    fn default() -> Self {
+        Self(Default::default())
     }
 }

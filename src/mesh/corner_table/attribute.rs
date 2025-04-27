@@ -1,5 +1,5 @@
 use super::{CornerTable, EdgeId};
-use crate::geometry::traits::RealNumber;
+use crate::{geometry::traits::RealNumber, mesh::traits::{EdgeProperties, PropertyMap}};
 use std::ops::{Index, IndexMut};
 
 /// An attribute associated with edges in a mesh.
@@ -33,6 +33,13 @@ impl<T> IndexMut<EdgeId> for EdgeAttribute<T> {
     }
 }
 
+impl<T: Clone> EdgeAttribute<T> {
+    #[inline]
+    pub fn fill(&mut self, value: T) {
+        self.data.fill(value);
+    }
+}
+
 impl<S: RealNumber> CornerTable<S> {
     /// Creates a new edge attribute with the same number of elements as the number of edges in the mesh.
     /// It is not guaranteed that the attribute will stay valid if the mesh is modified.
@@ -41,5 +48,28 @@ impl<S: RealNumber> CornerTable<S> {
         EdgeAttribute {
             data: vec![T::default(); self.corners.len()],
         }
+    }
+}
+
+impl<T> PropertyMap<EdgeId, T> for EdgeAttribute<T> {
+    #[inline]
+    fn get(&self, key: &EdgeId) -> Option<&T> {
+        self.data.get(key.corner().index())
+    }
+
+    #[inline]
+    fn get_mut(&mut self, key: &EdgeId) -> Option<&mut T> {
+        self.data.get_mut(key.corner().index())
+    }
+}
+
+impl<S: RealNumber> EdgeProperties for CornerTable<S> {
+    type EdgePropertyMap<T: Default + Clone> = EdgeAttribute<T>;
+
+    #[inline]
+    fn create_edge_properties_map<T: Default + Clone>(
+        &self,
+    ) -> Self::EdgePropertyMap<T> {
+        self.create_edge_attribute()
     }
 }

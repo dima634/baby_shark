@@ -1,16 +1,12 @@
 pub mod create;
-pub mod prelude;
 pub mod traversal;
 
-mod marker;
 mod edit;
 mod edge;
 mod property_maps;
 mod vertex;
 mod corner;
 mod face;
-mod traits;
-mod flags;
 mod attribute;
 mod boundary;
 
@@ -33,3 +29,6 @@ pub struct CornerTable<TScalar: RealNumber> {
     vertices: Vec<Vertex<TScalar>>,
     corners: Vec<Corner>,
 }
+
+pub type CornerTableF = CornerTable<f32>;
+pub type CornerTableD = CornerTable<f64>;

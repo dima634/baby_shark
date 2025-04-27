@@ -1,7 +1,7 @@
 use crate::{
     helpers::aliases::Vec3d,
     mesh::{
-        corner_table::{prelude::CornerTableD, traversal::CornerWalker, *},
+        corner_table::{traversal::CornerWalker, *},
         traits::*,
     },
 };
@@ -90,7 +90,7 @@ pub fn prepare_deform(
         region_of_interest,
         edge_weights,
         vertex_to_idx,
-        max_iters: 5,
+        max_iters: 20,
     })
 }
 
@@ -189,13 +189,13 @@ impl PreparedDeform {
 
                 mesh.edges_around_vertex(vert, |edge| {
                     let (v1, v2) = mesh.edge_vertices(edge);
-                    let other_vert = if vert == &v1 { v2 } else { v1 }; // TODO: ordered edges
+                    debug_assert!(&v2 == vert);
 
-                    let vi = mesh.vertex_position(vert);
-                    let vj = mesh.vertex_position(&other_vert);
+                    let vi = mesh.vertex_position(&v1);
+                    let vj = mesh.vertex_position(&v2);
 
-                    let vi_deformed = deformed.vertex_position(vert); // IDs after clone may not be the same
-                    let vj_deformed = deformed.vertex_position(&other_vert);
+                    let vi_deformed = deformed.vertex_position(&v1); // IDs after clone may not be the same
+                    let vj_deformed = deformed.vertex_position(&v2);
 
                     let e0 = vi - vj;
                     let e1 = vi_deformed - vj_deformed;
@@ -226,11 +226,10 @@ impl PreparedDeform {
                     mesh.edges_around_vertex(&vi, |&edge| {
                         let weight = self.edge_weights[edge];
                         let (v0, v1) = mesh.edge_vertices(&edge);
+                        debug_assert!(vi == v1);
 
-                        let vj = if vi == v0 { v1 } else { v0 }; // TODO: ordered edges
-
-                        if let Some(vj_idx) = self.vertex_to_idx.get(&vj) {
-                            bi += weight* 0.5 * ((rotations[i] + rotations[*vj_idx]) * (mesh[vi].position() - mesh[vj].position()));
+                        if let Some(v0_idx) = self.vertex_to_idx.get(&v0) {
+                            bi += weight* 0.5 * ((rotations[i] + rotations[*v0_idx]) * (mesh[v1].position() - mesh[v0].position()));
                         }
                     });
                 }
@@ -264,8 +263,14 @@ type Triplet = sp::Triplet<usize, usize, f64>;
 /// Computes cotangent edge weight
 fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
     let mut edge_weights = mesh.create_edge_attribute::<f64>();
+    edge_weights.fill(f64::INFINITY);
 
     for edge in mesh.edges() {
+        if edge_weights[edge] != f64::INFINITY {
+            // Already computed for opposite oriented edge
+            continue;
+        }
+
         let mut walker = CornerWalker::from_corner(mesh, edge.corner());
         let v0 = *walker.vertex().position();
         let v1 = *walker.move_to_next().vertex().position();
@@ -283,7 +288,13 @@ fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
         }
 
         edge_weights[edge] = weight * 0.5; // max(weight, 0.0)?
+
+        if let Some(opposite) = mesh.opposite_edge(edge) {
+            edge_weights[opposite] = weight * 0.5; // Opposite oriented edge has the same weight
+        }
     }
+
+    debug_assert!(mesh.edges().all(|edge| edge_weights[edge].is_finite()));
 
     edge_weights
 }

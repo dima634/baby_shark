@@ -3,7 +3,7 @@ use std::path::Path;
 use baby_shark::{
     decimation::{edge_decimation::BoundingSphereDecimationCriteria, prelude::EdgeDecimator},
     io::stl::{StlReader, StlWriter},
-    mesh::corner_table::prelude::CornerTableF,
+    mesh::corner_table::CornerTableF
 };
 use nalgebra::Vector3;
 

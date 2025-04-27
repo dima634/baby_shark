@@ -9,7 +9,6 @@
 - [ ] Use u32 as index for vertices and corners
 - [ ] Refactor mesh property maps
 - [ ] `vertices_around_vertex` - return control flow
-- [ ] Ordered edge
 
 - [ ] Add lightweighting to README
 - [ ] Prelude module

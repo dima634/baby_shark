@@ -2,7 +2,7 @@ use std::path::Path;
 
 use baby_shark::{
     io::stl::{StlReader, StlWriter},
-    mesh::corner_table::prelude::CornerTableF,
+    mesh::corner_table::CornerTableF,
     remeshing::incremental::IncrementalRemesher,
 };
 

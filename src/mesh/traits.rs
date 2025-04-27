@@ -41,6 +41,9 @@ pub trait Mesh {
     type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor>
     where
         Self: 'iter;
+    type UniqueEdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor>
+    where
+        Self: 'iter;
 
     /// Creates mesh from vertices and face indices
     fn from_vertex_and_face_iters(
@@ -52,8 +55,9 @@ pub trait Mesh {
     fn faces(&self) -> Self::FacesIter<'_>;
     /// Iterator over mesh vertices
     fn vertices(&self) -> Self::VerticesIter<'_>;
-    /// Iterator over mesh edges
+    /// Iterator over mesh oriented edges
     fn edges(&self) -> Self::EdgesIter<'_>;
+    fn unique_edges(&self) -> Self::UniqueEdgesIter<'_>;
 
     /// Return vertices of given face
     fn face_vertices(
@@ -74,6 +78,7 @@ pub trait Mesh {
         &self,
         edge: &Self::EdgeDescriptor,
     ) -> (Self::VertexDescriptor, Self::VertexDescriptor);
+    fn opposite_edge(&self, edge: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor>;
 
     /// Returns vertex position
     fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType>;
@@ -235,29 +240,6 @@ pub trait EditableMesh: Mesh {
     fn edge_exist(&self, edge: &Self::EdgeDescriptor) -> bool;
 }
 
-///
-/// Can be used to set flags for mesh primitives.
-/// Is used by some algorithms to mark processed faces/edges/vertices.
-///
-pub trait Marker<TMesh: Mesh> {
-    fn mark_face(&mut self, face: &TMesh::FaceDescriptor, marked: bool);
-    fn is_face_marked(&self, face: &TMesh::FaceDescriptor) -> bool;
-
-    fn mark_vertex(&mut self, vertex: &TMesh::VertexDescriptor, marked: bool);
-    fn is_vertex_marked(&self, vertex: &TMesh::VertexDescriptor) -> bool;
-
-    fn mark_edge(&mut self, edge: &TMesh::EdgeDescriptor, marked: bool);
-    fn is_edge_marked(&self, edge: &TMesh::EdgeDescriptor) -> bool;
-}
-
-/// Mesh that support [Marker] API
-pub trait MeshMarker: Mesh + Sized {
-    type Marker: Marker<Self>;
-
-    /// Returns marker
-    fn marker(&self) -> Self::Marker;
-}
-
 /// Property map. Can be used for fast access to properties of given entity.
 pub trait PropertyMap<TKey, TProperty>:
     Index<TKey, Output = TProperty> + IndexMut<TKey, Output = TProperty>
@@ -277,6 +259,14 @@ pub trait VertexProperties: Mesh {
     fn create_vertex_properties_map<TProperty: Default>(
         &self,
     ) -> Self::VertexPropertyMap<TProperty>;
+}
+
+pub trait EdgeProperties: Mesh {
+    type EdgePropertyMap<TProperty: Default + Clone>: PropertyMap<Self::EdgeDescriptor, TProperty>;
+
+    fn create_edge_properties_map<TProperty: Default + Clone>(
+        &self,
+    ) -> Self::EdgePropertyMap<TProperty>;
 }
 
 pub trait SplitFaceAtPoint: Mesh {

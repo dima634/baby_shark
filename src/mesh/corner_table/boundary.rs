@@ -1,5 +1,7 @@
-use super::{flags::clear_visited, traversal::CornerWalker, *};
-use crate::mesh::corner_table::traits::Flags;
+use super::*;
+use super::traversal::CornerWalker;
+use crate::mesh::traits::Mesh;
+use std::collections::HashSet;
 use std::ops::ControlFlow;
 
 /// A ring of boundary edges in a mesh.
@@ -9,22 +11,23 @@ pub struct BoundaryRing(CornerId); // Corner opposite to boundary edge in the lo
 impl<T: RealNumber> CornerTable<T> {
     /// Returns a vector of boundary rings in the mesh.
     pub fn boundary_rings(&self) -> Vec<BoundaryRing> {
-        clear_visited(self.corners.iter());
-
         let mut rings = Vec::new();
+        let mut visited = HashSet::new();
 
-        for (idx, corner) in self.corners.iter().enumerate() {
-            if corner.is_visited() || corner.is_deleted() {
+        for edge in self.edges() {
+            if !visited.insert(edge.corner()) {
                 continue;
             }
 
+            let corner_id = edge.corner();
+            let corner = &self[corner_id];
+
             if let None = corner.opposite_corner() {
-                let id = CornerId::new(idx);
-                rings.push(BoundaryRing(id));
+                rings.push(BoundaryRing(corner_id));
 
                 // Mark corners of the edges in the ring as visited
-                self.boundary_edges(BoundaryRing(id), |edge| {
-                    self[edge.corner()].set_visited(true);
+                self.boundary_edges(BoundaryRing(corner_id), |edge| {
+                    visited.insert(edge.corner());
                     ControlFlow::Continue(())
                 });
             }
@@ -46,7 +49,7 @@ impl<T: RealNumber> CornerTable<T> {
             return; // Not a boundary
         }
 
-        if let ControlFlow::Break(_) = visit(EdgeId::new_boundary(ring.0)) {
+        if let ControlFlow::Break(_) = visit(EdgeId::new(ring.0)) {
             return;
         }
 
@@ -62,9 +65,36 @@ impl<T: RealNumber> CornerTable<T> {
                 break; // We are back to the start
             }
 
-            if let ControlFlow::Break(_) = visit(EdgeId::new_boundary(walker.corner_id())) {
+            if let ControlFlow::Break(_) = visit(EdgeId::new(walker.corner_id())) {
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::ControlFlow;
+    use super::test_helpers::*;
+
+    #[test]
+    fn test_boundary_rings() {
+        let mesh = create_unit_square_mesh();
+        assert_eq!(mesh.boundary_rings().len(), 1);
+    }
+
+    
+    #[test]
+    fn test_boundary_edges() {
+        let mesh = create_unit_square_mesh();
+        let ring = mesh.boundary_rings()[0];
+        
+        let mut count = 0;
+        mesh.boundary_edges(ring, |_| {
+            count += 1;
+            ControlFlow::Continue(())
+        });
+
+        assert_eq!(count, 4);
     }
 }

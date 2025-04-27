@@ -1,5 +1,5 @@
 use crate::{mesh::traits::Mesh, helpers::aliases::Vec3f};
-use super::{prelude::CornerTableF, corner::Corner, vertex::VertexF};
+use super::*;
 
 pub fn create_unit_square_mesh() -> CornerTableF {
     let vertices = vec![
@@ -143,7 +143,7 @@ pub fn create_flip_edge_sample_mesh() -> CornerTableF {
     CornerTableF::from_vertex_and_face_slices(&vertices, &indices)
 }
 
-pub fn assert_mesh_eq(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<VertexF>) {
+pub fn assert_mesh_eq(mesh: &CornerTableF, expected_corners: &Vec<Corner>, expected_vertices: &Vec<Vertex<f32>>) {
     // Assert equality for each element separately for readability
 
     assert_eq!(expected_vertices.len(), mesh.vertices.len());

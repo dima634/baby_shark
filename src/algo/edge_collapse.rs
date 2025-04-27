@@ -118,6 +118,9 @@ pub fn will_collapse_affect_boundary<TMesh: TopologicalMesh + EditableMesh>(
     if boundary_affected {
         return true;
     }
+
+    // TODO: allow collapse towards boundary
+
     let (v1, v2) = mesh.edge_vertices(edge);
 
     for vertex in [v1, v2] {
