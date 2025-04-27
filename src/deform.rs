@@ -1,10 +1,20 @@
-use crate::{helpers::aliases::Vec3d, mesh::{corner_table::{prelude::CornerTableD, traversal::CornerWalker, *}, traits::*}};
+use crate::{
+    helpers::aliases::Vec3d,
+    mesh::{
+        corner_table::{prelude::CornerTableD, traversal::CornerWalker, *},
+        traits::*,
+    },
+};
 use faer::{
-    linalg::{solvers::{ShapeCore, Solve}, svd::svd},
+    linalg::solvers::{ShapeCore, Solve},
     sparse::{self as sp},
 };
 use nalgebra as na;
-use std::{collections::{BTreeMap, BTreeSet, HashMap, HashSet}, hash::Hash};
+use std::collections::{HashMap, HashSet};
+
+// References:
+// 1. As-Rigid-As-Possible Surface Modeling
+//    https://igl.ethz.ch/projects/ARAP/arap_web.pdf
 
 #[derive(Debug)]
 pub enum PrepareDeformError {
@@ -23,6 +33,14 @@ impl ToString for PrepareDeformError {
     }
 }
 
+/// Prepare mesh deformation using the ARAP (As-Rigid-As_possible) method.
+/// Later, prepared deformation can be used to do interactive/real-time deformation.
+/// 
+/// # Arguments
+/// * `mesh` - The input mesh to be deformed
+/// * `handle_region` - Set of vertices that will be manipulated during deformation.
+///                     Should be a subset of `region_of_interest`.
+/// * `region_of_interest` - Set of vertices that will be affected by the deformation.
 pub fn prepare_deform(
     mesh: &CornerTableD,
     handle_region: &HashSet<VertexId>,
@@ -34,30 +52,36 @@ pub fn prepare_deform(
 
     let handle = Vec::from_iter(handle_region.intersection(region_of_interest).copied());
 
-    if handle.is_empty() {
+    if handle.is_empty() || handle.len() == region_of_interest.len() {
         return Err(PrepareDeformError::InvalidHandle);
     }
 
     let region_of_interest = Vec::from_iter(region_of_interest.difference(handle_region).copied());
-    let mut vertex_to_col = HashMap::with_capacity(region_of_interest.len() + handle.len());
+
+    // Compute vertex to row.column map, we will need it to know where to put coefficients in the matrix
+    let mut vertex_to_idx = HashMap::with_capacity(region_of_interest.len() + handle.len());
 
     for vert in &region_of_interest {
-        vertex_to_col.insert(*vert, vertex_to_col.len());
+        vertex_to_idx.insert(*vert, vertex_to_idx.len());
     }
 
     for vert in &handle {
-        vertex_to_col.insert(*vert, vertex_to_col.len());
+        vertex_to_idx.insert(*vert, vertex_to_idx.len());
     }
 
-    let (coeffs, edge_weights) = compute_coeffs(mesh, &handle, &region_of_interest, &vertex_to_col);
+    let (coeffs, edge_weights) = compute_coeffs(mesh, &handle, &region_of_interest, &vertex_to_idx);
     let size = region_of_interest.len() + handle.len();
 
     let Ok(a_mat) = sp::SparseColMat::try_new_from_triplets(size, size, &coeffs) else {
-        return Err(PrepareDeformError::InternalError("failed to create sparse matrix"));
+        return Err(PrepareDeformError::InternalError(
+            "failed to create sparse matrix",
+        ));
     };
 
     let Ok(factorization) = a_mat.sp_lu() else {
-        return Err(PrepareDeformError::InternalError("failed to factorize matrix"));
+        return Err(PrepareDeformError::InternalError(
+            "failed to factorize matrix",
+        ));
     };
 
     Ok(PreparedDeform {
@@ -65,7 +89,7 @@ pub fn prepare_deform(
         handle,
         region_of_interest,
         edge_weights,
-        vertex_to_col,
+        vertex_to_idx,
         max_iters: 5,
     })
 }
@@ -85,39 +109,68 @@ impl ToString for DeformError {
     }
 }
 
+/// Prepared mesh deformation. Can be reused to do interactive/real-time deformation.
+/// 
+/// # Example
+/// ```ignore
+/// let prepared_deform = prepare_deform(&mesh, &handle, &region_of_interest)
+/// 
+/// for _ in 0..5 {
+///    // ... update target handle positions
+///    let deformed = prepared_deform.deform(&mesh, &target_handle_positions).unwrap();
+/// }
+/// ```
 #[derive(Debug)]
 pub struct PreparedDeform {
     factorization: faer::sparse::linalg::solvers::Lu<usize, f64>,
     handle: Vec<VertexId>,
     region_of_interest: Vec<VertexId>,
     edge_weights: EdgeAttribute<f64>,
-    vertex_to_col: HashMap<VertexId, usize>,
+    vertex_to_idx: HashMap<VertexId, usize>,
     max_iters: usize,
 }
 
 impl PreparedDeform {
+    /// Sets the maximum number of iterations for the deformation process.
     #[inline]
     pub fn with_max_iters(mut self, max_iters: usize) -> Self {
         self.max_iters = max_iters;
         self
     }
 
+    /// Sets the maximum number of iterations for the deformation process.
     #[inline]
     pub fn set_max_iters(&mut self, max_iters: usize) -> &mut Self {
         self.max_iters = max_iters;
         self
     }
 
+    /// Returns deformed mesh.
+    /// # Arguments
+    /// * `mesh` - The input mesh to be deformed. Should be the same as the one used to prepare deformation.
+    /// * `target` - Map of vertex IDs to target positions. The target positions will be used to deform the mesh.
+    ///              If handle vertex is not in the target, its position will stay the same (it is considered to be fixed).
     #[inline(never)]
-    pub fn deform(&self, mesh: &CornerTableD, target: &HashMap<VertexId, Vec3d>) -> Result<CornerTableD, DeformError> {
+    pub fn deform(
+        &self,
+        mesh: &CornerTableD,
+        target: &HashMap<VertexId, Vec3d>,
+    ) -> Result<CornerTableD, DeformError> {
         if target.is_empty() {
-            //return Err(DeformError::InvalidTarget);
+            return Err(DeformError::InvalidTarget);
         }
 
         let mut deformed = mesh.clone();
-        let handle_transformed: Vec<_> = self.handle
+
+        // Collect handle positions
+        let handle_transformed: Vec<_> = self
+            .handle
             .iter()
-            .map(|vert| *target.get(vert).unwrap_or_else(|| mesh.vertex_position(vert)))
+            .map(|vert| {
+                *target
+                    .get(vert)
+                    .unwrap_or_else(|| mesh.vertex_position(vert)) // position stays the same if not in target
+            })
             .collect();
 
         // Ax = b
@@ -131,37 +184,6 @@ impl PreparedDeform {
         let mut rotations = vec![na::Matrix3::<f64>::zeros(); size];
 
         for _ in 0..self.max_iters {
-            use rayon::prelude::*;
-
-            // rotations = self.vertices().enumerate().par_bridge().into_par_iter().map(|(i, vert)| {
-            //     let mut s = na::Matrix3::<f64>::zeros();
-
-            //     mesh.edges_around_vertex(vert, |edge| {
-            //         let (v1, v2) = mesh.edge_vertices(edge);
-            //         let other_vert = if vert == &v1 { v2 } else { v1 }; // TODO: ordered edges
-
-            //         let vi = mesh.vertex_position(vert);
-            //         let vj = mesh.vertex_position(&other_vert);
-
-            //         let vi_deformed = deformed.vertex_position(vert); // IDs after clone may not be the same
-            //         let vj_deformed = deformed.vertex_position(&other_vert);
-
-            //         let e0 = vi - vj;
-            //         let e1 = vi_deformed - vj_deformed;
-            //         let weight = self.edge_weights[*edge];
-
-            //         s += weight * (e0 * e1.transpose());
-            //     });
-                
-            //     let svd = s.svd_unordered(true, true);
-            //     let u = svd.u.unwrap();
-            //     let v = svd.v_t.map(|v_t| v_t.transpose()).unwrap();
-            //     let det = (v * u.transpose()).determinant();
-            //     let d = na::Vector3::new(1.0, 1.0, det);
-
-            //     v * na::Matrix3::from_diagonal(&d) * u.transpose()
-            // }).collect();
-
             for (i, vert) in self.vertices().enumerate() {
                 let mut s = na::Matrix3::<f64>::zeros();
 
@@ -181,10 +203,14 @@ impl PreparedDeform {
 
                     s += weight * (e0 * e1.transpose());
                 });
-                
+
                 let svd = s.svd_unordered(true, true);
-                let Some(u) = svd.u else { return Err(DeformError::InternalError("failed to compute SVD")); };
-                let Some(v) = svd.v_t.map(|v_t| v_t.transpose()) else { return Err(DeformError::InternalError("failed to compute SVD")); };
+                let Some(u) = svd.u else {
+                    return Err(DeformError::InternalError("failed to compute SVD"));
+                };
+                let Some(v) = svd.v_t.map(|v_t| v_t.transpose()) else {
+                    return Err(DeformError::InternalError("failed to compute SVD"));
+                };
                 let det = (v * u.transpose()).determinant();
                 let d = na::Vector3::new(1.0, 1.0, det);
 
@@ -203,8 +229,8 @@ impl PreparedDeform {
 
                         let vj = if vi == v0 { v1 } else { v0 }; // TODO: ordered edges
 
-                        if let Some(vj_idx) = self.vertex_to_col.get(&vj) {
-                            bi += weight * 0.5 * ((rotations[i] + rotations[*vj_idx]) * (mesh[vi].position() - mesh[vj].position()));
+                        if let Some(vj_idx) = self.vertex_to_idx.get(&vj) {
+                            bi += weight* 0.5 * ((rotations[i] + rotations[*vj_idx]) * (mesh[vi].position() - mesh[vj].position()));
                         }
                     });
                 }
@@ -221,6 +247,8 @@ impl PreparedDeform {
                     deformed[*vert].position_mut()[comp] = p_prime[i];
                 }
             }
+
+            // TODO: compute energy and early exit if converged
         }
 
         Ok(deformed)
@@ -231,15 +259,12 @@ impl PreparedDeform {
     }
 }
 
-// References:
-// 1. As-Rigid-As-Possible Surface Modeling
-//    https://igl.ethz.ch/projects/ARAP/arap_web.pdf
-
 type Triplet = sp::Triplet<usize, usize, f64>;
 
+/// Computes cotangent edge weight
 fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
     let mut edge_weights = mesh.create_edge_attribute::<f64>();
-    
+
     for edge in mesh.edges() {
         let mut walker = CornerWalker::from_corner(mesh, edge.corner());
         let v0 = *walker.vertex().position();
@@ -263,22 +288,31 @@ fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
     edge_weights
 }
 
-fn compute_coeffs(mesh: &CornerTableD, handle: &[VertexId], roi: &[VertexId], vertex_to_col: &HashMap<VertexId, usize>) -> (Vec<Triplet>, EdgeAttribute<f64>) {
+fn compute_coeffs(
+    mesh: &CornerTableD,
+    handle: &[VertexId],
+    roi: &[VertexId],
+    vertex_to_idx: &HashMap<VertexId, usize>,
+) -> (Vec<Triplet>, EdgeAttribute<f64>) {
     let mut coeffs = Vec::with_capacity(handle.len() + roi.len());
     let edge_weights = compute_edge_weights(mesh);
 
     for (i, vert) in roi.into_iter().enumerate() {
         let mut total_weight = 0.0;
-        
+
         mesh.edges_around_vertex(vert, |edge| {
             let (v1, v2) = mesh.edge_vertices(edge);
 
-            if !vertex_to_col.contains_key(&v1) || !vertex_to_col.contains_key(&v2) {
+            if !vertex_to_idx.contains_key(&v1) || !vertex_to_idx.contains_key(&v2) {
                 return;
             }
 
             let weight = edge_weights[*edge];
-            coeffs.push(Triplet::new(i, vertex_to_col[if vert == &v1 {&v2} else {&v1}], -weight)); // TODO: add ordered edges
+            coeffs.push(Triplet::new(
+                i,
+                vertex_to_idx[if vert == &v1 { &v2 } else { &v1 }],
+                -weight,
+            )); // TODO: add ordered edges
             total_weight += weight;
         });
 
@@ -287,15 +321,9 @@ fn compute_coeffs(mesh: &CornerTableD, handle: &[VertexId], roi: &[VertexId], ve
         }
     }
 
-    // for i in 0..handle.len() {
-    //     let row_col = i + roi.len();
-    //     coeffs.push(Triplet::new(row_col, row_col, 1.0));
-    // }
-
-    let mut row = roi.len();
-    for vert in handle {
-        coeffs.push(Triplet::new(row, vertex_to_col[vert], 1.0));
-        row += 1;
+    for i in 0..handle.len() {
+        let row_col = i + roi.len();
+        coeffs.push(Triplet::new(row_col, row_col, 1.0));
     }
 
     (coeffs, edge_weights)

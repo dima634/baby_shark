@@ -1,24 +1,12 @@
-use crate::DeformError;
-
 use super::Mesh;
 use nalgebra as na;
-use std::{collections::{HashMap, HashSet}, time::Instant};
+use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct PreparedDeform {
     inner: crate::PreparedDeform,
     handle: Vec<usize>,
-}
-#[wasm_bindgen]
-extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
-    #[wasm_bindgen(js_namespace = console)]
-    fn time(s: &str);
-
-    #[wasm_bindgen(js_namespace = console)]
-    fn timeEnd(s: &str);
 }
 
 #[wasm_bindgen]
@@ -28,8 +16,10 @@ impl PreparedDeform {
         handle_region: &[usize],
         region_of_interest: &[usize],
     ) -> Result<PreparedDeform, String> {
-        let handle = HashSet::from_iter(mesh.vertex_indices_to_ids(handle_region.into_iter().copied()));
-        let region_of_interest =  HashSet::from_iter(mesh.vertex_indices_to_ids(region_of_interest.into_iter().copied()));
+        let handle =
+            HashSet::from_iter(mesh.vertex_indices_to_ids(handle_region.into_iter().copied()));
+        let region_of_interest =
+            HashSet::from_iter(mesh.vertex_indices_to_ids(region_of_interest.into_iter().copied()));
 
         crate::prepare_deform(mesh.inner_mut(), &handle, &region_of_interest)
             .map(|prepared| PreparedDeform {
@@ -49,23 +39,20 @@ impl PreparedDeform {
             return Err("Target positions do not match handle size".to_string());
         }
 
-
-        time("convert");
         let handle_ids = mesh.vertex_indices_to_ids(self.handle.iter().copied());
         let target = HashMap::from_iter(
-            handle_ids
-                .into_iter()
-                .zip(target.chunks_exact(3).map(|chunk| {
-                    na::Vector3::new(chunk[0], chunk[1], chunk[2])
-                })),
+            handle_ids.into_iter().zip(
+                target
+                    .chunks_exact(3)
+                    .map(|chunk| na::Vector3::new(chunk[0], chunk[1], chunk[2])),
+            ),
         );
-        timeEnd("convert");
 
-        time("deform");
-        let result = self.inner.deform(mesh.inner_mut(), &target)
+        let result = self
+            .inner
+            .deform(mesh.inner_mut(), &target)
             .map(|mesh| Mesh(mesh))
             .map_err(|err| err.to_string());
-        timeEnd("deform");
 
         result
     }

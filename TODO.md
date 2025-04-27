@@ -8,8 +8,8 @@
 - [ ] Refactor prelude
 - [ ] Use u32 as index for vertices and corners
 - [ ] Refactor mesh property maps
-- [ ] Always use f64
 - [ ] `vertices_around_vertex` - return control flow
+- [ ] Ordered edge
 
 - [ ] Add lightweighting to README
 - [ ] Prelude module
