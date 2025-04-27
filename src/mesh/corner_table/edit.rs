@@ -2,7 +2,8 @@ use crate::{
     mesh::traits::{EditableMesh, SplitFaceAtPoint}, 
     geometry::traits::RealNumber, helpers::aliases::Vec3};
 use super::{
-    corner::CornerId, traits::Flags, traversal::{collect_corners_around_vertex, CornerWalker}, vertex::VertexId, CornerTable
+    traversal::{collect_corners_around_vertex, CornerWalker},
+    *,
 };
 
 

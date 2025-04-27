@@ -1,15 +1,12 @@
 pub mod create;
 pub mod traversal;
 
-mod marker;
 mod edit;
 mod edge;
 mod property_maps;
 mod vertex;
 mod corner;
 mod face;
-mod traits;
-mod flags;
 mod attribute;
 mod boundary;
 

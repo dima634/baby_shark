@@ -1,17 +1,11 @@
-use self::helpers::Edge;
 use super::{
-    CornerTable,
-    corner::{Corner, CornerId}, 
-    edge::EdgeId, face::FaceId, 
-    marker::CornerTableMarker, 
-    traits::Flags, 
-    vertex::{Vertex, VertexId},
     traversal::*,
+    *,
 };
 use crate::{
     geometry::traits::RealNumber,
     helpers::aliases::Vec3,
-    mesh::traits::{Mesh, MeshMarker, TopologicalMesh},
+    mesh::traits::{Mesh, TopologicalMesh},
 };
 use std::collections::{BTreeSet, HashMap};
 
@@ -56,8 +50,8 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
     fn corner_from(
         &mut self,
-        edge_opposite_corner_map: &mut HashMap<Edge, CornerId>,
-        edge: Edge,
+        edge_opposite_corner_map: &mut HashMap<helpers::Edge, CornerId>,
+        edge: helpers::Edge,
         vertex_id: VertexId,
     ) -> CornerId {
         let (corner_id, corner) = self.create_corner(vertex_id);
@@ -128,9 +122,9 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
             let Some(v2_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
             let Some(v3_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
 
-            let edge1 = Edge::new(v2_index, v3_index);
-            let edge2 = Edge::new(v3_index, v1_index);
-            let edge3 = Edge::new(v1_index, v2_index);
+            let edge1 = helpers::Edge::new(v2_index, v3_index);
+            let edge2 = helpers::Edge::new(v3_index, v1_index);
+            let edge3 = helpers::Edge::new(v1_index, v2_index);
 
             // If edge already exist in map then it is non manifold. For now we will skip faces that introduce non-manifoldness.
             if edge_opposite_corner_map.contains_key(&edge1)
@@ -361,15 +355,6 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
             Self::EdgeDescriptor::new(c2),
             Self::EdgeDescriptor::new(c3),
         )
-    }
-}
-
-impl<TScalar: RealNumber> MeshMarker for CornerTable<TScalar> {
-    type Marker = CornerTableMarker<TScalar>;
-
-    #[inline]
-    fn marker(&self) -> Self::Marker {
-        CornerTableMarker::new(self)
     }
 }
 

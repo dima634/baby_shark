@@ -1,4 +1,3 @@
-use super::traits::Flags;
 use super::*;
 use crate::{
     geometry::traits::RealNumber,

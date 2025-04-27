@@ -1,15 +1,13 @@
-use std::{
-    cmp::Ordering,
-    collections::{BinaryHeap, HashMap},
-};
-
-use nalgebra::{Matrix4, Vector4};
-use num_traits::{cast, Float, FromPrimitive, One};
-
 use crate::{
     algo::edge_collapse,
     helpers::aliases::Vec3,
-    mesh::traits::{EditableMesh, Marker, Mesh, MeshMarker, TopologicalMesh},
+    mesh::traits::{EdgeProperties, EditableMesh, Mesh, TopologicalMesh},
+};
+use nalgebra::{Matrix4, Vector4};
+use num_traits::{cast, Float, FromPrimitive, One};
+use std::{
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap},
 };
 
 /// Collapse candidate
@@ -117,7 +115,12 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
         let q2 = self.vertex_quadric_map.get(&v2).unwrap();
 
         let new_position = self.get_placement(mesh, edge);
-        let v = Vector4::new(new_position.x, new_position.y, new_position.z, TMesh::ScalarType::one());
+        let v = Vector4::new(
+            new_position.x,
+            new_position.y,
+            new_position.z,
+            TMesh::ScalarType::one(),
+        );
         let v_t = v.transpose();
 
         (v_t * (q1 + q2) * v)[0].abs().sqrt()
@@ -160,7 +163,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 ///
 pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + MeshMarker,
+    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
     TCollapseStrategy: CollapseStrategy<TMesh>,
     TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
 {
@@ -176,7 +179,7 @@ where
 impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
     IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + MeshMarker,
+    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
     TCollapseStrategy: CollapseStrategy<TMesh>,
     TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
 {
@@ -246,15 +249,26 @@ where
 
     /// Collapse edges
     fn collapse_edges(&mut self, mesh: &mut TMesh) {
-        let mut marker = mesh.marker();
-
         let mut remaining_faces_count = mesh.faces().count();
+        let mut cost_needs_update = mesh.create_edge_properties_map::<bool>();
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
             while let Some(mut best) = self.priority_queue.pop() {
                 // Edge was collapsed?
                 if !mesh.edge_exist(&best.edge) {
+                    continue;
+                }
+
+                // Need to update collapse cost?
+                if cost_needs_update[best.edge] {
+                    cost_needs_update[best.edge] = false;
+                    best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
+                    
+                    if self.decimation_criteria.should_decimate(best.cost, mesh, &best.edge) {
+                        self.priority_queue.push(best);
+                    }
+
                     continue;
                 }
 
@@ -267,24 +281,9 @@ where
                     continue;
                 }
 
-                // Need to update collapse cost?
-                if marker.is_edge_marked(&best.edge) {
-                    marker.mark_edge(&best.edge, false);
-
-                    best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    if self
-                        .decimation_criteria
-                        .should_decimate(best.cost, mesh, &best.edge)
-                    {
-                        self.priority_queue.push(best);
-                    }
-
-                    continue;
-                }
-
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(&v1, |edge| marker.mark_edge(edge, true));
-                mesh.edges_around_vertex(&v2, |edge| marker.mark_edge(edge, true));
+                mesh.edges_around_vertex(&v1, |&edge| cost_needs_update[edge] = true);
+                mesh.edges_around_vertex(&v2, |&edge| cost_needs_update[edge] = true);
 
                 // Inform collapse strategy about collapse
                 self.collapse_strategy.collapse_edge(mesh, &best.edge);
@@ -347,7 +346,7 @@ where
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
     fn fill_queue(&mut self, mesh: &mut TMesh) {
-        for edge in mesh.edges() {
+        for edge in mesh.unique_edges() {
             let cost = self.collapse_strategy.get_cost(mesh, &edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
 
@@ -368,7 +367,7 @@ where
 impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> Default
     for IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + MeshMarker,
+    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
     TCollapseStrategy: CollapseStrategy<TMesh>,
     TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
 {

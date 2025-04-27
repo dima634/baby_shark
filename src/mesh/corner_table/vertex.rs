@@ -1,6 +1,10 @@
-use std::{cell::{Ref, RefCell, RefMut}, fmt::Debug, ops::{Deref, DerefMut, Index, IndexMut}};
-use crate::{helpers::aliases::Vec3, geometry::traits::RealNumber};
-use super::{traits::Flags, *};
+use super::*;
+use crate::{geometry::traits::RealNumber, helpers::aliases::Vec3};
+use bitflags::bitflags;
+use std::{
+    fmt::Debug,
+    ops::{Index, IndexMut},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VertexId(usize);
@@ -26,29 +30,17 @@ impl VertexId {
 pub struct Vertex<TScalarType: RealNumber> {
     corner: CornerId,
     position: Vec3<TScalarType>,
-    flags: RefCell<flags::Flags>
+    flags: VertexFlags,
 }
 
 impl<TScalarType: RealNumber> Vertex<TScalarType> {
     #[inline]
-    pub fn new(corner: CornerId, position: Vec3<TScalarType>) -> Self { 
-        Self { 
-            corner, 
-            position, 
-            flags: RefCell::new(flags::Flags::default())
+    pub fn new(corner: CornerId, position: Vec3<TScalarType>) -> Self {
+        Self {
+            corner,
+            position,
+            flags: VertexFlags::default(),
         }
-    }
-}
-
-impl<TScalarType: RealNumber> Flags for Vertex<TScalarType> {
-    #[inline]
-    fn flags(&self) -> impl Deref<Target = flags::Flags> {
-        Ref::map(self.flags.borrow(), |flags| flags)
-    }
-    
-    #[inline]
-    fn flags_mut(&self) -> impl DerefMut<Target = flags::Flags> {
-        RefMut::map(self.flags.borrow_mut(), |flags| flags)
     }
 }
 
@@ -79,6 +71,16 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
         self.corner = corner;
         self
     }
+
+    #[inline]
+    pub fn is_deleted(&self) -> bool {
+        self.flags.contains(VertexFlags::IS_DELETED)
+    }
+
+    #[inline]
+    pub fn set_deleted(&mut self, deleted: bool) {
+        self.flags.set(VertexFlags::IS_DELETED, deleted);
+    }
 }
 
 impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
@@ -102,5 +104,19 @@ impl<TScalar: RealNumber> IndexMut<VertexId> for CornerTable<TScalar> {
     #[inline]
     fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
         &mut self.vertices[index.0]
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    struct VertexFlags: u32 {
+        const IS_DELETED = 1;
+    }
+}
+
+impl Default for VertexFlags {
+    #[inline]
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
