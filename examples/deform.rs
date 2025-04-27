@@ -1,7 +1,7 @@
 use baby_shark::{
     exports::nalgebra as na,
     io::stl::StlWriter,
-    mesh::{builder::cylinder, corner_table::prelude::CornerTableD, traits::Mesh},
+    mesh::{builder::cylinder, corner_table::CornerTableD, traits::Mesh},
     prepare_deform,
 };
 use std::{

@@ -1,5 +1,4 @@
 pub mod create;
-pub mod prelude;
 pub mod traversal;
 
 mod marker;
@@ -33,3 +32,6 @@ pub struct CornerTable<TScalar: RealNumber> {
     vertices: Vec<Vertex<TScalar>>,
     corners: Vec<Corner>,
 }
+
+pub type CornerTableF = CornerTable<f32>;
+pub type CornerTableD = CornerTable<f64>;

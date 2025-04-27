@@ -1,5 +1,5 @@
 use super::{
-    corner_table::{prelude::CornerTableD, VertexId},
+    corner_table::*,
     traits::TopologicalMesh,
 };
 use std::collections::HashSet;

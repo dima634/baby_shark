@@ -1,5 +1,5 @@
 use crate::{mesh::traits::Mesh, helpers::aliases::Vec3f};
-use super::{prelude::CornerTableF, corner::Corner, vertex::VertexF};
+use super::*;
 
 pub fn create_unit_square_mesh() -> CornerTableF {
     let vertices = vec![

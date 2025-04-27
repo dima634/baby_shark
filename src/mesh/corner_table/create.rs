@@ -393,7 +393,8 @@ mod tests {
         helpers::aliases::{Vec3, Vec3f},
         mesh::{
             corner_table::{
-                corner::{Corner, CornerId}, prelude::CornerTableF, test_helpers::{assert_mesh_eq, create_unit_square_mesh}, vertex::*
+                test_helpers::{assert_mesh_eq, create_unit_square_mesh}, 
+                *
             },
             traits::Mesh,
         },

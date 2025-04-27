@@ -1,7 +1,7 @@
 use crate::{
     helpers::aliases::Vec3d,
     mesh::{
-        corner_table::{prelude::CornerTableD, traversal::CornerWalker, *},
+        corner_table::{traversal::CornerWalker, *},
         traits::*,
     },
 };
