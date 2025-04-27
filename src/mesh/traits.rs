@@ -41,6 +41,9 @@ pub trait Mesh {
     type EdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor>
     where
         Self: 'iter;
+    type UniqueEdgesIter<'iter>: Iterator<Item = Self::EdgeDescriptor>
+    where
+        Self: 'iter;
 
     /// Creates mesh from vertices and face indices
     fn from_vertex_and_face_iters(
@@ -54,6 +57,7 @@ pub trait Mesh {
     fn vertices(&self) -> Self::VerticesIter<'_>;
     /// Iterator over mesh oriented edges
     fn edges(&self) -> Self::EdgesIter<'_>;
+    fn unique_edges(&self) -> Self::UniqueEdgesIter<'_>;
 
     /// Return vertices of given face
     fn face_vertices(

@@ -134,7 +134,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
 
     fn split_edges(&self, mesh: &mut TMesh, max_edge_length: TMesh::ScalarType) {
         // Cache all edges, in the case when split edge affects edges iterator
-        let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
+        let edges: Vec<TMesh::EdgeDescriptor> = mesh.unique_edges().collect();
         let max_edge_length_squared = max_edge_length * max_edge_length;
 
         for edge in edges {
@@ -175,7 +175,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     }
 
     fn collapse_edges(&self, mesh: &mut TMesh, min_edge_length: TMesh::ScalarType) {
-        let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
+        let edges: Vec<TMesh::EdgeDescriptor> = mesh.unique_edges().collect();
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
         // Collapse long edges
@@ -206,7 +206,7 @@ impl<TMesh: TopologicalMesh + EditableMesh> IncrementalRemesher<TMesh> {
     }
 
     fn flip_edges(&self, mesh: &mut TMesh) {
-        let edges: Vec<TMesh::EdgeDescriptor> = mesh.edges().collect();
+        let edges: Vec<TMesh::EdgeDescriptor> = mesh.unique_edges().collect();
 
         // Flip edges to improve valence
         for edge in edges {
@@ -379,7 +379,7 @@ mod tests {
         // Only collapse edges
         let target_edge_length = 0.1f32;
         IncrementalRemesher::default()
-            .with_iterations_count(6)
+            .with_iterations_count(5)
             .remesh(&mut mesh, target_edge_length);
 
         let has_short_edges = mesh.edges().any(|edge| {

@@ -106,6 +106,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
     type FacesIter<'iter> = CornerTableFacesIter<'iter, TScalar>;
     type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
     type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
+    type UniqueEdgesIter<'iter> = UniqueEdgesIter<'iter, TScalar>;
 
     fn from_vertex_and_face_iters(
         vertices: impl Iterator<Item = Vec3<Self::ScalarType>>,
@@ -183,17 +184,22 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
     #[inline]
     fn faces(&self) -> Self::FacesIter<'_> {
-        return Self::FacesIter::new(self);
+        Self::FacesIter::new(self)
     }
 
     #[inline]
     fn vertices(&self) -> Self::VerticesIter<'_> {
-        return Self::VerticesIter::new(self);
+        Self::VerticesIter::new(self)
     }
 
     #[inline]
     fn edges(&self) -> Self::EdgesIter<'_> {
-        return Self::EdgesIter::new(self);
+        Self::EdgesIter::new(self)
+    }
+    
+    #[inline]
+    fn unique_edges(&self) -> Self::UniqueEdgesIter<'_> {
+        Self::UniqueEdgesIter::new(self)
     }
 
     #[inline]
