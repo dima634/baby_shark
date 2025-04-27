@@ -314,6 +314,7 @@ impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
         faces_around_vertex(self, *vertex, visit);
     }
 
+    /// Iterates over incoming edges of vertex (i.e. second endpoint of edge is `vertex_id`)
     #[inline]
     fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
         edges_around_vertex(self, *vertex, visit)

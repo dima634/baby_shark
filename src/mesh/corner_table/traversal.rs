@@ -581,11 +581,11 @@ pub fn faces_around_vertex<TScalar: RealNumber, TFunc: FnMut(&FaceId)>(
     }
 }
 
-/// Iterates over edges incident to vertex. Edge is represented by opposite corner index.
-pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
-    corner_table: &CornerTable<TScalar>,
+/// Iterates over incoming edges of vertex (i.e. second endpoint of edge is `vertex_id`)
+pub fn edges_around_vertex<S: RealNumber, F: FnMut(&EdgeId)>(
+    corner_table: &CornerTable<S>,
     vertex_id: VertexId,
-    mut visit: TFunc,
+    mut visit: F,
 ) {
     let mut walker = CornerWalker::from_vertex(corner_table, vertex_id);
     walker.move_to_next();
@@ -627,9 +627,9 @@ pub fn edges_around_vertex<TScalar: RealNumber, TFunc: FnMut(&EdgeId)>(
 mod tests {
     use crate::mesh::{
         corner_table::{
-            *,
             test_helpers::{create_unit_cross_square_mesh, create_unit_square_mesh},
             traversal::{corners_around_vertex, faces_around_vertex, vertices_around_vertex},
+            *,
         },
         traits::Mesh,
     };
