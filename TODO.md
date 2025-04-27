@@ -7,6 +7,10 @@
 - [ ] Avoid creating degenerate triangles during remeshing and compare normal to epsilon
 - [ ] Refactor prelude
 - [ ] Use u32 as index for vertices and corners
+- [ ] Refactor mesh property maps
+- [ ] `vertices_around_vertex` - return control flow
+- [ ] Ordered edge
+
 - [ ] Add lightweighting to README
 - [ ] Prelude module
 - [ ] Fix clippy warnings

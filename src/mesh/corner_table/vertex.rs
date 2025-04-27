@@ -59,6 +59,11 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 
     #[inline]
+    pub fn position_mut(&mut self) -> &mut Vec3<TScalarType> {
+        &mut self.position
+    }
+
+    #[inline]
     pub fn set_position(&mut self, point: Vec3<TScalarType>) -> &mut Self {
         self.position = point;
         self

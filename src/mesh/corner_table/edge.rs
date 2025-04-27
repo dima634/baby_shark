@@ -22,4 +22,8 @@ impl EdgeId {
 
         Self(corner)
     }
+
+    pub(super) fn new_boundary(corner: CornerId) -> Self {
+        Self(corner)
+    }
 }

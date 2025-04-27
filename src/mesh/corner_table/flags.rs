@@ -6,11 +6,11 @@ use super::traits;
 bitflags! {
     #[derive(Debug, Clone, Copy)]
     pub struct Flags: u8 {
-        const IS_DELETED   = 0b00000001;
-        const IS_VISITED   = 0b00000010;
-        const IS_MARKED_1  = 0b10000000;
-        const IS_MARKED_2  = 0b01000000;
-        const IS_MARKED_3  = 0b00100000;
+        const IS_DELETED   = 1;
+        const IS_VISITED   = 1 << 1;
+        const IS_MARKED_1  = 1 << 2;
+        const IS_MARKED_2  = 1 << 3;
+        const IS_MARKED_3  = 1 << 4;
     }
 }
 
