@@ -82,6 +82,8 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
         return self.move_to_previous().move_to_opposite().move_to_previous();
     }
 
+    /// Swings to right around corner vertex and returns `true` if it is possible to do so, `false` otherwise.
+    /// If it is not possible to swing right walker stays at starting position.
     pub fn try_swing_right(&mut self) -> bool {
         self.move_to_previous();
 
@@ -100,19 +102,6 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
     pub fn swing_left(&mut self) -> &mut Self {
         return self.move_to_next().move_to_opposite().move_to_next();
     }
-
-    // TODO
-    // /// Returns `true` if it is possible to [`Self::swing_right()`] (corner is not on the border), `false` otherwise
-    // #[inline]
-    // pub fn can_swing_right(&self) -> bool {
-    //     return self.previous_corner().opposite_corner().is_some();
-    // }
-
-    // /// Returns `true` if it is possible to [`Self::swing_left()`] (corner is not on the border), `false` otherwise
-    // #[inline]
-    // pub fn can_swing_left(&self) -> bool {
-    //     return self.next_corner().opposite_corner().is_some();
-    // }
 
     ///
     /// Trying to swing left and returns `true` if operation succeeded, `false otherwise`.

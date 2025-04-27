@@ -8,9 +8,9 @@ bitflags! {
     pub struct Flags: u8 {
         const IS_DELETED   = 1;
         const IS_VISITED   = 1 << 1;
-        const IS_MARKED_1  = 1 << 3;
-        const IS_MARKED_2  = 1 << 4;
-        const IS_MARKED_3  = 1 << 5;
+        const IS_MARKED_1  = 1 << 2;
+        const IS_MARKED_2  = 1 << 3;
+        const IS_MARKED_3  = 1 << 4;
     }
 }
 

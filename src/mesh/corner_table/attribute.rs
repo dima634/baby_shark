@@ -1,8 +1,8 @@
-use crate::geometry::traits::RealNumber;
-
 use super::{CornerTable, EdgeId};
+use crate::geometry::traits::RealNumber;
 use std::ops::{Index, IndexMut};
 
+/// An attribute associated with edges in a mesh.
 #[derive(Debug)]
 pub struct EdgeAttribute<T> {
     data: Vec<T>,
@@ -34,6 +34,8 @@ impl<T> IndexMut<EdgeId> for EdgeAttribute<T> {
 }
 
 impl<S: RealNumber> CornerTable<S> {
+    /// Creates a new edge attribute with the same number of elements as the number of edges in the mesh.
+    /// It is not guaranteed that the attribute will stay valid if the mesh is modified.
     #[inline]
     pub fn create_edge_attribute<T: Default + Clone>(&self) -> EdgeAttribute<T> {
         EdgeAttribute {

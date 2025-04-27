@@ -1,5 +1,8 @@
+use super::{
+    corner_table::{prelude::CornerTableD, VertexId},
+    traits::TopologicalMesh,
+};
 use std::collections::HashSet;
-use super::{corner_table::{prelude::CornerTableD, VertexId}, traits::TopologicalMesh};
 
 /// Extends the region of a vertices by including all vertices within a given number of rings.
 pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<VertexId>, rings: usize) {
@@ -32,6 +35,7 @@ pub fn extend_region(mesh: &CornerTableD, vertex_region: &mut HashSet<VertexId>,
     }
 }
 
+/// Returns vertices on the boundary of a region (i.e., vertices that have neighbors outside the region).
 pub fn region_boundary(mesh: &CornerTableD, vertex_region: &HashSet<VertexId>) -> Vec<VertexId> {
     let mut boundary = Vec::new();
 

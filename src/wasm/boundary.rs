@@ -1,22 +1,26 @@
+use super::Mesh;
+use crate::mesh::{traits::Mesh as MeshTrait, *};
 use std::ops::ControlFlow;
 use wasm_bindgen::prelude::*;
-use crate::mesh::{traits::Mesh as MeshTrait, *};
-use super::Mesh;
 
+/// A ring of boundary edges in a mesh.
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct BoundaryRing(corner_table::BoundaryRing);
 
+/// List of boundary rings in a mesh.
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct BoundaryRings(Vec<BoundaryRing>);
 
 #[wasm_bindgen]
 impl BoundaryRings {
+    /// Returns the number of boundary rings in the list
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Get the boundary ring at the given index
     pub fn get(&self, index: usize) -> Option<BoundaryRing> {
         self.0.get(index).copied()
     }
@@ -24,8 +28,10 @@ impl BoundaryRings {
 
 #[wasm_bindgen]
 impl Mesh {
+    /// Returns list of boundary rings in the mesh
     pub fn boundaries(&self) -> BoundaryRings {
-        let rings = self.inner()
+        let rings = self
+            .inner()
             .boundary_rings()
             .into_iter()
             .map(BoundaryRing)
@@ -33,9 +39,10 @@ impl Mesh {
         BoundaryRings(rings)
     }
 
+    /// Returns vertices of the boundary `ring`
     pub fn boundary_ring_vertices(&self, ring: BoundaryRing) -> Vec<usize> {
         let mut vertices = Vec::new();
-        
+
         self.inner().boundary_edges(ring.0, |edge| {
             let (v1, _) = self.inner().edge_vertices(&edge);
             vertices.push(v1);

@@ -1,12 +1,13 @@
+use super::{flags::clear_visited, traversal::CornerWalker, *};
+use crate::mesh::corner_table::traits::Flags;
 use std::ops::ControlFlow;
 
-use crate::mesh::corner_table::traits::Flags;
-use super::{flags::clear_visited, traversal::CornerWalker, *};
-
+/// A ring of boundary edges in a mesh.
 #[derive(Debug, Clone, Copy)]
 pub struct BoundaryRing(CornerId); // Corner opposite to boundary edge in the loop
 
 impl<T: RealNumber> CornerTable<T> {
+    /// Returns a vector of boundary rings in the mesh.
     pub fn boundary_rings(&self) -> Vec<BoundaryRing> {
         clear_visited(self.corners.iter());
 
@@ -20,7 +21,7 @@ impl<T: RealNumber> CornerTable<T> {
             if let None = corner.opposite_corner() {
                 let id = CornerId::new(idx);
                 rings.push(BoundaryRing(id));
-                
+
                 // Mark corners of the edges in the ring as visited
                 self.boundary_edges(BoundaryRing(id), |edge| {
                     self[edge.corner()].set_visited(true);
@@ -32,8 +33,16 @@ impl<T: RealNumber> CornerTable<T> {
         rings
     }
 
-    pub fn boundary_edges(&self, ring: BoundaryRing, mut visit: impl FnMut(EdgeId) -> ControlFlow<(), ()>) {
-        if let Some(_)  = self[ring.0].opposite_corner() {
+    /// Visits all edges in a boundary ring.
+    /// # Arguments
+    /// * `ring` - The boundary ring to visit.
+    /// * `visit` - A closure that will be called for each edge in the ring.
+    pub fn boundary_edges(
+        &self,
+        ring: BoundaryRing,
+        mut visit: impl FnMut(EdgeId) -> ControlFlow<(), ()>,
+    ) {
+        if let Some(_) = self[ring.0].opposite_corner() {
             return; // Not a boundary
         }
 
