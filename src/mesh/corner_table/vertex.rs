@@ -16,8 +16,8 @@ impl VertexId {
     }
 
     #[inline]
-    pub fn new_invalid() -> Self {
-        Self(usize::MAX)
+    pub(super) fn index(&self) -> usize {
+        self.0
     }
 }
 

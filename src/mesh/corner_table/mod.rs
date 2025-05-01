@@ -12,7 +12,7 @@ mod walker;
 #[cfg(test)]
 mod test_helpers;
 
-pub use attribute::EdgeAttribute;
+pub use attribute::{EdgeAttribute, VertexAttribute};
 pub use boundary::BoundaryRing;
 pub use corner::CornerId;
 pub use edge::EdgeId;
