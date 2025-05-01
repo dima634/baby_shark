@@ -1,10 +1,4 @@
-use crate::{
-    helpers::aliases::Vec3d,
-    mesh::{
-        corner_table::{traversal::CornerWalker, *},
-        traits::*,
-    },
-};
+use crate::{helpers::aliases::Vec3d, mesh::corner_table::*};
 use faer::{
     linalg::solvers::{ShapeCore, Solve},
     sparse::{self as sp},
@@ -35,7 +29,7 @@ impl ToString for PrepareDeformError {
 
 /// Prepare mesh deformation using the ARAP (As-Rigid-As_possible) method.
 /// Later, prepared deformation can be used to do interactive/real-time deformation.
-/// 
+///
 /// # Arguments
 /// * `mesh` - The input mesh to be deformed
 /// * `handle_region` - Set of vertices that will be manipulated during deformation.
@@ -90,7 +84,7 @@ pub fn prepare_deform(
         region_of_interest,
         edge_weights,
         vertex_to_idx,
-        max_iters: 20,
+        max_iters: 30,
     })
 }
 
@@ -110,11 +104,11 @@ impl ToString for DeformError {
 }
 
 /// Prepared mesh deformation. Can be reused to do interactive/real-time deformation.
-/// 
+///
 /// # Example
 /// ```ignore
 /// let prepared_deform = prepare_deform(&mesh, &handle, &region_of_interest)
-/// 
+///
 /// for _ in 0..5 {
 ///    // ... update target handle positions
 ///    let deformed = prepared_deform.deform(&mesh, &target_handle_positions).unwrap();
@@ -169,7 +163,7 @@ impl PreparedDeform {
             .map(|vert| {
                 *target
                     .get(vert)
-                    .unwrap_or_else(|| mesh.vertex_position(vert)) // position stays the same if not in target
+                    .unwrap_or_else(|| mesh[*vert].position()) // position stays the same if not in target
             })
             .collect();
 
@@ -184,22 +178,22 @@ impl PreparedDeform {
         let mut rotations = vec![na::Matrix3::<f64>::zeros(); size];
 
         for _ in 0..self.max_iters {
-            for (i, vert) in self.vertices().enumerate() {
+            for (i, &vert) in self.vertices().enumerate() {
                 let mut s = na::Matrix3::<f64>::zeros();
 
                 mesh.edges_around_vertex(vert, |edge| {
                     let (v1, v2) = mesh.edge_vertices(edge);
-                    debug_assert!(&v2 == vert);
+                    debug_assert!(v2 == vert);
 
-                    let vi = mesh.vertex_position(&v1);
-                    let vj = mesh.vertex_position(&v2);
+                    let vi = mesh.vertex_position(v1);
+                    let vj = mesh.vertex_position(v2);
 
-                    let vi_deformed = deformed.vertex_position(&v1); // IDs after clone may not be the same
-                    let vj_deformed = deformed.vertex_position(&v2);
+                    let vi_deformed = deformed.vertex_position(v1); // IDs after clone may not be the same
+                    let vj_deformed = deformed.vertex_position(v2);
 
                     let e0 = vi - vj;
                     let e1 = vi_deformed - vj_deformed;
-                    let weight = self.edge_weights[*edge];
+                    let weight = self.edge_weights[edge];
 
                     s += weight * (e0 * e1.transpose());
                 });
@@ -223,13 +217,13 @@ impl PreparedDeform {
                 if i >= self.region_of_interest.len() {
                     bi = handle_transformed[i - self.region_of_interest.len()];
                 } else {
-                    mesh.edges_around_vertex(&vi, |&edge| {
+                    mesh.edges_around_vertex(vi, |edge| {
                         let weight = self.edge_weights[edge];
-                        let (v0, v1) = mesh.edge_vertices(&edge);
+                        let (v0, v1) = mesh.edge_vertices(edge);
                         debug_assert!(vi == v1);
 
                         if let Some(v0_idx) = self.vertex_to_idx.get(&v0) {
-                            bi += weight* 0.5 * ((rotations[i] + rotations[*v0_idx]) * (mesh[v1].position() - mesh[v0].position()));
+                            bi += weight * 0.5 * ((rotations[i] + rotations[*v0_idx]) * (mesh[v1].position() - mesh[v0].position()));
                         }
                     });
                 }
@@ -308,7 +302,7 @@ fn compute_coeffs(
     let mut coeffs = Vec::with_capacity(handle.len() + roi.len());
     let edge_weights = compute_edge_weights(mesh);
 
-    for (i, vert) in roi.into_iter().enumerate() {
+    for (i, &vert) in roi.into_iter().enumerate() {
         let mut total_weight = 0.0;
 
         mesh.edges_around_vertex(vert, |edge| {
@@ -318,12 +312,12 @@ fn compute_coeffs(
                 return;
             }
 
-            let weight = edge_weights[*edge];
+            let weight = edge_weights[edge];
             coeffs.push(Triplet::new(
                 i,
-                vertex_to_idx[if vert == &v1 { &v2 } else { &v1 }],
+                vertex_to_idx[if vert == v1 { &v2 } else { &v1 }],
                 -weight,
-            )); // TODO: add ordered edges
+            ));
             total_weight += weight;
         });
 

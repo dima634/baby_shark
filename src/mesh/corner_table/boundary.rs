@@ -1,6 +1,4 @@
 use super::*;
-use super::traversal::CornerWalker;
-use crate::mesh::traits::Mesh;
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 
@@ -8,7 +6,7 @@ use std::ops::ControlFlow;
 #[derive(Debug, Clone, Copy)]
 pub struct BoundaryRing(CornerId); // Corner opposite to boundary edge in the loop
 
-impl<T: RealNumber> CornerTable<T> {
+impl<S: RealNumber> CornerTable<S> {
     /// Returns a vector of boundary rings in the mesh.
     pub fn boundary_rings(&self) -> Vec<BoundaryRing> {
         let mut rings = Vec::new();

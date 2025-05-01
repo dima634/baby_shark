@@ -7,7 +7,7 @@ use crate::{
         traits::{ClosestPoint3, HasBBox3},
     },
     helpers::aliases::{Vec3f, Vec3i, Vec3u},
-    mesh::traits::Mesh,
+    mesh::traits::Triangles,
     spatial_partitioning::aabb_tree::winding_numbers::WindingNumbers,
     voxel::{ParVisitor, Tile, TreeNode, Visitor},
 };
@@ -49,14 +49,14 @@ impl MeshToVolume {
         self
     }
 
-    pub fn convert<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<Volume> {
-        if mesh.faces().count() == 0 {
-            return None;
+    pub fn convert<T: Triangles<Scalar = f32>>(&mut self, mesh: &T) -> Option<Volume> {
+        self.clear();
+        for tri in mesh.triangles() {
+            self.subdivide_triangle(&tri);
         }
 
-        self.clear();
-        for tri in mesh.faces().map(|f| mesh.face_positions(&f)) {
-            self.subdivide_triangle(&tri);
+        if self.subdivided_mesh.is_empty() {
+            return None;
         }
 
         self.winding_numbers = WindingNumbers::from_mesh(mesh);

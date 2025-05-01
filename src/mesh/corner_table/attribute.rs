@@ -1,8 +1,8 @@
 use super::{CornerTable, EdgeId};
-use crate::{geometry::traits::RealNumber, mesh::traits::{EdgeProperties, PropertyMap}};
+use crate::geometry::traits::RealNumber;
 use std::ops::{Index, IndexMut};
 
-/// An attribute associated with edges in a mesh.
+/// An attribute associated with oriented edges of mesh.
 #[derive(Debug)]
 pub struct EdgeAttribute<T> {
     data: Vec<T>,
@@ -48,28 +48,5 @@ impl<S: RealNumber> CornerTable<S> {
         EdgeAttribute {
             data: vec![T::default(); self.corners.len()],
         }
-    }
-}
-
-impl<T> PropertyMap<EdgeId, T> for EdgeAttribute<T> {
-    #[inline]
-    fn get(&self, key: &EdgeId) -> Option<&T> {
-        self.data.get(key.corner().index())
-    }
-
-    #[inline]
-    fn get_mut(&mut self, key: &EdgeId) -> Option<&mut T> {
-        self.data.get_mut(key.corner().index())
-    }
-}
-
-impl<S: RealNumber> EdgeProperties for CornerTable<S> {
-    type EdgePropertyMap<T: Default + Clone> = EdgeAttribute<T>;
-
-    #[inline]
-    fn create_edge_properties_map<T: Default + Clone>(
-        &self,
-    ) -> Self::EdgePropertyMap<T> {
-        self.create_edge_attribute()
     }
 }

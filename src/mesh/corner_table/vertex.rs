@@ -1,5 +1,5 @@
 use super::*;
-use crate::{geometry::traits::RealNumber, helpers::aliases::Vec3};
+use crate::helpers::aliases::Vec3;
 use bitflags::bitflags;
 use std::{
     fmt::Debug,
@@ -19,23 +19,18 @@ impl VertexId {
     pub fn new_invalid() -> Self {
         Self(usize::MAX)
     }
-
-    #[inline]
-    pub(super) fn index(&self) -> usize {
-        self.0
-    }
 }
 
 #[derive(Debug, Clone)]
-pub struct Vertex<TScalarType: RealNumber> {
+pub struct Vertex<S: RealNumber> {
     corner: CornerId,
-    position: Vec3<TScalarType>,
+    position: Vec3<S>,
     flags: VertexFlags,
 }
 
-impl<TScalarType: RealNumber> Vertex<TScalarType> {
+impl<S: RealNumber> Vertex<S> {
     #[inline]
-    pub fn new(corner: CornerId, position: Vec3<TScalarType>) -> Self {
+    pub fn new(corner: CornerId, position: Vec3<S>) -> Self {
         Self {
             corner,
             position,
@@ -44,19 +39,19 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 }
 
-impl<TScalarType: RealNumber> Vertex<TScalarType> {
+impl<S: RealNumber> Vertex<S> {
     #[inline]
-    pub fn position(&self) -> &Vec3<TScalarType> {
+    pub fn position(&self) -> &Vec3<S> {
         &self.position
     }
 
     #[inline]
-    pub fn position_mut(&mut self) -> &mut Vec3<TScalarType> {
+    pub fn position_mut(&mut self) -> &mut Vec3<S> {
         &mut self.position
     }
 
     #[inline]
-    pub fn set_position(&mut self, point: Vec3<TScalarType>) -> &mut Self {
+    pub fn set_position(&mut self, point: Vec3<S>) -> &mut Self {
         self.position = point;
         self
     }
@@ -83,16 +78,16 @@ impl<TScalarType: RealNumber> Vertex<TScalarType> {
     }
 }
 
-impl<TScalarType: RealNumber> PartialEq for Vertex<TScalarType> {
+impl<S: RealNumber> PartialEq for Vertex<S> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.corner == other.corner && self.position == other.position
     }
 }
-impl<TScalarType: RealNumber> Eq for Vertex<TScalarType> {}
+impl<S: RealNumber> Eq for Vertex<S> {}
 
-impl<TScalar: RealNumber> Index<VertexId> for CornerTable<TScalar> {
-    type Output = Vertex<TScalar>;
+impl<S: RealNumber> Index<VertexId> for CornerTable<S> {
+    type Output = Vertex<S>;
 
     #[inline]
     fn index(&self, index: VertexId) -> &Self::Output {
@@ -100,7 +95,7 @@ impl<TScalar: RealNumber> Index<VertexId> for CornerTable<TScalar> {
     }
 }
 
-impl<TScalar: RealNumber> IndexMut<VertexId> for CornerTable<TScalar> {
+impl<S: RealNumber> IndexMut<VertexId> for CornerTable<S> {
     #[inline]
     fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
         &mut self.vertices[index.0]
@@ -118,5 +113,59 @@ impl Default for VertexFlags {
     #[inline]
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl<S: RealNumber> CornerTable<S> {
+    /// Returns the number of vertices in the mesh.
+    #[inline]
+    pub fn count_vertices(&self) -> usize {
+        self.vertices.iter().filter(|v| !v.is_deleted()).count()
+    }
+
+    #[inline]
+    pub fn vertex_position(&self, vertex: VertexId) -> &Vec3<S> {
+        self[vertex].position()
+    }
+
+    pub fn vertex_normal(&self, vertex: VertexId) -> Option<Vec3<S>> {
+        let mut sum = Vec3::zeros();
+
+        self.faces_around_vertex(vertex, |face_index| {
+            sum += self.face_normal(face_index).unwrap_or(Vec3::zeros());
+        });
+
+        if sum.norm_squared() == S::zero() {
+            return None;
+        }
+
+        Some(sum.normalize())
+    }
+
+    pub fn is_vertex_on_boundary(&self, vertex: VertexId) -> bool {
+        let mut walker = CornerWalker::from_vertex(self, vertex);
+        walker.move_to_next();
+        let started_at = walker.corner_id();
+
+        loop {
+            if walker.corner().opposite_corner().is_none() {
+                return true;
+            }
+
+            walker.move_to_opposite().move_to_previous();
+
+            if started_at == walker.corner_id() {
+                break;
+            }
+        }
+
+        false
+    }
+
+    #[inline]
+    pub fn vertex_degree(&self, vertex: VertexId) -> usize {
+        let mut valence = 0;
+        self.vertices_around_vertex(vertex, |_| valence += 1);
+        valence
     }
 }

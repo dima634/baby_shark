@@ -1,11 +1,9 @@
-use super::{
-    traversal::*,
-    *,
-};
+use super::{traversal::*, *};
 use crate::{
+    algo::merge_points::merge_points,
     geometry::traits::RealNumber,
     helpers::aliases::Vec3,
-    mesh::traits::{Mesh, TopologicalMesh},
+    mesh::traits::{FromIndexed, FromSoup},
 };
 use std::collections::{BTreeSet, HashMap};
 
@@ -34,7 +32,11 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 
     #[inline]
-    pub(super) fn create_vertex(&mut self, corner: Option<CornerId>, position: Vec3<TScalar>) -> VertexId {
+    pub(super) fn create_vertex(
+        &mut self,
+        corner: Option<CornerId>,
+        position: Vec3<TScalar>,
+    ) -> VertexId {
         let idx = self.vertices.len();
         let vertex = Vertex::new(CornerId::from_option(corner), position);
         self.vertices.push(vertex);
@@ -80,30 +82,11 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 }
 
-///
-/// Implementation of mesh trait for corner table.
-///
-/// Edge is represented by index of opposite corner.
-/// Vertex is represented by it`s index in vertices vector.
-/// Face is represented by index of one of it`s.
-///
-impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
-    type ScalarType = TScalar;
-
-    /// Index of corner opposite to edge
-    type EdgeDescriptor = EdgeId;
-    /// Vertex index
-    type VertexDescriptor = VertexId;
-    /// Index of one of face corners
-    type FaceDescriptor = FaceId;
-
-    type FacesIter<'iter> = CornerTableFacesIter<'iter, TScalar>;
-    type VerticesIter<'iter> = CornerTableVerticesIter<'iter, TScalar>;
-    type EdgesIter<'iter> = CornerTableEdgesIter<'iter, TScalar>;
-    type UniqueEdgesIter<'iter> = UniqueEdgesIter<'iter, TScalar>;
+impl<S: RealNumber> FromIndexed for CornerTable<S> {
+    type Scalar = S;
 
     fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::ScalarType>>,
+        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
         mut faces: impl Iterator<Item = usize>,
     ) -> Self {
         let num_faces = faces.size_hint().1.unwrap_or(0) / 3;
@@ -156,7 +139,7 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
                 continue;
             }
 
-            corners_around_vertex(&corner_table, vertex_id, |corner_index| {
+            corner_table.corners_around_vertex(vertex_id, |corner_index| {
                 corners.remove(&corner_index);
             });
 
@@ -175,186 +158,14 @@ impl<TScalar: RealNumber> Mesh for CornerTable<TScalar> {
 
         corner_table
     }
-
-    #[inline]
-    fn faces(&self) -> Self::FacesIter<'_> {
-        Self::FacesIter::new(self)
-    }
-
-    #[inline]
-    fn vertices(&self) -> Self::VerticesIter<'_> {
-        Self::VerticesIter::new(self)
-    }
-
-    #[inline]
-    fn edges(&self) -> Self::EdgesIter<'_> {
-        Self::EdgesIter::new(self)
-    }
-    
-    #[inline]
-    fn unique_edges(&self) -> Self::UniqueEdgesIter<'_> {
-        Self::UniqueEdgesIter::new(self)
-    }
-
-    #[inline]
-    fn face_vertices(&self, face: &Self::FaceDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor, Self::VertexDescriptor) {
-        let mut walker = CornerWalker::from_corner(self, face.corner());
-        (
-            walker.corner().vertex(),
-            walker.move_to_next().corner().vertex(),
-            walker.move_to_next().corner().vertex(),
-        )
-    }
-
-    #[inline]
-    fn edge_positions(&self, edge: &Self::EdgeDescriptor) -> (Vec3<Self::ScalarType>, Vec3<Self::ScalarType>) {
-        let mut walker = CornerWalker::from_corner(self, edge.corner());
-        (
-            *walker.move_to_next().vertex().position(),
-            *walker.move_to_next().vertex().position(),
-        )
-    }
-
-    #[inline]
-    fn edge_vertices(&self, edge: &Self::EdgeDescriptor) -> (Self::VertexDescriptor, Self::VertexDescriptor) {
-        let mut walker = CornerWalker::from_corner(self, edge.corner());
-        (
-            walker.move_to_next().corner().vertex(),
-            walker.move_to_next().corner().vertex(),
-        )
-    }
-    
-    #[inline]
-    fn opposite_edge(&self, edge: Self::EdgeDescriptor) -> Option<Self::EdgeDescriptor> {
-        self[edge.corner()]
-            .opposite_corner()
-            .map(|corner| EdgeId::new(corner))
-    }
-
-    #[inline]
-    fn vertex_position(&self, vertex: &Self::VertexDescriptor) -> &Vec3<Self::ScalarType> {
-        self[*vertex].position()
-    }
-
-    fn vertex_normal(&self, vertex: &Self::VertexDescriptor) -> Option<Vec3<Self::ScalarType>> {
-        let mut sum = Vec3::zeros();
-
-        faces_around_vertex(self, *vertex, |face_index| {
-            sum += self.face_normal(&face_index).unwrap_or(Vec3::zeros());
-        });
-
-        if sum.norm_squared() == TScalar::zero() {
-            return None;
-        }
-
-        Some(sum.normalize())
-    }
 }
 
-impl<TScalar: RealNumber> TopologicalMesh for CornerTable<TScalar> {
-    type Position<'a> = CornerWalker<'a, TScalar>;
+impl<S: RealNumber> FromSoup for CornerTable<S> {
+    type Scalar = S;
 
-    fn validate_topology(&self) -> bool {
-        for corner_idx in 0..self.corners.len() {
-            let corner = &self.corners[corner_idx];
-            let corner_id = CornerId::new(corner_idx);
-
-            if corner.is_deleted() {
-                continue;
-            }
-
-            if !self[corner.vertex()].is_deleted() {
-                return false;
-            }
-
-            if let Some(opp_corner_id) = corner.opposite_corner() {
-                let opposite = &self[opp_corner_id];
-                let valid = opposite.vertex() != corner.vertex()
-                    && opp_corner_id != corner_id
-                    && !opposite.is_deleted()
-                    && opposite.opposite_corner() == Some(corner_id);
-
-                if !valid {
-                    return false;
-                }
-            }
-        }
-
-        for vertex_idx in 0..self.vertices.len() {
-            let vertex = &self.vertices[vertex_idx];
-
-            if vertex.is_deleted() {
-                continue;
-            }
-
-            let corner = &self[vertex.corner()];
-            let valid = !corner.is_deleted() && corner.vertex() == VertexId::new(vertex_idx);
-
-            if !valid {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    #[inline]
-    fn vertices_around_vertex<TVisit: FnMut(&Self::VertexDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
-        vertices_around_vertex(self, *vertex, visit);
-    }
-
-    #[inline]
-    fn faces_around_vertex<TVisit: FnMut(&Self::FaceDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
-        faces_around_vertex(self, *vertex, visit);
-    }
-
-    /// Iterates over incoming edges of vertex (i.e. second endpoint of edge is `vertex_id`)
-    #[inline]
-    fn edges_around_vertex<TVisit: FnMut(&Self::EdgeDescriptor)>(&self, vertex: &Self::VertexDescriptor, visit: TVisit) {
-        edges_around_vertex(self, *vertex, visit)
-    }
-
-    fn is_vertex_on_boundary(&self, vertex: &Self::VertexDescriptor) -> bool {
-        let mut walker = CornerWalker::from_vertex(self, *vertex);
-        walker.move_to_next();
-        let started_at = walker.corner_id();
-
-        loop {
-            if walker.corner().opposite_corner().is_none() {
-                return true;
-            }
-
-            walker.move_to_opposite().move_to_previous();
-
-            if started_at == walker.corner_id() {
-                break;
-            }
-        }
-
-        false
-    }
-
-    #[inline]
-    fn is_edge_on_boundary(&self, edge: &Self::EdgeDescriptor) -> bool {
-        self[edge.corner()]
-            .opposite_corner()
-            .is_none()
-    }
-
-    #[inline]
-    fn edge_faces(&self, edge: &Self::EdgeDescriptor) -> (Self::FaceDescriptor, Option<Self::FaceDescriptor>) {
-        let corner = edge.corner();
-        (corner.face(), self[corner].opposite_corner().map(|c| c.face()))
-    }
-
-    #[inline]
-    fn face_edges(&self, face: &Self::FaceDescriptor) -> (Self::EdgeDescriptor, Self::EdgeDescriptor, Self::EdgeDescriptor) {
-        let (c1, c2, c3) = face.corners();
-        (
-            Self::EdgeDescriptor::new(c1),
-            Self::EdgeDescriptor::new(c2),
-            Self::EdgeDescriptor::new(c3),
-        )
+    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
+        let indexed = merge_points(triangles);
+        Self::from_vertex_and_face_slices(&indexed.points, &indexed.indices)
     }
 }
 
@@ -391,10 +202,10 @@ mod tests {
         helpers::aliases::{Vec3, Vec3f},
         mesh::{
             corner_table::{
-                test_helpers::{assert_mesh_eq, create_unit_square_mesh}, 
-                *
+                test_helpers::{assert_mesh_eq, create_unit_square_mesh},
+                *,
             },
-            traits::Mesh,
+            traits::FromIndexed,
         },
     };
 
@@ -410,13 +221,13 @@ mod tests {
         ];
 
         let expected_corners = vec![
-            Corner::new(None,                   VertexId::new(0)),
+            Corner::new(None, VertexId::new(0)),
             Corner::new(Some(CornerId::new(4)), VertexId::new(1)),
             Corner::new(None,                   VertexId::new(2)),
 
             Corner::new(None,                   VertexId::new(2)),
             Corner::new(Some(CornerId::new(1)), VertexId::new(3)),
-            Corner::new(None,                   VertexId::new(0))
+            Corner::new(None, VertexId::new(0)),
         ];
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
