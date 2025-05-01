@@ -1,44 +1,44 @@
 use crate::{
-    algo::edge_collapse,
-    helpers::aliases::Vec3,
-    mesh::traits::{EdgeProperties, EditableMesh, Mesh, TopologicalMesh},
+    algo::edge_collapse, geometry::traits::RealNumber, helpers::aliases::Vec3,
+    mesh::corner_table::*,
 };
 use nalgebra::{Matrix4, Vector4};
-use num_traits::{cast, Float, FromPrimitive, One};
+use num_traits::{cast, Float};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
 };
 
 /// Collapse candidate
-struct Contraction<TMesh: Mesh> {
-    edge: TMesh::EdgeDescriptor,
-    cost: TMesh::ScalarType,
+struct Contraction<S: RealNumber> {
+    edge: EdgeId,
+    cost: S,
 }
 
-impl<TMesh: Mesh> Contraction<TMesh> {
-    fn new(edge: TMesh::EdgeDescriptor, cost: TMesh::ScalarType) -> Self {
+impl<S: RealNumber> Contraction<S> {
+    #[inline]
+    fn new(edge: EdgeId, cost: S) -> Self {
         Self { edge, cost }
     }
 }
 
-impl<TMesh: Mesh> Eq for Contraction<TMesh> {}
+impl<S: RealNumber> Eq for Contraction<S> {}
 
-impl<TMesh: Mesh> PartialEq for Contraction<TMesh> {
+impl<S: RealNumber> PartialEq for Contraction<S> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.edge == other.edge
     }
 }
 
-impl<TMesh: Mesh> Ord for Contraction<TMesh> {
+impl<S: RealNumber> Ord for Contraction<S> {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         other.cost.partial_cmp(&self.cost).unwrap()
     }
 }
 
-impl<TMesh: Mesh> PartialOrd for Contraction<TMesh> {
+impl<S: RealNumber> PartialOrd for Contraction<S> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -46,18 +46,18 @@ impl<TMesh: Mesh> PartialOrd for Contraction<TMesh> {
 }
 
 /// Strategy of edge collapsing
-pub trait CollapseStrategy<TMesh: Mesh>: Default {
+pub trait CollapseStrategy<S: RealNumber>: Default {
     /// Set from `mesh`
-    fn set(&mut self, mesh: &TMesh);
+    fn set(&mut self, mesh: &CornerTable<S>);
 
     /// Returns `edge` collapsing cost. Cost is computed at point returned by [get_placement] method. Smaller is better.
-    fn get_cost(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> TMesh::ScalarType;
+    fn get_cost(&self, mesh: &CornerTable<S>, edge: EdgeId) -> S;
 
     /// Returns point at which `edge` will be collapsed. Ideally it should minimize cost.
-    fn get_placement(&self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor) -> Vec3<TMesh::ScalarType>;
+    fn get_placement(&self, mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S>;
 
     /// Called on edge collapse. Can be used to update internal state.
-    fn collapse_edge(&mut self, mesh: &TMesh, edge: &TMesh::EdgeDescriptor);
+    fn collapse_edge(&mut self, mesh: &CornerTable<S>, edge: EdgeId);
 }
 
 ///
@@ -66,11 +66,12 @@ pub trait CollapseStrategy<TMesh: Mesh>: Default {
 /// Collapsing point is placed on middle of edge.
 /// Based on article of Heckber and Garland: http://www.cs.cmu.edu/~garland/Papers/quadrics.pdf.
 ///
-pub struct QuadricError<TMesh: Mesh> {
-    vertex_quadric_map: HashMap<TMesh::VertexDescriptor, Matrix4<TMesh::ScalarType>>,
+pub struct QuadricError<S: RealNumber> {
+    vertex_quadric_map: HashMap<VertexId, Matrix4<S>>,
 }
 
-impl<TMesh: Mesh> Default for QuadricError<TMesh> {
+impl<S: RealNumber> Default for QuadricError<S> {
+    #[inline]
     fn default() -> Self {
         Self {
             vertex_quadric_map: HashMap::new(),
@@ -78,8 +79,8 @@ impl<TMesh: Mesh> Default for QuadricError<TMesh> {
     }
 }
 
-impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMesh> {
-    fn set(&mut self, mesh: &TMesh) {
+impl<S: RealNumber> CollapseStrategy<S> for QuadricError<S> {
+    fn set(&mut self, mesh: &CornerTable<S>) {
         // Preallocate memory
         if let (_, Some(max_size)) = mesh.vertices().size_hint() {
             self.vertex_quadric_map.reserve(max_size);
@@ -89,7 +90,7 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
             let mut quadric = Matrix4::zeros();
 
             // Vertex error quadric = sum of quadrics of one ring faces
-            mesh.faces_around_vertex(&vertex, |face| {
+            mesh.faces_around_vertex(vertex, |face| {
                 let plane = mesh.face_positions(face).plane();
                 let n = plane.get_normal();
                 let d = plane.get_distance();
@@ -104,39 +105,26 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
         }
     }
 
-    fn get_cost(
-        &self,
-        mesh: &TMesh,
-        edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> <TMesh as Mesh>::ScalarType {
+    fn get_cost(&self, mesh: &CornerTable<S>, edge: EdgeId) -> S {
         let (v1, v2) = mesh.edge_vertices(edge);
 
         let q1 = self.vertex_quadric_map.get(&v1).unwrap();
         let q2 = self.vertex_quadric_map.get(&v2).unwrap();
 
         let new_position = self.get_placement(mesh, edge);
-        let v = Vector4::new(
-            new_position.x,
-            new_position.y,
-            new_position.z,
-            TMesh::ScalarType::one(),
-        );
+        let v = Vector4::new(new_position.x, new_position.y, new_position.z, S::one());
         let v_t = v.transpose();
 
-        (v_t * (q1 + q2) * v)[0].abs().sqrt()
+        Float::sqrt(Float::abs((v_t * (q1 + q2) * v)[0]))
     }
 
     #[inline]
-    fn get_placement(
-        &self,
-        mesh: &TMesh,
-        edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> Vec3<<TMesh as Mesh>::ScalarType> {
+    fn get_placement(&self, mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S> {
         let (v1_pos, v2_pos) = mesh.edge_positions(edge);
-        (v1_pos + v2_pos) * TMesh::ScalarType::from_f64(0.5).unwrap()
+        (v1_pos + v2_pos) * S::from_f64(0.5).unwrap()
     }
 
-    fn collapse_edge(&mut self, mesh: &TMesh, edge: &<TMesh as Mesh>::EdgeDescriptor) {
+    fn collapse_edge(&mut self, mesh: &CornerTable<S>, edge: EdgeId) {
         let (v1, v2) = mesh.edge_vertices(edge);
         let new_quadric = self.vertex_quadric_map[&v1] + self.vertex_quadric_map[&v2];
         self.vertex_quadric_map.insert(v1, new_quadric);
@@ -161,27 +149,25 @@ impl<TMesh: Mesh + TopologicalMesh> CollapseStrategy<TMesh> for QuadricError<TMe
 /// decimator.decimate(&mut mesh);
 /// ```
 ///
-pub struct IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
+pub struct IncrementalDecimator<S: RealNumber, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
-    TCollapseStrategy: CollapseStrategy<TMesh>,
-    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
+    TCollapseStrategy: CollapseStrategy<S>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<S>,
 {
     decimation_criteria: TEdgeDecimationCriteria,
     min_faces_count: usize,
-    min_face_quality: TMesh::ScalarType,
+    min_face_quality: S,
     keep_boundary: bool,
-    priority_queue: BinaryHeap<Contraction<TMesh>>,
-    not_safe_collapses: Vec<Contraction<TMesh>>,
+    priority_queue: BinaryHeap<Contraction<S>>,
+    not_safe_collapses: Vec<Contraction<S>>,
     collapse_strategy: TCollapseStrategy,
 }
 
-impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
-    IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
+impl<S: RealNumber, TCollapseStrategy, TEdgeDecimationCriteria>
+    IncrementalDecimator<S, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
-    TCollapseStrategy: CollapseStrategy<TMesh>,
-    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
+    TCollapseStrategy: CollapseStrategy<S>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<S>,
 {
     #[inline]
     pub fn new() -> Self {
@@ -237,7 +223,7 @@ where
     /// decimator.decimate(&mut mesh);
     /// ```
     ///
-    pub fn decimate(&mut self, mesh: &mut TMesh) {
+    pub fn decimate(&mut self, mesh: &mut CornerTable<S>) {
         // Clear internals data structures
         self.priority_queue.clear();
         self.not_safe_collapses.clear();
@@ -248,57 +234,60 @@ where
     }
 
     /// Collapse edges
-    fn collapse_edges(&mut self, mesh: &mut TMesh) {
+    fn collapse_edges(&mut self, mesh: &mut CornerTable<S>) {
         let mut remaining_faces_count = mesh.faces().count();
-        let mut cost_needs_update = mesh.create_edge_properties_map::<bool>();
+        let mut cost_needs_update = mesh.create_edge_attribute::<bool>();
 
         while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
             // Collapse edges one by one taking them from priority queue
             while let Some(mut best) = self.priority_queue.pop() {
                 // Edge was collapsed?
-                if !mesh.edge_exist(&best.edge) {
+                if !mesh.edge_exists(best.edge) {
                     continue;
                 }
 
                 // Need to update collapse cost?
                 if cost_needs_update[best.edge] {
                     cost_needs_update[best.edge] = false;
-                    best.cost = self.collapse_strategy.get_cost(mesh, &best.edge);
-                    
-                    if self.decimation_criteria.should_decimate(best.cost, mesh, &best.edge) {
+                    best.cost = self.collapse_strategy.get_cost(mesh, best.edge);
+
+                    if self
+                        .decimation_criteria
+                        .should_decimate(best.cost, mesh, best.edge)
+                    {
                         self.priority_queue.push(best);
                     }
 
                     continue;
                 }
 
-                let (v1, v2) = mesh.edge_vertices(&best.edge);
-                let collapse_at = self.collapse_strategy.get_placement(mesh, &best.edge);
+                let (v1, v2) = mesh.edge_vertices(best.edge);
+                let collapse_at = self.collapse_strategy.get_placement(mesh, best.edge);
 
                 // Skip not safe collapses
-                if !edge_collapse::is_safe(mesh, &best.edge, &collapse_at, self.min_face_quality) {
+                if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality) {
                     self.not_safe_collapses.push(best);
                     continue;
                 }
 
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(&v1, |&edge| cost_needs_update[edge] = true);
-                mesh.edges_around_vertex(&v2, |&edge| cost_needs_update[edge] = true);
+                mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge] = true);
+                mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge] = true);
 
                 // Inform collapse strategy about collapse
-                self.collapse_strategy.collapse_edge(mesh, &best.edge);
+                self.collapse_strategy.collapse_edge(mesh, best.edge);
 
                 // Update number of remaining faces
                 // If edge is on boundary 1 face is collapsed
                 // If edge is interior then 2
-                if mesh.is_edge_on_boundary(&best.edge) {
+                if mesh.is_edge_on_boundary(best.edge) {
                     remaining_faces_count -= 1;
                 } else {
                     remaining_faces_count -= 2;
                 }
 
                 // Collapse edge
-                mesh.collapse_edge(&best.edge, &collapse_at);
+                mesh.collapse_edge(best.edge, &collapse_at);
 
                 // Stop when number of remaining faces smaller than minimal
                 if remaining_faces_count <= self.min_faces_count {
@@ -314,26 +303,26 @@ where
             if !self.not_safe_collapses.is_empty() {
                 // Reinsert unsafe collapses (mb they are safe now)
                 for collapse in self.not_safe_collapses.iter() {
-                    if !mesh.edge_exist(&collapse.edge) {
+                    if !mesh.edge_exists(collapse.edge) {
                         continue;
                     }
 
-                    let new_cost = self.collapse_strategy.get_cost(mesh, &collapse.edge);
-                    let (v1_pos, v2_pos) = mesh.edge_positions(&collapse.edge);
-                    let new_position =
-                        (v1_pos + v2_pos) * TMesh::ScalarType::from_f64(0.5).unwrap();
+                    let new_cost = self.collapse_strategy.get_cost(mesh, collapse.edge);
+                    let (v1_pos, v2_pos) = mesh.edge_positions(collapse.edge);
+                    let new_position = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
 
                     // Safe to collapse and have low error
-                    if self
-                        .decimation_criteria
-                        .should_decimate(new_cost, mesh, &collapse.edge)
-                        && edge_collapse::is_safe(
-                            mesh,
-                            &collapse.edge,
-                            &new_position,
-                            self.min_face_quality,
-                        )
-                    {
+                    let should_decimate =
+                        self.decimation_criteria
+                            .should_decimate(new_cost, mesh, collapse.edge);
+                    let is_safe = edge_collapse::is_safe(
+                        mesh,
+                        collapse.edge,
+                        &new_position,
+                        self.min_face_quality,
+                    );
+
+                    if should_decimate && is_safe {
                         self.priority_queue
                             .push(Contraction::new(collapse.edge, new_cost));
                     }
@@ -345,17 +334,17 @@ where
     }
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
-    fn fill_queue(&mut self, mesh: &mut TMesh) {
+    fn fill_queue(&mut self, mesh: &CornerTable<S>) {
         for edge in mesh.unique_edges() {
-            let cost = self.collapse_strategy.get_cost(mesh, &edge);
-            let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, &edge);
+            let cost = self.collapse_strategy.get_cost(mesh, edge);
+            let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, edge);
 
-            if self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, &edge) {
+            if self.keep_boundary && edge_collapse::will_collapse_affect_boundary(mesh, edge) {
                 continue;
             }
 
             // Collapsable and low cost?
-            if self.decimation_criteria.should_decimate(cost, mesh, &edge)
+            if self.decimation_criteria.should_decimate(cost, mesh, edge)
                 && is_collapse_topologically_safe
             {
                 self.priority_queue.push(Contraction::new(edge, cost));
@@ -364,12 +353,11 @@ where
     }
 }
 
-impl<TMesh, TCollapseStrategy, TEdgeDecimationCriteria> Default
-    for IncrementalDecimator<TMesh, TCollapseStrategy, TEdgeDecimationCriteria>
+impl<S: RealNumber, TCollapseStrategy, TEdgeDecimationCriteria> Default
+    for IncrementalDecimator<S, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TMesh: EditableMesh + TopologicalMesh + EdgeProperties,
-    TCollapseStrategy: CollapseStrategy<TMesh>,
-    TEdgeDecimationCriteria: EdgeDecimationCriteria<TMesh>,
+    TCollapseStrategy: CollapseStrategy<S>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<S>,
 {
     fn default() -> Self {
         Self {
@@ -387,13 +375,8 @@ where
 ///
 /// Trait used to decide whether to decimate an edge
 ///
-pub trait EdgeDecimationCriteria<TMesh: Mesh>: Default {
-    fn should_decimate(
-        &self,
-        error: TMesh::ScalarType,
-        mesh: &TMesh,
-        edge: &TMesh::EdgeDescriptor,
-    ) -> bool;
+pub trait EdgeDecimationCriteria<S: RealNumber>: Default {
+    fn should_decimate(&self, error: S, mesh: &CornerTable<S>, edge: EdgeId) -> bool;
 }
 
 ///
@@ -402,14 +385,9 @@ pub trait EdgeDecimationCriteria<TMesh: Mesh>: Default {
 #[derive(Debug, Default)]
 pub struct AlwaysDecimate;
 
-impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
+impl<S: RealNumber> EdgeDecimationCriteria<S> for AlwaysDecimate {
     #[inline]
-    fn should_decimate(
-        &self,
-        _error: TMesh::ScalarType,
-        _mesh: &TMesh,
-        _edge: &TMesh::EdgeDescriptor,
-    ) -> bool {
+    fn should_decimate(&self, _error: S, _mesh: &CornerTable<S>, _edge: EdgeId) -> bool {
         true
     }
 }
@@ -420,14 +398,9 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for AlwaysDecimate {
 #[derive(Debug, Default)]
 pub struct NeverDecimate;
 
-impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
+impl<S: RealNumber> EdgeDecimationCriteria<S> for NeverDecimate {
     #[inline]
-    fn should_decimate(
-        &self,
-        _error: TMesh::ScalarType,
-        _mesh: &TMesh,
-        _edge: &TMesh::EdgeDescriptor,
-    ) -> bool {
+    fn should_decimate(&self, _error: S, _mesh: &CornerTable<S>, _edge: EdgeId) -> bool {
         false
     }
 }
@@ -437,38 +410,26 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for NeverDecimate {
 /// This will result in a uniform decimation result.
 ///
 #[derive(Debug)]
-pub struct ConstantErrorDecimationCriteria<TMesh: Mesh> {
-    max_error: TMesh::ScalarType,
+pub struct ConstantErrorDecimationCriteria<S: RealNumber> {
+    max_error: S,
 }
 
-impl<TMesh> ConstantErrorDecimationCriteria<TMesh>
-where
-    TMesh: Mesh,
-{
-    pub fn new(max_error: TMesh::ScalarType) -> Self {
+impl<S: RealNumber> ConstantErrorDecimationCriteria<S> {
+    #[inline]
+    pub fn new(max_error: S) -> Self {
         Self { max_error }
     }
 }
 
-impl<TMesh> EdgeDecimationCriteria<TMesh> for ConstantErrorDecimationCriteria<TMesh>
-where
-    TMesh: Mesh,
-{
+impl<S: RealNumber> EdgeDecimationCriteria<S> for ConstantErrorDecimationCriteria<S> {
     #[inline]
-    fn should_decimate(
-        &self,
-        error: <TMesh as Mesh>::ScalarType,
-        _mesh: &TMesh,
-        _edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> bool {
+    fn should_decimate(&self, error: S, _mesh: &CornerTable<S>, _edge: EdgeId) -> bool {
         error < self.max_error
     }
 }
 
-impl<TMesh> Default for ConstantErrorDecimationCriteria<TMesh>
-where
-    TMesh: Mesh,
-{
+impl<S: RealNumber> Default for ConstantErrorDecimationCriteria<S> {
+    #[inline]
     fn default() -> Self {
         Self::new(cast(0.001).unwrap())
     }
@@ -477,16 +438,13 @@ where
 ///
 /// Will choose the maximum error, and decimate accordingly, depending on the distance from origin.
 #[derive(Debug)]
-pub struct BoundingSphereDecimationCriteria<TMesh: Mesh> {
-    origin: Vec3<TMesh::ScalarType>,
-    radii_sq_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>,
+pub struct BoundingSphereDecimationCriteria<S: RealNumber> {
+    origin: Vec3<S>,
+    radii_sq_error_map: Vec<(S, S)>,
 }
 
-impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
-    pub fn new(
-        origin: Vec3<TMesh::ScalarType>,
-        radii_error_map: Vec<(TMesh::ScalarType, TMesh::ScalarType)>,
-    ) -> Self {
+impl<S: RealNumber> BoundingSphereDecimationCriteria<S> {
+    pub fn new(origin: Vec3<S>, radii_error_map: Vec<(S, S)>) -> Self {
         let radii_sq_error_map = radii_error_map
             .into_iter()
             .map(|(r, e)| (r * r, e))
@@ -498,14 +456,9 @@ impl<TMesh: Mesh> BoundingSphereDecimationCriteria<TMesh> {
     }
 }
 
-impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCriteria<TMesh> {
+impl<S: RealNumber> EdgeDecimationCriteria<S> for BoundingSphereDecimationCriteria<S> {
     #[inline]
-    fn should_decimate(
-        &self,
-        error: <TMesh as Mesh>::ScalarType,
-        mesh: &TMesh,
-        edge: &<TMesh as Mesh>::EdgeDescriptor,
-    ) -> bool {
+    fn should_decimate(&self, error: S, mesh: &CornerTable<S>, edge: EdgeId) -> bool {
         let edge_positions = mesh.edge_positions(edge);
         let max_error = self.radii_sq_error_map.iter().find(|(radius_sq, _)| {
             (self.origin - edge_positions.0).norm_squared() < *radius_sq
@@ -520,13 +473,10 @@ impl<TMesh: Mesh> EdgeDecimationCriteria<TMesh> for BoundingSphereDecimationCrit
     }
 }
 
-impl<TMesh> Default for BoundingSphereDecimationCriteria<TMesh>
-where
-    TMesh: Mesh,
-{
+impl<S: RealNumber> Default for BoundingSphereDecimationCriteria<S> {
     fn default() -> Self {
-        let origin = Vec3::<TMesh::ScalarType>::zeros();
-        let radius = TMesh::ScalarType::max_value();
+        let origin = Vec3::<S>::zeros();
+        let radius = Float::max_value();
         let radii_error = vec![(radius, cast(0.001).unwrap())];
         Self::new(origin, radii_error)
     }

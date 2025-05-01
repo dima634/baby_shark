@@ -110,7 +110,7 @@ impl<TScalar: RealNumber> Line3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Line3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for Line3<TScalar> {

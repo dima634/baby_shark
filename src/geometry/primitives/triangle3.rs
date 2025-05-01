@@ -255,9 +255,13 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn normal(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> Option<Vec3<TScalar>> {
+    pub fn normal(
+        a: &Vec3<TScalar>,
+        b: &Vec3<TScalar>,
+        c: &Vec3<TScalar>,
+    ) -> Option<Vec3<TScalar>> {
         let cross = (b - a).cross(&(c - a));
-        
+
         if cross.norm_squared() == TScalar::zero() {
             return None;
         }
@@ -298,7 +302,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Triangle3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> HasBBox3 for Triangle3<TScalar> {
@@ -389,7 +393,7 @@ impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
     type Output = Triangle3Triangle3Intersection<TScalar>;
 
     // http://web.stanford.edu/class/cs277/resources/papers/Moller1997b.pdf
-    fn intersects_triangle3_at(&self, other: &Triangle3<Self::ScalarType>) -> Option<Self::Output> {
+    fn intersects_triangle3_at(&self, other: &Triangle3<Self::Scalar>) -> Option<Self::Output> {
         let p1 = self.plane();
         let p2 = other.plane();
 

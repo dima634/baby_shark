@@ -1,7 +1,9 @@
 use crate::{
-    algo::merge_points::merge_points,
-    mesh::traits::Mesh,
-    voxel::{mesh_to_volume::MeshToVolume, meshing::{DualContouringMesher, MarchingCubesMesher}},
+    mesh::traits::{FromSoup, Triangles},
+    voxel::{
+        mesh_to_volume::MeshToVolume,
+        meshing::{DualContouringMesher, MarchingCubesMesher},
+    },
 };
 
 pub enum MeshingMethod {
@@ -58,7 +60,10 @@ impl VoxelRemesher {
         self
     }
 
-    pub fn remesh<T: Mesh<ScalarType = f32>>(&mut self, mesh: &T) -> Option<T> {
+    pub fn remesh<T>(&mut self, mesh: &T) -> Option<T>
+    where
+        T: Triangles<Scalar = f32> + FromSoup<Scalar = f32>,
+    {
         let distance_field = self.mesh_to_sdf.convert(mesh)?;
 
         let faces = match self.meshing_method {
@@ -72,8 +77,7 @@ impl VoxelRemesher {
             }
         };
 
-        let indexed_faces = merge_points(&faces);
-        let mesh = T::from_vertex_and_face_slices(&indexed_faces.points, &indexed_faces.indices);
+        let mesh = T::from_triangles_soup(faces.into_iter());
 
         Some(mesh)
     }
@@ -94,7 +98,7 @@ mod tests {
     use super::VoxelRemesher;
     use crate::{
         helpers::aliases::Vec3,
-        mesh::{builder, polygon_soup::data_structure::PolygonSoup, traits::Mesh},
+        mesh::{builder, polygon_soup::data_structure::PolygonSoup},
     };
 
     #[test]

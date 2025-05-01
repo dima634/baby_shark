@@ -1,5 +1,5 @@
 use super::Mesh;
-use crate::mesh::{traits::Mesh as MeshTrait, *};
+use crate::mesh::*;
 use std::ops::ControlFlow;
 use wasm_bindgen::prelude::*;
 
@@ -44,7 +44,7 @@ impl Mesh {
         let mut vertices = Vec::new();
 
         self.inner().boundary_edges(ring.0, |edge| {
-            let (v1, _) = self.inner().edge_vertices(&edge);
+            let (v1, _) = self.inner().edge_vertices(edge);
             vertices.push(v1);
             ControlFlow::Continue(())
         });

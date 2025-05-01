@@ -76,7 +76,7 @@ impl<TScalar: RealNumber> LineSegment3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for LineSegment3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for LineSegment3<TScalar> {

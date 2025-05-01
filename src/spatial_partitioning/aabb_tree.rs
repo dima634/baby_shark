@@ -1,13 +1,12 @@
 use nalgebra::Vector3;
 use num_traits::*;
-
 use crate::{
     geometry::{
         primitives::{box3::Box3, plane3::Plane3, triangle3::Triangle3},
         traits::{ClosestPoint3, HasBBox3, RealNumber},
     },
     helpers::aliases::Vec3,
-    mesh::traits::Mesh,
+    mesh::traits::Triangles,
 };
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -49,10 +48,10 @@ impl<TScalar: RealNumber> BinaryNode<TScalar> {
 pub struct AABBTree<TObject>
 where
     TObject: HasBBox3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
-    nodes: Vec<BinaryNode<TObject::ScalarType>>, // root is last element
-    objects: Vec<(TObject, Box3<TObject::ScalarType>)>,
+    nodes: Vec<BinaryNode<TObject::Scalar>>, // root is last element
+    objects: Vec<(TObject, Box3<TObject::Scalar>)>,
     min_objects_per_leaf: usize,
     max_depth: usize,
 }
@@ -60,7 +59,7 @@ where
 impl<TObject> AABBTree<TObject>
 where
     TObject: HasBBox3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
     ///
     /// Create new AABB tree from objects. This method is not finishing construction of tree.
@@ -133,8 +132,8 @@ where
     where
         TFunc: FnMut(
             (
-                &[(TObject, Box3<TObject::ScalarType>)],
-                &Box3<TObject::ScalarType>,
+                &[(TObject, Box3<TObject::Scalar>)],
+                &Box3<TObject::Scalar>,
             ),
         ),
     {
@@ -146,8 +145,8 @@ where
     where
         TFunc: FnMut(
             (
-                &[(TObject, Box3<TObject::ScalarType>)],
-                &Box3<TObject::ScalarType>,
+                &[(TObject, Box3<TObject::Scalar>)],
+                &Box3<TObject::Scalar>,
             ),
         ),
     {
@@ -221,7 +220,7 @@ where
     }
 
     fn split<TPartition: PartitionStrategy<TObject>>(
-        objects: &mut [(TObject, Box3<TObject::ScalarType>)],
+        objects: &mut [(TObject, Box3<TObject::Scalar>)],
         partition_strategy: &mut TPartition,
     ) -> Option<usize> {
         // Split by biggest dimension first
@@ -257,10 +256,10 @@ where
     }
 
     fn sort_along_axis_and_try_split<TPartition: PartitionStrategy<TObject>>(
-        objects: &mut [(TObject, Box3<TObject::ScalarType>)],
+        objects: &mut [(TObject, Box3<TObject::Scalar>)],
         axis: SplitAxis,
         partition_strategy: &mut TPartition,
-        objects_bbox: &Box3<TObject::ScalarType>,
+        objects_bbox: &Box3<TObject::Scalar>,
     ) -> Option<usize> {
         let axis_idx = axis.as_usize();
         objects.sort_by(|(_, bbox1), (_, bbox2)| {
@@ -302,15 +301,14 @@ where
     }
 }
 
-impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>> {
+impl<S: RealNumber> AABBTree<Triangle3<S>> {
     ///
     /// Create new AABB tree from faces of triangular mesh. This method is not finishing construction of tree.
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
     ///
-    pub fn from_mesh<TMesh: Mesh<ScalarType = TScalar>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<TScalar>> = mesh
-            .faces()
-            .map(|face| mesh.face_positions(&face))
+    pub fn from_mesh<TMesh: Triangles<Scalar = S>>(mesh: &TMesh) -> Self {
+        let faces: Vec<Triangle3<S>> = mesh
+            .triangles()
             .collect();
 
         Self::new(faces)
@@ -320,13 +318,13 @@ impl<TScalar: RealNumber> AABBTree<Triangle3<TScalar>> {
 impl<TObject> AABBTree<TObject>
 where
     TObject: HasBBox3 + ClosestPoint3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
     pub fn closest_point(
         &self,
-        point: &Vec3<TObject::ScalarType>,
-        max_distance: TObject::ScalarType,
-    ) -> Option<Vec3<TObject::ScalarType>> {
+        point: &Vec3<TObject::Scalar>,
+        max_distance: TObject::Scalar,
+    ) -> Option<Vec3<TObject::Scalar>> {
         let max_distance_square = max_distance * max_distance;
 
         let mut stack = Vec::with_capacity(self.max_depth);
@@ -403,9 +401,9 @@ pub trait PartitionStrategy<TObject: HasBBox3>: Default {
     ///
     fn split(
         &mut self,
-        objects: &[(TObject, Box3<TObject::ScalarType>)],
+        objects: &[(TObject, Box3<TObject::Scalar>)],
         axis: SplitAxis,
-        objects_bbox: &Box3<TObject::ScalarType>,
+        objects_bbox: &Box3<TObject::Scalar>,
     ) -> Option<usize>;
 }
 
@@ -420,13 +418,13 @@ pub struct MedianCut;
 impl<TObject> PartitionStrategy<TObject> for MedianCut
 where
     TObject: HasBBox3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
     fn split(
         &mut self,
-        objects: &[(TObject, Box3<TObject::ScalarType>)],
+        objects: &[(TObject, Box3<TObject::Scalar>)],
         axis: SplitAxis,
-        objects_bbox: &Box3<TObject::ScalarType>,
+        objects_bbox: &Box3<TObject::Scalar>,
     ) -> Option<usize> {
         if objects.is_empty() {
             return None;
@@ -449,14 +447,14 @@ pub struct Area;
 impl<TObject> PartitionStrategy<TObject> for Area
 where
     TObject: HasBBox3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
     #[allow(clippy::needless_range_loop)]
     fn split(
         &mut self,
-        objects: &[(TObject, Box3<<TObject>::ScalarType>)],
+        objects: &[(TObject, Box3<<TObject>::Scalar>)],
         axis: SplitAxis,
-        objects_bbox: &Box3<<TObject>::ScalarType>,
+        objects_bbox: &Box3<<TObject>::Scalar>,
     ) -> Option<usize> {
         if objects.is_empty() {
             return None;
@@ -467,13 +465,13 @@ where
             .fold(Box3::empty(), |acc, (_, bbox)| acc + &bbox.get_center());
 
         let axis = axis.as_usize();
-        let empty_bucket = Bucket::<TObject::ScalarType> {
+        let empty_bucket = Bucket::<TObject::Scalar> {
             primitives_count: 0,
             bbox: Box3::empty(),
         };
         const NUM_BUCKETS: usize = 12;
         let mut buckets = [empty_bucket; NUM_BUCKETS];
-        let num_buckets = TObject::ScalarType::from_usize(NUM_BUCKETS).unwrap();
+        let num_buckets = TObject::Scalar::from_usize(NUM_BUCKETS).unwrap();
 
         // Put objects into `NUM_BUCKETS` buckets and compute bounds of each bucket
         for (_, bbox) in objects {
@@ -488,7 +486,7 @@ where
             bucket.bbox.union_box(bbox);
         }
 
-        let mut costs = [TObject::ScalarType::zero(); NUM_BUCKETS - 1];
+        let mut costs = [TObject::Scalar::zero(); NUM_BUCKETS - 1];
 
         // Compute bucket cost
         for i in 0..NUM_BUCKETS - 1 {
@@ -508,12 +506,12 @@ where
                 b1_count += buckets[j].primitives_count;
             }
 
-            let b0_count = TObject::ScalarType::from_usize(b0_count).unwrap();
-            let b1_count = TObject::ScalarType::from_usize(b1_count).unwrap();
-            let c = TObject::ScalarType::from_f64(0.125).unwrap();
+            let b0_count = TObject::Scalar::from_usize(b0_count).unwrap();
+            let b1_count = TObject::Scalar::from_usize(b1_count).unwrap();
+            let c = TObject::Scalar::from_f64(0.125).unwrap();
 
-            if b0_count == TObject::ScalarType::zero() || b1_count == TObject::ScalarType::zero() {
-                costs[i] = TObject::ScalarType::infinity();
+            if b0_count == TObject::Scalar::zero() || b1_count == TObject::Scalar::zero() {
+                costs[i] = TObject::Scalar::infinity();
             } else {
                 costs[i] = c + (b0_count * b0.area() + b1_count * b1.area()) / objects_bbox.area();
             }
@@ -525,7 +523,7 @@ where
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .unwrap();
 
-        let leaf_cost = TObject::ScalarType::from_usize(objects.len()).unwrap();
+        let leaf_cost = TObject::Scalar::from_usize(objects.len()).unwrap();
 
         if costs[min_cost_bucket_idx] < leaf_cost {
             let split_at = objects.iter().position(|(_, bbox)| {
@@ -552,18 +550,18 @@ struct Bucket<T: RealNumber> {
 
 fn check_split<TObject>(
     axis: usize,
-    parent_bbox: &Box3<TObject::ScalarType>,
-    objects: &[(TObject, Box3<TObject::ScalarType>)],
+    parent_bbox: &Box3<TObject::Scalar>,
+    objects: &[(TObject, Box3<TObject::Scalar>)],
     split_at: usize,
 ) -> bool
 where
     TObject: HasBBox3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
-    let mut split_axis = Vector3::<TObject::ScalarType>::zeros();
+    let mut split_axis = Vector3::<TObject::Scalar>::zeros();
     split_axis[axis] = One::one();
     let split_point = (objects[split_at].1.get_center() + objects[split_at - 1].1.get_center())
-        * TObject::ScalarType::from_f32(0.5).unwrap();
+        * TObject::Scalar::from_f32(0.5).unwrap();
     let plane = Plane3::new(split_axis, split_point[axis]);
 
     // Test whether all objects intersects plane
@@ -588,7 +586,7 @@ where
     let second_child_volume = second_child_box.volume();
 
     let parent_volume = parent_bbox.volume();
-    let threshold = TObject::ScalarType::from_f64(0.8).unwrap();
+    let threshold = TObject::Scalar::from_f64(0.8).unwrap();
 
     if first_child_volume / parent_volume > threshold
         && second_child_volume / parent_volume > threshold
@@ -607,7 +605,7 @@ pub mod winding_numbers {
     use crate::{
         geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
         helpers::aliases::{Mat3f, Vec3, Vec3f},
-        mesh::traits::Mesh,
+        mesh::traits::Triangles,
     };
 
     use super::{AABBTree, Area, BinaryNode, MedianCut, NodeType};
@@ -666,7 +664,7 @@ pub mod winding_numbers {
     }
 
     impl WindingNumbers {
-        pub fn from_mesh<T: Mesh<ScalarType = f32>>(mesh: &T) -> Self {
+        pub fn from_mesh<T: Triangles<Scalar = f32>>(mesh: &T) -> Self {
             let mut tree = AABBTree::from_mesh(mesh)
                 .with_min_objects_per_leaf(3)
                 .top_down::<Area>();

@@ -5,7 +5,7 @@ use crate::{
         traits::{ClosestPoint3, HasBBox3, RealNumber},
     },
     helpers::aliases::Vec3,
-    mesh::traits::Mesh,
+    mesh::traits::Triangles,
 };
 use nalgebra::Vector3;
 use num_traits::{cast, Float, ToPrimitive, Zero};
@@ -17,7 +17,7 @@ type CellRange = Box3<isize>;
 pub struct Grid<TObject: HasBBox3> {
     pub cells: HashMap<Cell, Vec<usize>>,
     objects: Vec<TObject>,
-    cell_size: Vector3<TObject::ScalarType>,
+    cell_size: Vector3<TObject::Scalar>,
 }
 
 ///
@@ -37,9 +37,9 @@ impl<TObject: HasBBox3> Grid<TObject> {
         }
     }
 
-    pub fn with_cell_size(objects: Vec<TObject>, cell_size: Vector3<TObject::ScalarType>) -> Self {
+    pub fn with_cell_size(objects: Vec<TObject>, cell_size: Vector3<TObject::Scalar>) -> Self {
         assert!(
-            cell_size.iter().all(|d| *d > TObject::ScalarType::zero()),
+            cell_size.iter().all(|d| *d > TObject::Scalar::zero()),
             "Cell size must be greater than zero, got {:?}",
             cell_size
         );
@@ -87,7 +87,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
     }
 
     #[inline]
-    fn point_to_cell(&self, point: &Vec3<TObject::ScalarType>) -> Cell {
+    fn point_to_cell(&self, point: &Vec3<TObject::Scalar>) -> Cell {
         let mut cell = utils::cast(&point.component_div(&self.cell_size));
 
         if point.x < Zero::zero() {
@@ -106,7 +106,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
     }
 
     #[inline]
-    fn box_to_cell_range(&self, bbox: &Box3<TObject::ScalarType>) -> CellRange {
+    fn box_to_cell_range(&self, bbox: &Box3<TObject::Scalar>) -> CellRange {
         return CellRange::new(
             self.point_to_cell(bbox.get_min()),
             self.point_to_cell(bbox.get_max()),
@@ -115,7 +115,7 @@ impl<TObject: HasBBox3> Grid<TObject> {
 
     /// Compute a reasonable size for the cell such that
     /// the number of cells is the same of the numbers of elements to be inserted in the grid
-    fn calculate_cell_size(objects: &Vec<TObject>) -> Vector3<TObject::ScalarType> {
+    fn calculate_cell_size(objects: &Vec<TObject>) -> Vector3<TObject::Scalar> {
         // Compute bbox of all objects
         let mut bbox = objects[0].bbox();
         for object in objects {
@@ -160,13 +160,13 @@ fn min_value_bigger_than_eps(values: &[f64], eps: f64) -> f64 {
 impl<TObject> Grid<TObject>
 where
     TObject: HasBBox3 + ClosestPoint3,
-    TObject::ScalarType: RealNumber,
+    TObject::Scalar: RealNumber,
 {
     pub fn closest_point(
         &self,
-        point: &Vec3<TObject::ScalarType>,
-        max_distance: TObject::ScalarType,
-    ) -> Option<Vec3<TObject::ScalarType>> {
+        point: &Vec3<TObject::Scalar>,
+        max_distance: TObject::Scalar,
+    ) -> Option<Vec3<TObject::Scalar>> {
         let search_sphere = Sphere3::new(*point, max_distance);
         let sphere_bbox = search_sphere.bbox();
 
@@ -219,7 +219,7 @@ where
     }
 
     #[inline]
-    pub fn cell_to_box(&self, cell: &Cell) -> Box3<TObject::ScalarType> {
+    pub fn cell_to_box(&self, cell: &Cell) -> Box3<TObject::Scalar> {
         Box3::new(
             self.cell_size.component_mul(&utils::cast(cell)),
             self.cell_size
@@ -228,12 +228,11 @@ where
     }
 }
 
-impl<TScalar: RealNumber> Grid<Triangle3<TScalar>> {
+impl<S: RealNumber> Grid<Triangle3<S>> {
     /// Create grid from faces of triangular mesh
-    pub fn from_mesh<TMesh: Mesh<ScalarType = TScalar>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<TScalar>> = mesh
-            .faces()
-            .map(|face| mesh.face_positions(&face))
+    pub fn from_mesh<TMesh: Triangles<Scalar = S>>(mesh: &TMesh) -> Self {
+        let faces: Vec<Triangle3<S>> = mesh
+            .triangles()
             .collect();
 
         Self::new(faces)
@@ -243,7 +242,7 @@ impl<TScalar: RealNumber> Grid<Triangle3<TScalar>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{helpers::aliases::Vec3f, mesh::corner_table::CornerTableF};
+    use crate::{helpers::aliases::Vec3f, mesh::{corner_table::CornerTableF, traits::FromIndexed}};
 
     #[test]
     fn test_grid_creation_zero_volume_cases() {

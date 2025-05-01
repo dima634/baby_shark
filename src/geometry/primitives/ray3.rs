@@ -67,7 +67,7 @@ impl<TScalar: RealNumber> Ray3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Ray3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for Ray3<TScalar> {

@@ -1,18 +1,11 @@
-use super::{CornerTable, EdgeId};
-use crate::{geometry::traits::RealNumber, mesh::traits::{EdgeProperties, PropertyMap}};
+use super::*;
+use crate::geometry::traits::RealNumber;
 use std::ops::{Index, IndexMut};
 
-/// An attribute associated with edges in a mesh.
+/// An attribute associated with oriented edges of mesh.
 #[derive(Debug)]
 pub struct EdgeAttribute<T> {
     data: Vec<T>,
-}
-
-impl<T: Default> Default for EdgeAttribute<T> {
-    #[inline]
-    fn default() -> Self {
-        Self { data: Vec::new() }
-    }
 }
 
 impl<T> Index<EdgeId> for EdgeAttribute<T> {
@@ -51,25 +44,41 @@ impl<S: RealNumber> CornerTable<S> {
     }
 }
 
-impl<T> PropertyMap<EdgeId, T> for EdgeAttribute<T> {
-    #[inline]
-    fn get(&self, key: &EdgeId) -> Option<&T> {
-        self.data.get(key.corner().index())
-    }
+#[derive(Debug)]
+pub struct VertexAttribute<T> {
+    data: Vec<T>,
+}
+
+impl<T> Index<VertexId> for VertexAttribute<T> {
+    type Output = T;
 
     #[inline]
-    fn get_mut(&mut self, key: &EdgeId) -> Option<&mut T> {
-        self.data.get_mut(key.corner().index())
+    fn index(&self, index: VertexId) -> &Self::Output {
+        &self.data[index.index()]
     }
 }
 
-impl<S: RealNumber> EdgeProperties for CornerTable<S> {
-    type EdgePropertyMap<T: Default + Clone> = EdgeAttribute<T>;
-
+impl<T> IndexMut<VertexId> for VertexAttribute<T> {
     #[inline]
-    fn create_edge_properties_map<T: Default + Clone>(
-        &self,
-    ) -> Self::EdgePropertyMap<T> {
-        self.create_edge_attribute()
+    fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
+        &mut self.data[index.index()]
+    }
+}
+
+impl<T: Clone> VertexAttribute<T> {
+    #[inline]
+    pub fn fill(&mut self, value: T) {
+        self.data.fill(value);
+    }
+}
+
+impl<S: RealNumber> CornerTable<S> {
+    /// Creates a new vertex attribute with the same number of elements as the number of vertices in the mesh.
+    /// It is not guaranteed that the attribute will stay valid if the mesh is modified.
+    #[inline]
+    pub fn create_vertex_attribute<T: Default + Clone>(&self) -> VertexAttribute<T> {
+        VertexAttribute {
+            data: vec![T::default(); self.vertices.len()],
+        }
     }
 }

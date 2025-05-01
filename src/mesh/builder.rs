@@ -1,13 +1,13 @@
-use super::traits::Mesh;
+use super::traits::FromIndexed;
 use crate::helpers::aliases::Vec3;
 use nalgebra_glm::pi;
 use num_traits::*;
 
-pub fn cube<T: Mesh>(
-    origin: Vec3<T::ScalarType>,
-    x_size: T::ScalarType,
-    y_size: T::ScalarType,
-    z_size: T::ScalarType,
+pub fn cube<T: FromIndexed>(
+    origin: Vec3<T::Scalar>,
+    x_size: T::Scalar,
+    y_size: T::Scalar,
+    z_size: T::Scalar,
 ) -> T {
     let vertices = [
         origin,
@@ -33,9 +33,9 @@ pub fn cube<T: Mesh>(
     T::from_vertex_and_face_slices(&vertices, &faces)
 }
 
-pub fn cylinder<T: Mesh>(
-    height: T::ScalarType,
-    radius: T::ScalarType,
+pub fn cylinder<T: FromIndexed>(
+    height: T::Scalar,
+    radius: T::Scalar,
     num_segments: usize,
     num_sections: usize,
 ) -> T {
@@ -44,13 +44,13 @@ pub fn cylinder<T: Mesh>(
 
     // Generate vertices
     for i in 0..=num_sections {
-        let y = T::ScalarType::from_usize(i).unwrap() * height
-            / T::ScalarType::from_usize(num_sections).unwrap();
+        let y = T::Scalar::from_usize(i).unwrap() * height
+            / T::Scalar::from_usize(num_sections).unwrap();
         for j in 0..num_segments {
-            let theta = T::ScalarType::from_usize(j).unwrap()
-                * T::ScalarType::from_f64(2.0).unwrap()
-                * pi::<T::ScalarType>()
-                / T::ScalarType::from_usize(num_segments).unwrap();
+            let theta = T::Scalar::from_usize(j).unwrap()
+                * T::Scalar::from_f64(2.0).unwrap()
+                * pi::<T::Scalar>()
+                / T::Scalar::from_usize(num_segments).unwrap();
             let x = radius * theta.cos();
             let z = radius * theta.sin();
             vertices.push(Vec3::new(x, y, z));
@@ -79,15 +79,15 @@ pub fn cylinder<T: Mesh>(
     // Generate top and bottom faces
     let top_center_index = vertices.len();
     vertices.push(Vec3::new(
-        T::ScalarType::zero(),
+        T::Scalar::zero(),
         height,
-        T::ScalarType::zero(),
+        T::Scalar::zero(),
     ));
     let bottom_center_index = vertices.len();
     vertices.push(Vec3::new(
-        T::ScalarType::zero(),
-        T::ScalarType::zero(),
-        T::ScalarType::zero(),
+        T::Scalar::zero(),
+        T::Scalar::zero(),
+        T::Scalar::zero(),
     ));
 
     for j in 0..num_segments {

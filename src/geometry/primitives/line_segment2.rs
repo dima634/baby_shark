@@ -40,7 +40,7 @@ impl<TScalar: RealNumber> LineSegment2<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for LineSegment2<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> Intersects<Line2<TScalar>> for LineSegment2<TScalar> {

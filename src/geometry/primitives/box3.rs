@@ -223,7 +223,7 @@ impl<TScalar: RealNumber> Box3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Box3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for Box3<TScalar> {

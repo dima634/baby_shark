@@ -1,4 +1,4 @@
-use crate::{mesh::traits::Mesh, helpers::aliases::Vec3f};
+use crate::{helpers::aliases::Vec3f, mesh::traits::FromIndexed};
 use super::*;
 
 pub fn create_unit_square_mesh() -> CornerTableF {

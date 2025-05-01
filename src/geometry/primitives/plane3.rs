@@ -60,7 +60,7 @@ impl<TScalar: RealNumber> Plane3<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Plane3<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
@@ -80,7 +80,7 @@ pub enum Plane3Plane3Intersection<TScalar: RealNumber> {
 impl<TScalar: RealNumber> IntersectsPlane3 for Plane3<TScalar> {
     type Output = Plane3Plane3Intersection<TScalar>;
 
-    fn intersects_plane3_at(&self, other: &Plane3<Self::ScalarType>) -> Option<Self::Output> {
+    fn intersects_plane3_at(&self, other: &Plane3<Self::Scalar>) -> Option<Self::Output> {
         let n00 = self.normal.dot(&self.normal);
         let n01 = self.normal.dot(&other.normal);
         let n11 = other.normal.dot(&other.normal);

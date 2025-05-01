@@ -25,7 +25,7 @@ impl<TScalar: RealNumber> Ray2<TScalar> {
 }
 
 impl<TScalar: RealNumber> HasScalarType for Ray2<TScalar> {
-    type ScalarType = TScalar;
+    type Scalar = TScalar;
 }
 
 impl<TScalar: RealNumber> Intersects<LineSegment2<TScalar>> for Ray2<TScalar> {

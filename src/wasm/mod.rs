@@ -5,10 +5,7 @@ mod region;
 use crate::{
     algo::merge_points::merge_points,
     helpers::aliases::Vec3,
-    mesh::{
-        corner_table::*,
-        traits::{Mesh as MeshTrait, VertexProperties},
-    },
+    mesh::{corner_table::*, traits::FromIndexed},
 };
 use wasm_bindgen::prelude::*;
 
@@ -33,7 +30,7 @@ impl Mesh {
     /// Creates a new mesh from a polygon soup.
     pub fn from_vertices(position: &[f64]) -> Mesh {
         let vertices = vec_of_floats_to_vec3s(position);
-        let indexed = merge_points(&vertices);
+        let indexed = merge_points(vertices.into_iter());
         Self(CornerTableD::from_vertex_and_face_slices(
             &indexed.points,
             &indexed.indices,
@@ -50,7 +47,7 @@ impl Mesh {
     pub fn position(&self) -> Vec<f64> {
         self.0
             .vertices()
-            .map(|v| self.0.vertex_position(&v).clone())
+            .map(|v| self.0.vertex_position(v).clone())
             .flat_map(|v| [v.x, v.y, v.z])
             .collect()
     }
@@ -61,7 +58,7 @@ impl Mesh {
         let mut indices = Vec::new();
 
         for face in self.0.faces() {
-            let (v1, v2, v3) = self.0.face_vertices(&face);
+            let (v1, v2, v3) = self.0.face_vertices(face);
             indices.push(vertex_to_idx[v1]);
             indices.push(vertex_to_idx[v2]);
             indices.push(vertex_to_idx[v3]);
@@ -100,8 +97,8 @@ impl Mesh {
         vertex_indices
     }
 
-    fn vertex_to_index(&self) -> <CornerTableD as VertexProperties>::VertexPropertyMap<usize> {
-        let mut vertex_to_idx = self.0.create_vertex_properties_map();
+    fn vertex_to_index(&self) -> VertexAttribute<usize> {
+        let mut vertex_to_idx = self.0.create_vertex_attribute();
 
         for (idx, vert) in self.0.vertices().enumerate() {
             vertex_to_idx[vert] = idx;

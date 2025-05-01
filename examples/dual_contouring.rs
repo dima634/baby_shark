@@ -19,6 +19,6 @@ fn main() {
     let mesh = PolygonSoup::from_vertices(vertices);
 
     StlWriter::new()
-        .write_stl_to_file(&mesh, Path::new("sub.stl"))
+        .write_stl_to_file(&mesh, Path::new("dual_contouring.stl"))
         .expect("Write mesh");
 }
