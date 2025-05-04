@@ -1,4 +1,4 @@
-use super::traversal::{EdgesIter, FacesIter, VerticesIter};
+use super::traversal::{EdgesIter, FacesIter};
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
     helpers::aliases::Vec3,
@@ -100,8 +100,8 @@ impl<S: RealNumber> PolygonSoup<S> {
     }
 
     #[inline]
-    pub fn vertices(&self) -> VerticesIter<'_, S> {
-        VerticesIter::new(self)
+    pub fn vertices(&self) -> impl Iterator<Item = &Vec3<S>> {
+        self.vertices.iter()
     }
 
     #[inline]

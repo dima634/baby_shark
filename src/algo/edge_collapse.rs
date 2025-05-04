@@ -132,7 +132,7 @@ pub fn will_collapse_affect_boundary<S: RealNumber>(mesh: &CornerTable<S>, edge:
 
     for vertex in [v1, v2] {
         mesh.edges_around_vertex(vertex, |edge| {
-            if mesh.is_edge_on_boundary(edge) {
+            if mesh.is_edge_on_boundary(edge.id()) {
                 boundary_affected = true;
             }
         });

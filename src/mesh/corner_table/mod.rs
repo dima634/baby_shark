@@ -19,6 +19,7 @@ pub use edge::EdgeId;
 pub use face::FaceId;
 pub use vertex::VertexId;
 pub use walker::CornerWalker;
+pub use traversal::IncidentEdge;
 
 pub type CornerTableF = CornerTable<f32>;
 pub type CornerTableD = CornerTable<f64>;

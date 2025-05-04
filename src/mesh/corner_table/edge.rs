@@ -14,6 +14,11 @@ impl EdgeId {
     }
 
     #[inline]
+    pub fn face(&self) -> FaceId {
+        self.0.face()
+    }
+
+    #[inline]
     pub(super) fn new(corner: CornerId) -> Self {
         Self(corner)
     }
@@ -49,6 +54,11 @@ impl<S: RealNumber> CornerTable<S> {
         self[edge.corner()]
             .opposite_corner()
             .map(|corner| EdgeId::new(corner))
+    }
+
+    #[inline]
+    pub fn previous_edge(&self, edge: EdgeId) -> EdgeId {
+        EdgeId::new(edge.corner().previous())
     }
 
     #[inline]

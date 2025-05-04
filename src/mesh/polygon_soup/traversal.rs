@@ -32,36 +32,6 @@ impl<'a, TScalar: RealNumber> Iterator for FacesIter<'a, TScalar> {
     }
 }
 
-/// Iterator over vertices of polygon soup
-pub struct VerticesIter<'a, TScalar: RealNumber> {
-    polygon_soup: &'a PolygonSoup<TScalar>,
-    current_vertex: usize
-}
-
-impl<'a, TScalar: RealNumber> VerticesIter<'a, TScalar> {
-    pub fn new(polygon_soup: &'a PolygonSoup<TScalar>) -> Self { 
-        Self { 
-            polygon_soup,
-            current_vertex: 0,
-        }
-    }
-}
-
-impl<'a, TScalar: RealNumber> Iterator for VerticesIter<'a, TScalar> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let index = self.current_vertex;
-        self.current_vertex += 1;
-
-        if index < self.polygon_soup.vertices.len() {
-            return Some(index);
-        }
-
-        None
-    }
-}
-
 /// Iterator over edges of polygon soup
 pub struct EdgesIter<'a, TScalar: RealNumber> {
     polygon_soup: &'a PolygonSoup<TScalar>,

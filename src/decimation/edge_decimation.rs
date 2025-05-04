@@ -9,42 +9,6 @@ use std::{
     collections::{BinaryHeap, HashMap},
 };
 
-/// Collapse candidate
-struct Contraction<S: RealNumber> {
-    edge: EdgeId,
-    cost: S,
-}
-
-impl<S: RealNumber> Contraction<S> {
-    #[inline]
-    fn new(edge: EdgeId, cost: S) -> Self {
-        Self { edge, cost }
-    }
-}
-
-impl<S: RealNumber> Eq for Contraction<S> {}
-
-impl<S: RealNumber> PartialEq for Contraction<S> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.edge == other.edge
-    }
-}
-
-impl<S: RealNumber> Ord for Contraction<S> {
-    #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.cost.partial_cmp(&self.cost).unwrap()
-    }
-}
-
-impl<S: RealNumber> PartialOrd for Contraction<S> {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 /// Strategy of edge collapsing
 pub trait CollapseStrategy<S: RealNumber>: Default {
     /// Set from `mesh`
@@ -66,6 +30,7 @@ pub trait CollapseStrategy<S: RealNumber>: Default {
 /// Collapsing point is placed on middle of edge.
 /// Based on article of Heckber and Garland: http://www.cs.cmu.edu/~garland/Papers/quadrics.pdf.
 ///
+#[derive(Debug)]
 pub struct QuadricError<S: RealNumber> {
     vertex_quadric_map: HashMap<VertexId, Matrix4<S>>,
 }
@@ -81,6 +46,8 @@ impl<S: RealNumber> Default for QuadricError<S> {
 
 impl<S: RealNumber> CollapseStrategy<S> for QuadricError<S> {
     fn set(&mut self, mesh: &CornerTable<S>) {
+        self.vertex_quadric_map.clear();
+
         // Preallocate memory
         if let (_, Some(max_size)) = mesh.vertices().size_hint() {
             self.vertex_quadric_map.reserve(max_size);
@@ -120,8 +87,51 @@ impl<S: RealNumber> CollapseStrategy<S> for QuadricError<S> {
 
     #[inline]
     fn get_placement(&self, mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S> {
-        let (v1_pos, v2_pos) = mesh.edge_positions(edge);
-        (v1_pos + v2_pos) * S::from_f64(0.5).unwrap()
+        // let (v1_pos, v2_pos) = mesh.edge_positions(edge);
+        // return (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
+
+        // let (v1_pos, v2_pos) = mesh.edge_positions(edge);
+        // (v1_pos + v2_pos) * S::from_f64(0.5).unwrap()
+        let (v1, v2) = mesh.edge_vertices(edge);
+
+        let q1 = self.vertex_quadric_map[&v1];
+        let q2 = self.vertex_quadric_map[&v2];
+        let q = q1 + q2;
+        let q = Matrix4::new(
+            q[(0, 0)],
+            q[(0, 1)],
+            q[(0, 2)],
+            q[(0, 3)],
+            q[(0, 1)],
+            q[(1, 1)],
+            q[(1, 2)],
+            q[(1, 3)],
+            q[(0, 2)],
+            q[(1, 2)],
+            q[(2, 2)],
+            q[(2, 3)],
+            S::zero(),
+            S::zero(),
+            S::zero(),
+            S::one(),
+        );
+        if let Some(inv) = q.try_inverse() {
+            // println!("using inv");
+            // println!("{}", q);
+            let a = (inv * Vector4::new(S::zero(), S::zero(), S::zero(), S::one()));
+
+            // let (v1_pos, v2_pos) = mesh.edge_positions(edge);
+            // let b = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
+
+            // println!("a = {:?}", a);
+            // println!("b = {:?}", b);
+            // sleep(Duration::from_millis(1000));
+
+            a.xyz()
+        } else {
+            let (v1_pos, v2_pos) = mesh.edge_positions(edge);
+            (v1_pos + v2_pos) * S::from_f64(0.5).unwrap()
+        }
     }
 
     fn collapse_edge(&mut self, mesh: &CornerTable<S>, edge: EdgeId) {
@@ -227,20 +237,24 @@ where
         // Clear internals data structures
         self.priority_queue.clear();
         self.not_safe_collapses.clear();
+
+        println!("Preparing decimation...");
         self.collapse_strategy.set(mesh);
 
+        println!("Filling priority queue...");
         self.fill_queue(mesh);
+        println!("Collapsing edges...");
         self.collapse_edges(mesh);
     }
 
     /// Collapse edges
     fn collapse_edges(&mut self, mesh: &mut CornerTable<S>) {
         let mut remaining_faces_count = mesh.faces().count();
-        let mut cost_needs_update = mesh.create_edge_attribute::<bool>();
 
-        while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
-            // Collapse edges one by one taking them from priority queue
-            while let Some(mut best) = self.priority_queue.pop() {
+        for i in 0..20 {
+            println!("Iteration = {}", i);
+            let mut cost_needs_update = mesh.create_edge_attribute::<bool>();
+            while let Some(best) = self.priority_queue.pop() {
                 // Edge was collapsed?
                 if !mesh.edge_exists(best.edge) {
                     continue;
@@ -248,16 +262,6 @@ where
 
                 // Need to update collapse cost?
                 if cost_needs_update[best.edge] {
-                    cost_needs_update[best.edge] = false;
-                    best.cost = self.collapse_strategy.get_cost(mesh, best.edge);
-
-                    if self
-                        .decimation_criteria
-                        .should_decimate(best.cost, mesh, best.edge)
-                    {
-                        self.priority_queue.push(best);
-                    }
-
                     continue;
                 }
 
@@ -266,13 +270,12 @@ where
 
                 // Skip not safe collapses
                 if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality) {
-                    self.not_safe_collapses.push(best);
                     continue;
                 }
 
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge] = true);
-                mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge] = true);
+                mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge.id()] = true);
+                mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge.id()] = true);
 
                 // Inform collapse strategy about collapse
                 self.collapse_strategy.collapse_edge(mesh, best.edge);
@@ -295,42 +298,112 @@ where
                 }
             }
 
-            // Stop when number of remaining edges smaller than minimal
-            if remaining_faces_count <= self.min_faces_count {
-                break;
-            }
-
-            if !self.not_safe_collapses.is_empty() {
-                // Reinsert unsafe collapses (mb they are safe now)
-                for collapse in self.not_safe_collapses.iter() {
-                    if !mesh.edge_exists(collapse.edge) {
-                        continue;
-                    }
-
-                    let new_cost = self.collapse_strategy.get_cost(mesh, collapse.edge);
-                    let (v1_pos, v2_pos) = mesh.edge_positions(collapse.edge);
-                    let new_position = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
-
-                    // Safe to collapse and have low error
-                    let should_decimate =
-                        self.decimation_criteria
-                            .should_decimate(new_cost, mesh, collapse.edge);
-                    let is_safe = edge_collapse::is_safe(
-                        mesh,
-                        collapse.edge,
-                        &new_position,
-                        self.min_face_quality,
-                    );
-
-                    if should_decimate && is_safe {
-                        self.priority_queue
-                            .push(Contraction::new(collapse.edge, new_cost));
-                    }
-                }
-
-                self.not_safe_collapses.clear();
-            }
+            self.priority_queue.clear();
+            //self.collapse_strategy.set(mesh);
+            self.fill_queue(mesh);
         }
+
+        // while (it < 15) && (!self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty()) {
+        //     it += 1;
+        //     println!("Next iteration... Queue size: {}", self.priority_queue.len());
+        //     sleep(Duration::from_millis(500));
+
+        //     // Collapse edges one by one taking them from priority queue
+        //     while let Some(mut best) = self.priority_queue.pop() {
+        //         if self.priority_queue.len() % 100 == 0 {
+        //             println!("{}", self.priority_queue.len());
+        //         }
+
+        //         // Edge was collapsed?
+        //         if !mesh.edge_exists(best.edge) {
+        //             continue;
+        //         }
+
+        //         // Need to update collapse cost?
+        //         if cost_needs_update[best.edge] {
+        //             cost_needs_update[best.edge] = false;
+        //             best.cost = self.collapse_strategy.get_cost(mesh, best.edge);
+
+        //             if self
+        //                 .decimation_criteria
+        //                 .should_decimate(best.cost, mesh, best.edge)
+        //             {
+        //                 self.priority_queue.push(best);
+        //             }
+
+        //             continue;
+        //         }
+
+        //         let (v1, v2) = mesh.edge_vertices(best.edge);
+        //         let collapse_at = self.collapse_strategy.get_placement(mesh, best.edge);
+
+        //         // Skip not safe collapses
+        //         if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality) {
+        //             self.not_safe_collapses.push(best);
+        //             continue;
+        //         }
+
+        //         // Find edges affected by collapse
+        //         mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge.id()] = true);
+        //         mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge.id()] = true);
+
+        //         // Inform collapse strategy about collapse
+        //         self.collapse_strategy.collapse_edge(mesh, best.edge);
+
+        //         // Update number of remaining faces
+        //         // If edge is on boundary 1 face is collapsed
+        //         // If edge is interior then 2
+        //         if mesh.is_edge_on_boundary(best.edge) {
+        //             remaining_faces_count -= 1;
+        //         } else {
+        //             remaining_faces_count -= 2;
+        //         }
+
+        //         // Collapse edge
+        //         mesh.collapse_edge(best.edge, &collapse_at);
+
+        //         // Stop when number of remaining faces smaller than minimal
+        //         if remaining_faces_count <= self.min_faces_count {
+        //             break;
+        //         }
+        //     }
+
+        //     // Stop when number of remaining edges smaller than minimal
+        //     if remaining_faces_count <= self.min_faces_count {
+        //         break;
+        //     }
+
+        //     if !self.not_safe_collapses.is_empty() {
+        //         // Reinsert unsafe collapses (mb they are safe now)
+        //         for collapse in self.not_safe_collapses.iter() {
+        //             if !mesh.edge_exists(collapse.edge) {
+        //                 continue;
+        //             }
+
+        //             let new_cost = self.collapse_strategy.get_cost(mesh, collapse.edge);
+        //             let (v1_pos, v2_pos) = mesh.edge_positions(collapse.edge);
+        //             let new_position = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
+
+        //             // Safe to collapse and have low error
+        //             let should_decimate =
+        //                 self.decimation_criteria
+        //                     .should_decimate(new_cost, mesh, collapse.edge);
+        //             let is_safe = edge_collapse::is_safe(
+        //                 mesh,
+        //                 collapse.edge,
+        //                 &new_position,
+        //                 self.min_face_quality,
+        //             );
+
+        //             if should_decimate && is_safe {
+        //                 self.priority_queue
+        //                     .push(Contraction::new(collapse.edge, new_cost));
+        //             }
+        //         }
+
+        //         self.not_safe_collapses.clear();
+        //     }
+        // }
     }
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
@@ -479,5 +552,41 @@ impl<S: RealNumber> Default for BoundingSphereDecimationCriteria<S> {
         let radius = Float::max_value();
         let radii_error = vec![(radius, cast(0.001).unwrap())];
         Self::new(origin, radii_error)
+    }
+}
+
+/// Collapse candidate
+struct Contraction<S: RealNumber> {
+    edge: EdgeId,
+    cost: S,
+}
+
+impl<S: RealNumber> Contraction<S> {
+    #[inline]
+    fn new(edge: EdgeId, cost: S) -> Self {
+        Self { edge, cost }
+    }
+}
+
+impl<S: RealNumber> Eq for Contraction<S> {}
+
+impl<S: RealNumber> PartialEq for Contraction<S> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.edge == other.edge
+    }
+}
+
+impl<S: RealNumber> Ord for Contraction<S> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.cost.partial_cmp(&self.cost).unwrap()
+    }
+}
+
+impl<S: RealNumber> PartialOrd for Contraction<S> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }

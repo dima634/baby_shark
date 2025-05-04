@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use baby_shark::{
-    decimation::{edge_decimation::BoundingSphereDecimationCriteria, prelude::EdgeDecimator},
+    decimation::{BoundingSphereDecimationCriteria, EdgeDecimator},
     io::stl::{StlReader, StlWriter},
-    mesh::corner_table::CornerTableF
+    mesh::corner_table::CornerTableF,
 };
 use nalgebra::Vector3;
 

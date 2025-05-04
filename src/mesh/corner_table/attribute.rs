@@ -8,6 +8,13 @@ pub struct EdgeAttribute<T> {
     data: Vec<T>,
 }
 
+impl<T> Default for EdgeAttribute<T> {
+    #[inline]
+    fn default() -> Self {
+        Self { data: vec![] }
+    }
+}
+
 impl<T> Index<EdgeId> for EdgeAttribute<T> {
     type Output = T;
 
