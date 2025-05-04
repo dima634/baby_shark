@@ -9,6 +9,353 @@ use std::{
     collections::{BinaryHeap, HashMap},
 };
 
+
+// https://hal.science/hal-01468817v1/file/supplemental.pdf
+#[derive(Debug, Default)]
+pub struct MeanSquareDist<S: RealNumber> {
+    placement: RefCell<EdgeAttribute<MSDPlacement<S>>>,
+    buffers: MSDBuffers<S>,
+}
+
+impl<S: RealNumber + Default> CollapseStrategy<S> for MeanSquareDist<S> {
+    fn set(&mut self, mesh: &CornerTable<S>) {
+        self.placement = RefCell::new(mesh.create_edge_attribute());
+    }
+
+    fn get_cost(&self, mesh: &CornerTable<S>, edge: EdgeId) -> S {
+        let mut placement = MSDPlacement::find(mesh, edge, &mut Default::default());
+        let mut self_placement = self.placement.borrow_mut();
+        let old_cost = self_placement[edge].distance;
+        placement.distance += old_cost;
+
+        self_placement[edge] = placement;
+        if let Some(opposite) = mesh.opposite_edge(edge) {
+            self_placement[opposite] = placement;
+        }
+
+        placement.distance
+    }
+
+    #[inline]
+    fn get_placement(&self, _mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S> {
+        self.placement.borrow()[edge].position
+    }
+
+    fn collapse_edge(&mut self, _mesh: &CornerTable<S>, _edge: EdgeId) {}
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct MSDPlacement<S: RealNumber> {
+    position: Vec3<S>,
+    distance: S,
+}
+
+#[derive(Debug, Default)]
+struct MSDBuffers<S: RealNumber> {
+    source_samples: Vec<Vec3<S>>, // samples before collapse
+    target_samples: Vec<Vec3<S>>, // samples after collapse
+    target_ab: Vec<(S, Vec3<S>)>, // barycentric coordinates of target samples
+    neighbors: Vec<VertexId>, // vertices around edge
+    target_faces: Vec<(Vec3<S>, Vec3<S>)>,
+    source_faces: Vec<Triangle3<S>>,
+}
+
+impl<S: RealNumber> MSDBuffers<S> {
+    fn clear(&mut self) {
+        self.source_samples.clear();
+        self.target_samples.clear();
+        self.neighbors.clear();
+        self.target_faces.clear();
+        self.source_faces.clear();
+        self.target_ab.clear();
+    }
+}
+
+impl<S: RealNumber> MSDPlacement<S> {
+    fn find(
+        mesh: &CornerTable<S>, 
+        edge: EdgeId, 
+        buffers: &mut MSDBuffers<S>,
+    ) -> Self {
+        buffers.clear();
+
+        let (v1, v2) = mesh.edge_vertices(edge);
+        let (v1_pos, v2_pos) = mesh.edge_positions(edge);
+        let mut target = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
+
+        // Find pi samples
+        buffers.source_samples.push(v1_pos);
+        buffers.source_samples.push(v2_pos);
+
+        mesh.edges_around_vertex(v1, |edge| {
+            let (s, e) = mesh.edge_positions(edge.id());
+            let mid = (s + e) * S::from_f64(0.5).unwrap();
+            buffers.source_samples.push(mid);
+        });
+
+        mesh.edges_around_vertex(v2, |edge| {
+            let (s, e) = mesh.edge_vertices(edge.id());
+
+            if s == v1 || e == v1 {
+                return; // TODO: do the same above?
+            }
+            
+            let mid = (mesh[s].position() + mesh[e].position()) * S::from_f64(0.5).unwrap();
+            buffers.source_samples.push(mid);
+        });
+
+        mesh.faces_around_vertex(v1, |face| {
+            let tri = mesh.face_positions(face);
+            buffers.source_faces.push(tri);
+        });
+
+        mesh.faces_around_vertex(v2, |face| {
+            let tri = mesh.face_positions(face);
+            buffers.source_faces.push(tri); // TODO: avoid duplicates
+        });
+
+        // Find Pi samples
+        // buffers.target_samples.push(target);
+        // buffers.target_ab.push((S::zero(), Vec3::zeros()));
+
+        // let half = S::from_f64(0.5).unwrap();
+
+        // mesh.vertices_around_vertex(v1, |vert| {
+        //     if vert == v2 {
+        //         return;
+        //     }
+
+        //     let mid = (target + mesh[vert].position()) * half;
+        //     buffers.target_samples.push(mid);
+        //     buffers.target_ab.push((half, mesh[vert].position() * half));
+        //     buffers.neighbors.push(vert);
+        // });
+
+        // mesh.vertices_around_vertex(v2, |vert| {
+        //     if vert == v1 || buffers.neighbors.contains(&vert) {
+        //         return;
+        //     }
+
+        //     let mid = (target + mesh[vert].position()) * half;
+        //     buffers.target_samples.push(mid);
+        //     buffers.target_ab.push((half, mesh[vert].position() * half));
+        //     buffers.neighbors.push(vert);
+        // });
+    
+        // mesh.vertex_bounding_edges(v1, |edge| {
+        //     let (s, e) = mesh.edge_vertices(edge);
+
+        //     if s == v2 || e == v2 {
+        //         return;
+        //     }
+
+        //     buffers.target_faces.push((*mesh[s].position(), *mesh[e].position()));
+        // });
+
+        // mesh.vertex_bounding_edges(v2, |edge| {
+        //     let (s, e) = mesh.edge_vertices(edge);
+
+        //     if s == v1 || e == v1 {
+        //         return;
+        //     }
+
+        //     buffers.target_faces.push((*mesh[s].position(), *mesh[e].position()));
+        // });
+
+        let mut update_target_samples = |target: &Vec3<S>, buffers: &mut MSDBuffers<S>| {
+            buffers.target_samples.clear();
+            buffers.target_ab.clear();
+            buffers.neighbors.clear();
+            buffers.target_faces.clear();
+
+            buffers.target_samples.push(*target);
+            buffers.target_ab.push((S::zero(), Vec3::zeros()));
+    
+            let half = S::from_f64(0.5).unwrap();
+    
+            mesh.vertices_around_vertex(v1, |vert| {
+                if vert == v2 {
+                    return;
+                }
+    
+                let mid = (target + mesh[vert].position()) * half;
+                buffers.target_samples.push(mid);
+                buffers.target_ab.push((half, mesh[vert].position() * half));
+                buffers.neighbors.push(vert);
+            });
+    
+            mesh.vertices_around_vertex(v2, |vert| {
+                if vert == v1 || buffers.neighbors.contains(&vert) {
+                    return;
+                }
+    
+                let mid = (target + mesh[vert].position()) * half;
+                buffers.target_samples.push(mid);
+                buffers.target_ab.push((half, mesh[vert].position() * half));
+                buffers.neighbors.push(vert);
+            });
+        
+            mesh.vertex_bounding_edges(v1, |edge| {
+                let (s, e) = mesh.edge_vertices(edge);
+    
+                if s == v2 || e == v2 {
+                    return;
+                }
+    
+                buffers.target_faces.push((*mesh[s].position(), *mesh[e].position()));
+            });
+    
+            mesh.vertex_bounding_edges(v2, |edge| {
+                let (s, e) = mesh.edge_vertices(edge);
+    
+                if s == v1 || e == v1 {
+                    return;
+                }
+    
+                buffers.target_faces.push((*mesh[s].position(), *mesh[e].position()));
+            });
+        };
+
+
+        for _ in 0..10 {
+            update_target_samples(&target, buffers);
+            //println!("target: {:?}", target);
+            target = Self::find_next(target, buffers);
+        }
+
+        let distance = buffers
+            // .source_faces
+            // .iter()
+            // .map(|tri| (tri.closest_point(&target) - target).norm_squared())
+            // .reduce(Float::max)
+            // .unwrap_or(S::zero());
+            .source_faces
+            .iter()
+            .map(|tri| buffers.target_samples.iter()
+                .map(|sample| (tri.closest_point(sample) - sample).norm())
+                .reduce(Float::max)
+                .unwrap_or(S::zero())
+            )
+            .reduce(Float::max)
+            .unwrap_or(S::zero());
+
+        // println!("distance: {:?}", distance);
+
+        Self {
+            distance,
+            position: target,
+        }
+    }
+
+    fn find_next(current: Vec3<S>, buffers: &mut MSDBuffers<S>) -> Vec3<S> {
+        let mut source_closest = Vec::new();
+        let mut target_closest = Vec::new();
+        let mut source_ab = Vec::new();
+
+        let target_faces: Vec<_> = buffers.target_faces
+            .iter()
+            .map(|(v1, v2)| Triangle3::new(current, *v1, *v2))
+            .collect();
+
+        for sample in &buffers.source_samples {
+            let mut closest_face = 0;
+            let mut closest_point = Vec3::zeros();
+            let mut min_dist = S::infinity();
+
+            for i in 0..target_faces.len() {
+                let p = target_faces[i].closest_point(sample);
+                let dist = (p - sample).norm_squared();
+
+                if dist < min_dist {
+                    min_dist = dist;
+                    closest_face = i;
+                    closest_point = p;
+                }
+            }
+
+            let closest_face = &target_faces[closest_face];
+            let bary = closest_face.barycentric(&closest_point);
+            let ai = bary.u();
+            let bi = closest_face.p2() * bary.v() + closest_face.p3() * bary.w();
+
+            source_ab.push((ai, bi));
+            source_closest.push(closest_point);
+        }
+
+        for sample in &buffers.target_samples {
+            let mut closest_point = Vec3::zeros();
+            let mut min_dist = S::infinity();
+
+            for tri in &buffers.source_faces {
+                let p = tri.closest_point(sample);
+                let dist = (p - sample).norm_squared();
+
+                if dist < min_dist {
+                    min_dist = dist;
+                    closest_point = p;
+                }
+            }
+
+            target_closest.push(closest_point);
+        }
+
+        // let mut c = S::zero();
+
+        // for (coord, _) in &source_bary {
+        //     c += (coord.inner().transpose() * coord.inner())[(0, 0)];
+        // }
+
+        // for (coord, _) in &target_bary {
+        //     c += (coord.inner().transpose() * coord.inner())[(0, 0)];
+        // }
+        
+        // let mut C = Vec3::zeros();
+        // let two = S::one() + S::one();
+
+        // for i in 0..buffers.source_samples.len() {
+        //     let (ai, bi) = &source_bary[i];
+        //     let ai = Matrix3::from_diagonal(ai.inner());
+        //     let pi = buffers.source_samples[i];
+        //     C += (ai * (bi - pi)) * two;
+        // }
+
+        // for i in 0..buffers.target_samples.len() {
+        //     let (ai, bi) = &target_bary[i];
+        //     let ai = Matrix3::from_diagonal(ai.inner());
+        //     let pi = buffers.target_samples[i];
+        //     C += (ai * (bi - pi)) * two;
+        // }
+
+        
+        let mut c = S::zero();
+
+        for (ai, _) in &source_ab {
+            c += *ai * *ai;
+        }
+
+        for (ai, _) in &buffers.target_ab {
+            c += *ai * *ai;
+        }
+        
+        let mut C = Vec3::zeros();
+        let two = S::one() + S::one();
+
+        for i in 0..buffers.source_samples.len() {
+            let (ai, bi) = &source_ab[i];
+            let pi = &buffers.source_samples[i];
+            C += (bi - pi) * *ai * two;
+        }
+
+        for i in 0..buffers.target_samples.len() {
+            let (ai, bi) = &buffers.target_ab[i];
+            let pi = &target_closest[i];
+            C += (bi - pi) * *ai * two;
+        }
+
+        - C / (c + c)
+    }
+}
+
 /// Collapse candidate
 struct Contraction<S: RealNumber> {
     edge: EdgeId,
