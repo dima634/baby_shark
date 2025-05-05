@@ -1,11 +1,15 @@
 use crate::{
-    algo::edge_collapse, geometry::{primitives::plane3::Plane3, traits::RealNumber}, helpers::aliases::Vec3,
+    algo::edge_collapse,
+    geometry::{primitives::plane3::Plane3, traits::RealNumber},
+    helpers::aliases::Vec3,
     mesh::corner_table::*,
 };
 use nalgebra::{Matrix4, Vector4};
 use num_traits::{cast, Float};
 use std::{
-    cmp::Ordering, collections::{BinaryHeap, HashMap}, ops::Add
+    cmp::Ordering,
+    collections::{BinaryHeap, HashMap},
+    ops::Add,
 };
 
 /// Strategy of edge collapsing
@@ -78,10 +82,12 @@ impl<S: RealNumber> CollapseStrategy<S> for QuadricError {
         let mid = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
         let options = [mid, v1_pos, v2_pos];
         let costs = options.map(|v| q.error(&v));
-        let min_cost_idx = costs.into_iter()
+        let min_cost_idx = costs
+            .into_iter()
             .enumerate()
             .reduce(|min, curr| if curr.1 < min.1 { curr } else { min })
-            .unwrap().0;
+            .unwrap()
+            .0;
 
         let Some(optimized) = q.find_minimum() else {
             return options[min_cost_idx];
@@ -206,7 +212,7 @@ where
         for _ in 0..200 {
             let mut collapsed_edges = 0;
             let mut num_edges_to_reevaluate = 0;
-    
+
             while let Some(best) = self.priority_queue.pop() {
                 // Edge was collapsed?
                 if !mesh.edge_exists(best.edge) {
@@ -253,7 +259,7 @@ where
                 }
             }
 
-            if collapsed_edges == 0 && num_edges_to_reevaluate == 0{
+            if collapsed_edges == 0 && num_edges_to_reevaluate == 0 {
                 // No more edges to collapse
                 break;
             }
@@ -470,7 +476,12 @@ impl Quadric {
     }
 
     fn error<S: RealNumber>(&self, v: &Vec3<S>) -> S {
-        let v = Vector4::new(v.x.to_f64().unwrap(), v.y.to_f64().unwrap(), v.z.to_f64().unwrap(), 1.0);
+        let v = Vector4::new(
+            v.x.to_f64().unwrap(),
+            v.y.to_f64().unwrap(),
+            v.z.to_f64().unwrap(),
+            1.0,
+        );
         let v_t = v.transpose();
         let cost = Float::sqrt(Float::abs((v_t * self.0 * v)[0]));
         S::from_f64(cost).unwrap_or(S::infinity())
