@@ -12,4 +12,4 @@ pub use edge_decimation::{
 };
 
 /// Mesh decimation through edge collapsing. For details see [IncrementalDecimator].
-pub type EdgeDecimator<S, TEdgeDecimationCriteria> = IncrementalDecimator<S, QuadricError<S>, TEdgeDecimationCriteria>;
+pub type EdgeDecimator<S, TEdgeDecimationCriteria> = IncrementalDecimator<S, QuadricError, TEdgeDecimationCriteria>;

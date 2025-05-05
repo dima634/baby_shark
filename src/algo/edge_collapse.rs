@@ -49,14 +49,14 @@ pub fn is_geometrically_safe<S: RealNumber>(
     mesh: &CornerTable<S>,
     edge: EdgeId,
     new_position: &Vec3<S>,
-    min_quality: S,
+    min_quality_perc: S,
 ) -> bool {
     // Check new normals (geometrical safety)
     let (e_start, e_end) = mesh.edge_vertices(edge);
     let (f1, f2) = mesh.edge_faces(edge);
 
-    check_faces_after_collapse(mesh, f1, f2, e_start, new_position, min_quality)
-        && check_faces_after_collapse(mesh, f1, f2, e_end, new_position, min_quality)
+    check_faces_after_collapse(mesh, f1, f2, e_start, new_position, min_quality_perc)
+        && check_faces_after_collapse(mesh, f1, f2, e_end, new_position, min_quality_perc)
 }
 
 fn check_faces_after_collapse<S: RealNumber>(
