@@ -182,7 +182,11 @@ impl PreparedDeform {
                 let mut s = na::Matrix3::<f64>::zeros();
 
                 mesh.edges_around_vertex(vert, |edge| {
-                    let (v1, v2) = mesh.edge_vertices(edge);
+                    let (mut v1, mut v2) = mesh.edge_vertices(edge.id());
+                    if edge.is_outgoing() {
+                        core::mem::swap(&mut v1, &mut v2);
+                    }
+
                     debug_assert!(v2 == vert);
 
                     let vi = mesh.vertex_position(v1);
@@ -193,7 +197,7 @@ impl PreparedDeform {
 
                     let e0 = vi - vj;
                     let e1 = vi_deformed - vj_deformed;
-                    let weight = self.edge_weights[edge];
+                    let weight = self.edge_weights[edge.id()];
 
                     s += weight * (e0 * e1.transpose());
                 });
@@ -218,8 +222,11 @@ impl PreparedDeform {
                     bi = handle_transformed[i - self.region_of_interest.len()];
                 } else {
                     mesh.edges_around_vertex(vi, |edge| {
-                        let weight = self.edge_weights[edge];
-                        let (v0, v1) = mesh.edge_vertices(edge);
+                        let weight = self.edge_weights[edge.id()];
+                        let (mut v0, mut v1) = mesh.edge_vertices(edge.id());
+                        if edge.is_outgoing() {
+                            core::mem::swap(&mut v0, &mut v1);
+                        }
                         debug_assert!(vi == v1);
 
                         if let Some(v0_idx) = self.vertex_to_idx.get(&v0) {
@@ -306,16 +313,20 @@ fn compute_coeffs(
         let mut total_weight = 0.0;
 
         mesh.edges_around_vertex(vert, |edge| {
-            let (v1, v2) = mesh.edge_vertices(edge);
+            let (mut v1, mut v2) = mesh.edge_vertices(edge.id());
 
             if !vertex_to_idx.contains_key(&v1) || !vertex_to_idx.contains_key(&v2) {
                 return;
             }
+    
+            if edge.is_outgoing() {
+                core::mem::swap(&mut v1, &mut v2);
+            }
 
-            let weight = edge_weights[edge];
+            let weight = edge_weights[edge.id()];
             coeffs.push(Triplet::new(
                 i,
-                vertex_to_idx[if vert == v1 { &v2 } else { &v1 }],
+                vertex_to_idx[&v1],
                 -weight,
             ));
             total_weight += weight;
@@ -332,4 +343,39 @@ fn compute_coeffs(
     }
 
     (coeffs, edge_weights)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mesh::builder::cylinder;
+    use super::*;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn test_deform() {
+        let cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 15);
+        let handle = HashSet::from_iter(cylinder.vertices().filter(|&v| {
+            cylinder.vertex_position(v).y == 10.0 || cylinder.vertex_position(v).y == 0.0
+        }));
+        let roi = HashSet::from_iter(cylinder.vertices());
+    
+        // Rotate part of the handle
+        let transform = na::Matrix4::new_rotation(na::Vector3::new(0.0, PI / 2.0, 0.0));
+        let mut target = HashMap::new();
+    
+        for &vert in &handle {
+            let pos = cylinder.vertex_position(vert).clone();
+            if pos.y != 10.0 {
+                continue; // Skip the bottom vertices
+            }
+    
+            let new_pos = transform.transform_point(&pos.into()).coords;
+            target.insert(vert, new_pos);
+        }
+    
+        prepare_deform(&cylinder, &handle, &roi)
+            .expect("should prepare deformation")
+            .deform(&cylinder, &target)
+            .expect("should deform mesh");
+    }
 }

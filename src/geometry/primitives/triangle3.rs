@@ -25,9 +25,19 @@ use super::{
 };
 
 /// Barycentric coordinates on triangle
-pub struct BarycentricCoordinates<TScalar: RealNumber>(Vector3<TScalar>);
+pub struct BarycentricCoords<TScalar: RealNumber>(Vector3<TScalar>);
 
-impl<TScalar: RealNumber> BarycentricCoordinates<TScalar> {
+impl<TScalar: RealNumber> BarycentricCoords<TScalar> {
+    #[inline]
+    pub fn zeros() -> Self {
+        Self(Vector3::zeros())
+    }
+
+    #[inline]
+    pub fn inner(&self) -> &Vector3<TScalar> {
+        &self.0
+    }
+
     #[inline]
     pub fn u(&self) -> TScalar {
         self.0.x
@@ -81,7 +91,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn point_at(&self, barycoords: &BarycentricCoordinates<TScalar>) -> Vec3<TScalar> {
+    pub fn point_at(&self, barycoords: &BarycentricCoords<TScalar>) -> Vec3<TScalar> {
         Vec3::new(
             barycoords.u() * self.a.x + barycoords.v() * self.b.x + barycoords.w() * self.c.x,
             barycoords.u() * self.a.y + barycoords.v() * self.b.y + barycoords.w() * self.c.y,
@@ -115,7 +125,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     /// Computes barycentric coordinates of `point`
-    pub fn barycentric(&self, point: &Vec3<TScalar>) -> BarycentricCoordinates<TScalar> {
+    pub fn barycentric(&self, point: &Vec3<TScalar>) -> BarycentricCoords<TScalar> {
         let v0 = self.b - self.a;
         let v1 = self.c - self.a;
         let v2 = point - self.a;
@@ -130,7 +140,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         let w = (d00 * d21 - d01 * d20) * denom_inv;
         let u = TScalar::one() - v - w;
 
-        BarycentricCoordinates(Vector3::new(u, v, w))
+        BarycentricCoords(Vector3::new(u, v, w))
     }
 
     #[inline]
@@ -193,7 +203,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     pub fn intersects_line3_at(
         &self,
         line: &Line3<TScalar>,
-    ) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
         line_triangle_intersection_moller::<false, TScalar>(self, line)
     }
 
@@ -212,7 +222,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     pub fn intersects_line_segment3_at(
         &self,
         line_segment: &LineSegment3<TScalar>,
-    ) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
         let intersection = self.intersects_line3_at(line_segment.get_line());
 
         match intersection {
@@ -233,7 +243,7 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     pub fn intersects_ray3_at(
         &self,
         ray: &Ray3<TScalar>,
-    ) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
         let intersection = line_triangle_intersection_moller::<true, TScalar>(self, ray.get_line());
 
         match intersection {
@@ -452,7 +462,7 @@ impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
 fn line_triangle_intersection<TScalar: RealNumber>(
     triangle: Triangle3<TScalar>,
     line: &Line3<TScalar>,
-) -> Option<BarycentricCoordinates<TScalar>> {
+) -> Option<BarycentricCoords<TScalar>> {
     let pa = triangle.a - line.get_point();
     let pb = triangle.b - line.get_point();
     let pc = triangle.c - line.get_point();
@@ -475,14 +485,14 @@ fn line_triangle_intersection<TScalar: RealNumber>(
     v *= denom;
     w *= denom; // w = 1.0f - u - v;
 
-    Some(BarycentricCoordinates(Vector3::new(u, v, w)))
+    Some(BarycentricCoords(Vector3::new(u, v, w)))
 }
 
 /// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
 fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumber>(
     triangle: &Triangle3<TScalar>,
     line: &Line3<TScalar>,
-) -> Option<(BarycentricCoordinates<TScalar>, TScalar)> {
+) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
     let edge1 = triangle.b - triangle.a;
     let edge2 = triangle.c - triangle.a;
 
@@ -516,7 +526,7 @@ fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumb
         v *= inv_det;
         let w = TScalar::one() - u - v;
 
-        Some((BarycentricCoordinates(Vector3::new(w, u, v)), t))
+        Some((BarycentricCoords(Vector3::new(w, u, v)), t))
     } else {
         if Float::abs(det) < TScalar::epsilon() {
             return None;
@@ -541,7 +551,7 @@ fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumb
         let t = edge2.dot(&qvec) * inv_det;
         let w = TScalar::one() - u - v;
 
-        Some((BarycentricCoordinates(Vector3::new(w, u, v)), t))
+        Some((BarycentricCoords(Vector3::new(w, u, v)), t))
     }
 }
 

@@ -1,5 +1,7 @@
 use crate::{
-    algo::edge_collapse, geometry::traits::RealNumber, helpers::aliases::Vec3,
+    algo::edge_collapse,
+    geometry::{primitives::plane3::Plane3, traits::RealNumber},
+    helpers::aliases::Vec3,
     mesh::corner_table::*,
 };
 use nalgebra::{Matrix4, Vector4};
@@ -7,43 +9,8 @@ use num_traits::{cast, Float};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
+    ops::Add,
 };
-
-/// Collapse candidate
-struct Contraction<S: RealNumber> {
-    edge: EdgeId,
-    cost: S,
-}
-
-impl<S: RealNumber> Contraction<S> {
-    #[inline]
-    fn new(edge: EdgeId, cost: S) -> Self {
-        Self { edge, cost }
-    }
-}
-
-impl<S: RealNumber> Eq for Contraction<S> {}
-
-impl<S: RealNumber> PartialEq for Contraction<S> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.edge == other.edge
-    }
-}
-
-impl<S: RealNumber> Ord for Contraction<S> {
-    #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.cost.partial_cmp(&self.cost).unwrap()
-    }
-}
-
-impl<S: RealNumber> PartialOrd for Contraction<S> {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 /// Strategy of edge collapsing
 pub trait CollapseStrategy<S: RealNumber>: Default {
@@ -57,7 +24,7 @@ pub trait CollapseStrategy<S: RealNumber>: Default {
     fn get_placement(&self, mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S>;
 
     /// Called on edge collapse. Can be used to update internal state.
-    fn collapse_edge(&mut self, mesh: &CornerTable<S>, edge: EdgeId);
+    fn on_edge_collapsed(&mut self, mesh: &CornerTable<S>, edge: EdgeId);
 }
 
 ///
@@ -66,39 +33,27 @@ pub trait CollapseStrategy<S: RealNumber>: Default {
 /// Collapsing point is placed on middle of edge.
 /// Based on article of Heckber and Garland: http://www.cs.cmu.edu/~garland/Papers/quadrics.pdf.
 ///
-pub struct QuadricError<S: RealNumber> {
-    vertex_quadric_map: HashMap<VertexId, Matrix4<S>>,
+#[derive(Debug, Default)]
+pub struct QuadricError {
+    vertex_quadric_map: HashMap<VertexId, Quadric>,
 }
 
-impl<S: RealNumber> Default for QuadricError<S> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            vertex_quadric_map: HashMap::new(),
-        }
-    }
-}
-
-impl<S: RealNumber> CollapseStrategy<S> for QuadricError<S> {
+impl<S: RealNumber> CollapseStrategy<S> for QuadricError {
     fn set(&mut self, mesh: &CornerTable<S>) {
+        self.vertex_quadric_map.clear();
+
         // Preallocate memory
         if let (_, Some(max_size)) = mesh.vertices().size_hint() {
             self.vertex_quadric_map.reserve(max_size);
         }
 
         for vertex in mesh.vertices() {
-            let mut quadric = Matrix4::zeros();
+            let mut quadric = Quadric::new();
 
             // Vertex error quadric = sum of quadrics of one ring faces
             mesh.faces_around_vertex(vertex, |face| {
                 let plane = mesh.face_positions(face).plane();
-                let n = plane.get_normal();
-                let d = plane.get_distance();
-
-                let p = Vector4::new(n.x, n.y, n.z, -d);
-                let p_t = p.transpose();
-
-                quadric += p * p_t;
+                quadric.add_plane(&plane);
             });
 
             self.vertex_quadric_map.insert(vertex, quadric);
@@ -106,28 +61,49 @@ impl<S: RealNumber> CollapseStrategy<S> for QuadricError<S> {
     }
 
     fn get_cost(&self, mesh: &CornerTable<S>, edge: EdgeId) -> S {
+        // TODO: pass collapse point to get_cost and use it to compute cost
+        let placement = self.get_placement(mesh, edge);
         let (v1, v2) = mesh.edge_vertices(edge);
+        let q1 = &self.vertex_quadric_map[&v1];
+        let q2 = &self.vertex_quadric_map[&v2];
+        let q = q1 + q2;
 
-        let q1 = self.vertex_quadric_map.get(&v1).unwrap();
-        let q2 = self.vertex_quadric_map.get(&v2).unwrap();
-
-        let new_position = self.get_placement(mesh, edge);
-        let v = Vector4::new(new_position.x, new_position.y, new_position.z, S::one());
-        let v_t = v.transpose();
-
-        Float::sqrt(Float::abs((v_t * (q1 + q2) * v)[0]))
+        q.error(&placement)
     }
 
     #[inline]
     fn get_placement(&self, mesh: &CornerTable<S>, edge: EdgeId) -> Vec3<S> {
+        let (v1, v2) = mesh.edge_vertices(edge);
+        let q1 = &self.vertex_quadric_map[&v1];
+        let q2 = &self.vertex_quadric_map[&v2];
+        let q = q1 + q2;
+
         let (v1_pos, v2_pos) = mesh.edge_positions(edge);
-        (v1_pos + v2_pos) * S::from_f64(0.5).unwrap()
+        let mid = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
+        let options = [mid, v1_pos, v2_pos];
+        let costs = options.map(|v| q.error(&v));
+        let min_cost_idx = costs
+            .into_iter()
+            .enumerate()
+            .reduce(|min, curr| if curr.1 < min.1 { curr } else { min })
+            .unwrap()
+            .0;
+
+        let Some(optimized) = q.find_minimum() else {
+            return options[min_cost_idx];
+        };
+
+        if q.error(&optimized) < costs[min_cost_idx] {
+            optimized
+        } else {
+            options[min_cost_idx]
+        }
     }
 
-    fn collapse_edge(&mut self, mesh: &CornerTable<S>, edge: EdgeId) {
+    fn on_edge_collapsed(&mut self, mesh: &CornerTable<S>, edge: EdgeId) {
         let (v1, v2) = mesh.edge_vertices(edge);
-        let new_quadric = self.vertex_quadric_map[&v1] + self.vertex_quadric_map[&v2];
-        self.vertex_quadric_map.insert(v1, new_quadric);
+        let new_quadric = &self.vertex_quadric_map[&v1] + &self.vertex_quadric_map[&v2];
+        self.vertex_quadric_map.insert(v1, new_quadric.clone());
         self.vertex_quadric_map.insert(v2, new_quadric);
     }
 }
@@ -159,7 +135,6 @@ where
     min_face_quality: S,
     keep_boundary: bool,
     priority_queue: BinaryHeap<Contraction<S>>,
-    not_safe_collapses: Vec<Contraction<S>>,
     collapse_strategy: TCollapseStrategy,
 }
 
@@ -224,11 +199,7 @@ where
     /// ```
     ///
     pub fn decimate(&mut self, mesh: &mut CornerTable<S>) {
-        // Clear internals data structures
-        self.priority_queue.clear();
-        self.not_safe_collapses.clear();
         self.collapse_strategy.set(mesh);
-
         self.fill_queue(mesh);
         self.collapse_edges(mesh);
     }
@@ -238,9 +209,11 @@ where
         let mut remaining_faces_count = mesh.faces().count();
         let mut cost_needs_update = mesh.create_edge_attribute::<bool>();
 
-        while !self.priority_queue.is_empty() || !self.not_safe_collapses.is_empty() {
-            // Collapse edges one by one taking them from priority queue
-            while let Some(mut best) = self.priority_queue.pop() {
+        for _ in 0..200 {
+            let mut collapsed_edges = 0;
+            let mut num_edges_to_reevaluate = 0;
+
+            while let Some(best) = self.priority_queue.pop() {
                 // Edge was collapsed?
                 if !mesh.edge_exists(best.edge) {
                     continue;
@@ -248,16 +221,7 @@ where
 
                 // Need to update collapse cost?
                 if cost_needs_update[best.edge] {
-                    cost_needs_update[best.edge] = false;
-                    best.cost = self.collapse_strategy.get_cost(mesh, best.edge);
-
-                    if self
-                        .decimation_criteria
-                        .should_decimate(best.cost, mesh, best.edge)
-                    {
-                        self.priority_queue.push(best);
-                    }
-
+                    num_edges_to_reevaluate += 1;
                     continue;
                 }
 
@@ -266,16 +230,15 @@ where
 
                 // Skip not safe collapses
                 if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality) {
-                    self.not_safe_collapses.push(best);
                     continue;
                 }
 
                 // Find edges affected by collapse
-                mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge] = true);
-                mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge] = true);
+                mesh.edges_around_vertex(v1, |edge| cost_needs_update[edge.id()] = true);
+                mesh.edges_around_vertex(v2, |edge| cost_needs_update[edge.id()] = true);
 
                 // Inform collapse strategy about collapse
-                self.collapse_strategy.collapse_edge(mesh, best.edge);
+                self.collapse_strategy.on_edge_collapsed(mesh, best.edge);
 
                 // Update number of remaining faces
                 // If edge is on boundary 1 face is collapsed
@@ -288,6 +251,7 @@ where
 
                 // Collapse edge
                 mesh.collapse_edge(best.edge, &collapse_at);
+                collapsed_edges += 1;
 
                 // Stop when number of remaining faces smaller than minimal
                 if remaining_faces_count <= self.min_faces_count {
@@ -295,46 +259,20 @@ where
                 }
             }
 
-            // Stop when number of remaining edges smaller than minimal
-            if remaining_faces_count <= self.min_faces_count {
+            if collapsed_edges == 0 && num_edges_to_reevaluate == 0 {
+                // No more edges to collapse
                 break;
             }
 
-            if !self.not_safe_collapses.is_empty() {
-                // Reinsert unsafe collapses (mb they are safe now)
-                for collapse in self.not_safe_collapses.iter() {
-                    if !mesh.edge_exists(collapse.edge) {
-                        continue;
-                    }
-
-                    let new_cost = self.collapse_strategy.get_cost(mesh, collapse.edge);
-                    let (v1_pos, v2_pos) = mesh.edge_positions(collapse.edge);
-                    let new_position = (v1_pos + v2_pos) * S::from_f64(0.5).unwrap();
-
-                    // Safe to collapse and have low error
-                    let should_decimate =
-                        self.decimation_criteria
-                            .should_decimate(new_cost, mesh, collapse.edge);
-                    let is_safe = edge_collapse::is_safe(
-                        mesh,
-                        collapse.edge,
-                        &new_position,
-                        self.min_face_quality,
-                    );
-
-                    if should_decimate && is_safe {
-                        self.priority_queue
-                            .push(Contraction::new(collapse.edge, new_cost));
-                    }
-                }
-
-                self.not_safe_collapses.clear();
-            }
+            cost_needs_update.fill(false);
+            self.fill_queue(mesh);
         }
     }
 
     /// Fill priority queue with edges of original mesh that have low collapse cost and can be collapsed
     fn fill_queue(&mut self, mesh: &CornerTable<S>) {
+        self.priority_queue.clear();
+
         for edge in mesh.unique_edges() {
             let cost = self.collapse_strategy.get_cost(mesh, edge);
             let is_collapse_topologically_safe = edge_collapse::is_topologically_safe(mesh, edge);
@@ -366,7 +304,6 @@ where
             min_face_quality: cast(0.1).unwrap(),
             keep_boundary: false,
             priority_queue: BinaryHeap::new(),
-            not_safe_collapses: Vec::new(),
             collapse_strategy: TCollapseStrategy::default(),
         }
     }
@@ -479,5 +416,108 @@ impl<S: RealNumber> Default for BoundingSphereDecimationCriteria<S> {
         let radius = Float::max_value();
         let radii_error = vec![(radius, cast(0.001).unwrap())];
         Self::new(origin, radii_error)
+    }
+}
+
+/// Collapse candidate
+struct Contraction<S: RealNumber> {
+    edge: EdgeId,
+    cost: S,
+}
+
+impl<S: RealNumber> Contraction<S> {
+    #[inline]
+    fn new(edge: EdgeId, cost: S) -> Self {
+        Self { edge, cost }
+    }
+}
+
+impl<S: RealNumber> Eq for Contraction<S> {}
+
+impl<S: RealNumber> PartialEq for Contraction<S> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.edge == other.edge
+    }
+}
+
+impl<S: RealNumber> Ord for Contraction<S> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.cost.partial_cmp(&self.cost).unwrap()
+    }
+}
+
+impl<S: RealNumber> PartialOrd for Contraction<S> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+const QUADRIC_PRECISION: f64 = 1e-10;
+
+#[derive(Debug, Clone)]
+struct Quadric(Matrix4<f64>); // Use f64 internally because quadrics needs high precision
+
+impl Add<&Quadric> for &Quadric {
+    type Output = Quadric;
+
+    #[inline]
+    fn add(self, rhs: &Quadric) -> Self::Output {
+        Quadric(self.0 + rhs.0)
+    }
+}
+
+impl Quadric {
+    #[inline]
+    fn new() -> Self {
+        Self(Matrix4::zeros())
+    }
+
+    fn error<S: RealNumber>(&self, v: &Vec3<S>) -> S {
+        let v = Vector4::new(
+            v.x.to_f64().unwrap(),
+            v.y.to_f64().unwrap(),
+            v.z.to_f64().unwrap(),
+            1.0,
+        );
+        let v_t = v.transpose();
+        let cost = Float::sqrt(Float::abs((v_t * self.0 * v)[0]));
+        S::from_f64(cost).unwrap_or(S::infinity())
+    }
+
+    fn find_minimum<S: RealNumber>(&self) -> Option<Vec3<S>> {
+        let mut opt_mat = Matrix4::new(
+            self.0[(0, 0)], self.0[(0, 1)], self.0[(0, 2)], self.0[(0, 3)],
+            self.0[(0, 1)], self.0[(1, 1)], self.0[(1, 2)], self.0[(1, 3)],
+            self.0[(0, 2)], self.0[(1, 2)], self.0[(2, 2)], self.0[(2, 3)],
+            0.0,            0.0,            0.0,            1.0,
+        );
+
+        if opt_mat.determinant() < QUADRIC_PRECISION {
+            return None;
+        }
+
+        if !opt_mat.try_inverse_mut() {
+            return None;
+        }
+
+        let optimized_f64 = (opt_mat * Vector4::new(0.0, 0.0, 0.0, 1.0)).xyz();
+        let mut optimized = Vec3::zeros();
+
+        for i in 0..3 {
+            optimized[i] = S::from_f64(optimized_f64[i])?;
+        }
+
+        Some(optimized)
+    }
+
+    fn add_plane<S: RealNumber>(&mut self, plane: &Plane3<S>) {
+        let n = plane.get_normal();
+        let d = plane.get_distance();
+        let p = Vector4::new(n.x, n.y, n.z, -d);
+        let p_t = p.transpose();
+        self.0 += (p * p_t).map(|v| v.to_f64().unwrap_or(f64::MAX));
     }
 }

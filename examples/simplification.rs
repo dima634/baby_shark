@@ -1,10 +1,9 @@
-use std::path::Path;
-
 use baby_shark::{
-    decimation::{edge_decimation::ConstantErrorDecimationCriteria, prelude::EdgeDecimator},
+    decimation::{ConstantErrorDecimationCriteria, EdgeDecimator},
     io::stl::{StlReader, StlWriter},
     mesh::corner_table::CornerTableF,
 };
+use std::path::Path;
 
 fn main() {
     let mut reader = StlReader::new();
@@ -12,7 +11,7 @@ fn main() {
         .read_stl_from_file(Path::new("./assets/torus.stl"))
         .expect("Read mesh from STL");
 
-    let decimation_criteria = ConstantErrorDecimationCriteria::new(0.1f32);
+    let decimation_criteria = ConstantErrorDecimationCriteria::new(0.2132);
 
     let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
     decimator.decimate(&mut mesh);

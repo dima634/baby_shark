@@ -51,9 +51,29 @@ impl<S: RealNumber> CornerTable<S> {
     }
 }
 
+pub enum IncidentEdge {
+    Incoming(EdgeId),
+    Outgoing(EdgeId),
+}
+
+impl IncidentEdge {
+    #[inline]
+    pub fn id(&self) -> EdgeId {
+        match self {
+            Self::Incoming(edge_id) => *edge_id,
+            Self::Outgoing(edge_id) => *edge_id,
+        }
+    }
+
+    #[inline]
+    pub fn is_outgoing(&self) -> bool {
+        matches!(self, Self::Outgoing(_))
+    }
+}
+
 /// Topological queries
 impl<S: RealNumber> CornerTable<S> {
-    #[inline]
+    /// Visits vertices adjacent to the vertex. Order is not guaranteed.
     pub fn vertices_around_vertex<F: FnMut(VertexId)>(&self, vertex_id: VertexId, mut visit: F) {
         let mut walker = CornerWalker::from_vertex(self, vertex_id);
         walker.move_to_previous();
@@ -136,16 +156,16 @@ impl<S: RealNumber> CornerTable<S> {
         }
     }
 
-    /// Iterates over incoming edges of vertex (i.e. second endpoint of edge is `vertex_id`)
+    /// Iterates over incident edges of vertex
     #[inline]
-    pub fn edges_around_vertex<F: FnMut(EdgeId)>(&self, vertex_id: VertexId, mut visit: F) {
+    pub fn edges_around_vertex<F: FnMut(IncidentEdge)>(&self, vertex_id: VertexId, mut visit: F) {
         let mut walker = CornerWalker::from_vertex(self, vertex_id);
         walker.move_to_next();
         let started_at = walker.corner_id();
         let mut border_reached = false;
 
         loop {
-            visit(EdgeId::new(walker.corner_id()));
+            visit(IncidentEdge::Incoming(EdgeId::new(walker.corner_id())));
 
             if walker.corner().opposite_corner().is_none() {
                 border_reached = true;
@@ -164,13 +184,58 @@ impl<S: RealNumber> CornerTable<S> {
             walker.move_to_next();
 
             loop {
-                visit(EdgeId::new(walker.corner_id()));
+                visit(IncidentEdge::Outgoing(EdgeId::new(walker.corner_id())));
 
                 if walker.corner().opposite_corner().is_none() {
                     break;
                 }
 
                 walker.move_to_opposite().move_to_next();
+            }
+        }
+    }
+
+    /// Iterates over edges "opposite" to the vertex. Order is not guaranteed.
+    pub fn vertex_bounding_edges<F: FnMut(EdgeId)>(&self, vertex: VertexId, mut visit: F) {
+        let mut walker = CornerWalker::from_vertex(self, vertex);
+        walker.move_to_next();
+        let started_at = walker.corner_id();
+        let mut border_reached = false;
+
+        loop {
+            visit(EdgeId::new(walker.corner_id().previous()));
+
+            if walker.corner().opposite_corner().is_none() {
+                border_reached = true;
+                break;
+            }
+
+            walker.move_to_opposite().move_to_previous();
+
+            if started_at == walker.corner_id() {
+                break;
+            }
+        }
+
+        if border_reached {
+            walker.set_current_corner(started_at);
+            walker.move_to_next();
+
+            if walker.corner().opposite_corner().is_none() {
+                return;
+            }
+
+            walker.move_to_opposite();
+
+            loop {
+                visit(EdgeId::new(walker.corner_id().previous()));
+                walker.move_to_next();
+
+                if walker.corner().opposite_corner().is_none() {
+                    break;
+                }
+
+                walker.move_to_opposite();
             }
         }
     }
