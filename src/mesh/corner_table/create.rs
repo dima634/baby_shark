@@ -40,14 +40,14 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
         let idx = self.vertices.len();
         let vertex = Vertex::new(CornerId::from_option(corner), position);
         self.vertices.push(vertex);
-        VertexId::new(idx)
+        VertexId::new(u32::try_from(idx).expect("number of vertices is too big"))
     }
 
     #[inline]
     pub(super) fn create_corner(&mut self, vertex: VertexId) -> (CornerId, &mut Corner) {
         let idx = self.corners.len();
         self.corners.push(Corner::new(None, vertex));
-        (CornerId::new(idx), &mut self.corners[idx])
+        (CornerId::new(u32::try_from(idx).expect("number of faces is too big")), &mut self.corners[idx])
     }
 
     fn corner_from(
@@ -101,9 +101,9 @@ impl<S: RealNumber> FromIndexed for CornerTable<S> {
         let mut vertex_corners = HashMap::<VertexId, BTreeSet<CornerId>>::with_capacity(num_vertices);
 
         loop {
-            let Some(v1_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
-            let Some(v2_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
-            let Some(v3_index) = faces.next().map(|i| VertexId::new(i)) else { break; };
+            let Some(v1_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
+            let Some(v2_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
+            let Some(v3_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
 
             let edge1 = helpers::Edge::new(v2_index, v3_index);
             let edge2 = helpers::Edge::new(v3_index, v1_index);

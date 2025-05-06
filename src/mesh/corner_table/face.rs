@@ -9,21 +9,21 @@ impl FaceId {
     pub fn corners(&self) -> (CornerId, CornerId, CornerId) {
         let base = self.0 * 3;
         (
-            CornerId::new(base as usize),
-            CornerId::new((base + 1) as usize),
-            CornerId::new((base + 2) as usize),
+            CornerId::new(base),
+            CornerId::new(base + 1),
+            CornerId::new(base + 2),
         )
     }
 
     /// Returns the first corner of the face.
     #[inline]
     pub fn corner(&self) -> CornerId {
-        CornerId::new((self.0 * 3) as usize)
+        CornerId::new(self.0 * 3)
     }
 
     #[inline]
-    pub(super) fn new(index: usize) -> Self {
-        Self(index as u32)
+    pub(super) fn new(index: u32) -> Self {
+        Self(index)
     }
 }
 

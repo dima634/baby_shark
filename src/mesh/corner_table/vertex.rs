@@ -11,8 +11,8 @@ pub struct VertexId(u32);
 
 impl VertexId {
     #[inline]
-    pub(super) fn new(index: usize) -> Self {
-        Self(index as u32)
+    pub(super) fn new(index: u32) -> Self {
+        Self(index)
     }
 
     #[inline]

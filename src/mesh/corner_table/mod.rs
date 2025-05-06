@@ -52,7 +52,7 @@ impl<S: RealNumber> CornerTable<S> {
     fn validate_topology(&self) -> bool {
         for corner_idx in 0..self.corners.len() {
             let corner = &self.corners[corner_idx];
-            let corner_id = CornerId::new(corner_idx);
+            let corner_id = CornerId::new(corner_idx as u32);
 
             if corner.is_deleted() {
                 continue;
@@ -83,7 +83,7 @@ impl<S: RealNumber> CornerTable<S> {
             }
 
             let corner = &self[vertex.corner()];
-            let valid = !corner.is_deleted() && corner.vertex() == VertexId::new(vertex_idx);
+            let valid = !corner.is_deleted() && corner.vertex() == VertexId::new(vertex_idx as u32);
 
             if !valid {
                 return false;

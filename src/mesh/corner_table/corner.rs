@@ -9,12 +9,12 @@ pub struct CornerId(u32);
 
 impl CornerId {
     #[inline]
-    pub(super) fn new(index: usize) -> Self {
+    pub(super) fn new(index: u32) -> Self {
         debug_assert!(
-            index < u32::MAX as usize,
+            index != u32::MAX,
             "CornerId cannot be created with invalid index"
         );
-        Self(index as u32)
+        Self(index)
     }
 
     #[inline]
@@ -52,7 +52,7 @@ impl CornerId {
 
     #[inline]
     pub fn face(&self) -> FaceId {
-        FaceId::new((self.0 / 3) as usize)
+        FaceId::new(self.0 / 3)
     }
 }
 
