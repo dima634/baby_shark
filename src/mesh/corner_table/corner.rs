@@ -5,31 +5,31 @@ use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CornerId(usize);
+pub struct CornerId(u32);
 
 impl CornerId {
     #[inline]
     pub(super) fn new(index: usize) -> Self {
         debug_assert!(
-            index != usize::MAX,
+            index < u32::MAX as usize,
             "CornerId cannot be created with invalid index"
         );
-        Self(index)
+        Self(index as u32)
     }
 
     #[inline]
     pub(super) fn is_valid(&self) -> bool {
-        self.0 != usize::MAX
+        self.0 != u32::MAX
     }
 
     #[inline]
     pub(super) fn from_option(corner: Option<CornerId>) -> Self {
-        corner.unwrap_or(Self(usize::MAX))
+        corner.unwrap_or(Self(u32::MAX))
     }
     
     #[inline]
     pub(super) fn index(&self) -> usize {
-        self.0
+        self.0 as usize
     }
 
     #[inline]
@@ -52,7 +52,7 @@ impl CornerId {
 
     #[inline]
     pub fn face(&self) -> FaceId {
-        FaceId::new(self.0 / 3)
+        FaceId::new((self.0 / 3) as usize)
     }
 }
 
@@ -123,7 +123,7 @@ impl<TScalar: RealNumber> Index<CornerId> for CornerTable<TScalar> {
     #[inline]
     fn index(&self, index: CornerId) -> &Self::Output {
         assert!(index.is_valid());
-        &self.corners[index.0]
+        &self.corners[index.0 as usize]
     }
 }
 
@@ -131,7 +131,7 @@ impl<TScalar: RealNumber> IndexMut<CornerId> for CornerTable<TScalar> {
     #[inline]
     fn index_mut(&mut self, index: CornerId) -> &mut Self::Output {
         assert!(index.is_valid());
-        &mut self.corners[index.0]
+        &mut self.corners[index.0 as usize]
     }
 }
 

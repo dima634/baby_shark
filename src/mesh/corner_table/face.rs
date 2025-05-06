@@ -2,28 +2,28 @@ use super::*;
 use crate::{geometry::primitives::triangle3::Triangle3, helpers::aliases::Vec3};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FaceId(usize);
+pub struct FaceId(u32);
 
 impl FaceId {
     #[inline]
     pub fn corners(&self) -> (CornerId, CornerId, CornerId) {
         let base = self.0 * 3;
         (
-            CornerId::new(base),
-            CornerId::new(base + 1),
-            CornerId::new(base + 2),
+            CornerId::new(base as usize),
+            CornerId::new((base + 1) as usize),
+            CornerId::new((base + 2) as usize),
         )
     }
 
     /// Returns the first corner of the face.
     #[inline]
     pub fn corner(&self) -> CornerId {
-        CornerId::new(self.0 * 3)
+        CornerId::new((self.0 * 3) as usize)
     }
 
     #[inline]
     pub(super) fn new(index: usize) -> Self {
-        Self(index)
+        Self(index as u32)
     }
 }
 

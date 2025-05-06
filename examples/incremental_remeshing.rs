@@ -15,7 +15,7 @@ fn main() {
     let remesher = IncrementalRemesher::default();
 
     let now = std::time::Instant::now();
-    remesher.remesh(&mut mesh, 0.5f32);
+    remesher.remesh(&mut mesh, 0.3f32);
     println!("Remeshing took: {:?}", now.elapsed());
 
     let writer = StlWriter::new();
