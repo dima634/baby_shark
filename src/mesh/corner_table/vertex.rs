@@ -7,17 +7,17 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VertexId(usize);
+pub struct VertexId(u32);
 
 impl VertexId {
     #[inline]
-    pub(super) fn new(index: usize) -> Self {
+    pub(super) fn new(index: u32) -> Self {
         Self(index)
     }
 
     #[inline]
     pub(super) fn index(&self) -> usize {
-        self.0
+        self.0 as usize
     }
 }
 
@@ -91,14 +91,14 @@ impl<S: RealNumber> Index<VertexId> for CornerTable<S> {
 
     #[inline]
     fn index(&self, index: VertexId) -> &Self::Output {
-        &self.vertices[index.0]
+        &self.vertices[index.0 as usize]
     }
 }
 
 impl<S: RealNumber> IndexMut<VertexId> for CornerTable<S> {
     #[inline]
     fn index_mut(&mut self, index: VertexId) -> &mut Self::Output {
-        &mut self.vertices[index.0]
+        &mut self.vertices[index.0 as usize]
     }
 }
 

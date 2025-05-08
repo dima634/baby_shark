@@ -9,7 +9,7 @@ impl<S: RealNumber> CornerTable<S> {
             .enumerate()
             .step_by(3)
             .filter(|(_, corner)| !corner.is_deleted())
-            .map(|(index, _)| FaceId::new(index / 3))
+            .map(|(index, _)| FaceId::new((index / 3) as u32))
     }
 
     #[inline]
@@ -17,7 +17,7 @@ impl<S: RealNumber> CornerTable<S> {
         self.vertices.iter()
             .enumerate()
             .filter(|(_, vertex)| !vertex.is_deleted())
-            .map(|(index, _)| VertexId::new(index))
+            .map(|(index, _)| VertexId::new(index as u32))
     }
 
     #[inline]
@@ -25,7 +25,7 @@ impl<S: RealNumber> CornerTable<S> {
         self.corners.iter()
             .enumerate()
             .filter(|(_, corner)| !corner.is_deleted())
-            .map(|(index, _)| EdgeId::new(CornerId::new(index)))
+            .map(|(index, _)| EdgeId::new(CornerId::new(index as u32)))
     }
 
     #[inline]

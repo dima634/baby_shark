@@ -2,7 +2,7 @@ use super::*;
 use crate::{geometry::primitives::triangle3::Triangle3, helpers::aliases::Vec3};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FaceId(usize);
+pub struct FaceId(u32);
 
 impl FaceId {
     #[inline]
@@ -22,7 +22,7 @@ impl FaceId {
     }
 
     #[inline]
-    pub(super) fn new(index: usize) -> Self {
+    pub(super) fn new(index: u32) -> Self {
         Self(index)
     }
 }
