@@ -43,7 +43,7 @@ where
         self.remove_child(offset);
         self.value_mask.on(offset);
         self.childs[offset] = ChildUnion {
-            tile: TChild::Value::far(),
+            tile: -TChild::Value::far(),
         };
     }
 }
