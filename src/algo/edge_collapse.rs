@@ -3,7 +3,6 @@ use crate::{
     helpers::aliases::Vec3,
     mesh::corner_table::*,
 };
-use num_traits::cast;
 use std::collections::BTreeSet;
 
 /// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
@@ -59,13 +58,13 @@ pub fn is_geometrically_safe<S: RealNumber>(
         && check_faces_after_collapse(mesh, f1, f2, e_end, new_position, min_quality_perc)
 }
 
-fn check_faces_after_collapse<S: RealNumber>(
-    mesh: &CornerTable<S>,
+fn check_faces_after_collapse<R: RealNumber>(
+    mesh: &CornerTable<R>,
     removed_face1: FaceId,
     removed_face2: Option<FaceId>,
     collapsed_vertex: VertexId,
-    new_position: &Vec3<S>,
-    min_quality_perc: S,
+    new_position: &Vec3<R>,
+    min_quality_perc: R,
 ) -> bool {
     let mut bad_collapse = false;
 
@@ -79,7 +78,9 @@ fn check_faces_after_collapse<S: RealNumber>(
             (v1, v2, v3) if v1 == collapsed_vertex => (v1, v2, v3),
             (v1, v2, v3) if v2 == collapsed_vertex => (v2, v3, v1),
             (v1, v2, v3) if v3 == collapsed_vertex => (v3, v1, v2),
-            _ => unreachable!("we are iteration over faces around collapse vertex so such face must contain it"),
+            _ => unreachable!(
+                "we are iteration over faces around collapse vertex so such face must contain it"
+            ),
         };
         let (v1, v2, v3) = (
             mesh[v1].position(),
@@ -89,7 +90,7 @@ fn check_faces_after_collapse<S: RealNumber>(
 
         let new_quality = Triangle3::quality(new_position, v2, v3);
 
-        if new_quality <= S::epsilon() {
+        if new_quality <= R::default_epsilon() {
             bad_collapse = true;
             return;
         }
@@ -112,7 +113,7 @@ fn check_faces_after_collapse<S: RealNumber>(
         };
 
         // Normal flipped?
-        if old_normal.dot(&new_normal) < cast(0.7).unwrap() {
+        if old_normal.dot(&new_normal) < R::f32(0.7) {
             bad_collapse = true;
         }
     });

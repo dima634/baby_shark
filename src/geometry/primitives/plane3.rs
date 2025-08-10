@@ -1,61 +1,55 @@
-use nalgebra::{Point3, Vector3};
-use num_traits::Float;
-
-use crate::{geometry::traits::{
-    RealNumber, 
-    HasScalarType, 
-    ClosestPoint3, 
-    Number, 
-    IntersectsPlane3
-}, helpers::aliases::Vec3};
-
 use super::{box3::Box3, line3::Line3};
+use crate::{
+    geometry::traits::{ClosestPoint3, HasScalarType, IntersectsPlane3, Number, RealNumber},
+    helpers::aliases::Vec3,
+};
+use nalgebra::{Point3, Vector3};
 
 /// n * x - d = 0
 pub struct Plane3<TScalar: Number> {
     normal: Vector3<TScalar>,
-    distance: TScalar
+    distance: TScalar,
 }
 
-impl<TScalar: RealNumber> Plane3<TScalar> {
-    pub fn new(normal: Vector3<TScalar>, d: TScalar) -> Self { 
-        Self { normal, distance: d }
+impl<R: RealNumber> Plane3<R> {
+    pub fn new(normal: Vector3<R>, distance: R) -> Self {
+        Self { normal, distance }
     }
 
     /// Given three noncollinear points (ordered ccw), compute plane equation
-    pub fn from_points(a: &Point3<TScalar>, b: &Point3<TScalar>, c: &Point3<TScalar>) -> Self {
+    pub fn from_points(a: &Point3<R>, b: &Point3<R>, c: &Point3<R>) -> Self {
         let normal = (b - a).cross(&(c - a)).normalize();
-        let d = normal.dot(&a.coords);
+        let distance = normal.dot(&a.coords);
 
-        Self { normal, distance: d }
+        Self { normal, distance }
     }
 
     #[inline]
-    pub fn get_normal(&self) -> &Vector3<TScalar> {
+    pub fn get_normal(&self) -> &Vector3<R> {
         &self.normal
     }
 
     #[inline]
-    pub fn get_distance(&self) -> TScalar {
+    pub fn get_distance(&self) -> R {
         self.distance
     }
 
     /// Returns signed distance from point to plane
     #[inline]
-    pub fn distance_to_point(&self, point: &Vec3<TScalar>) -> TScalar {
+    pub fn distance_to_point(&self, point: &Vec3<R>) -> R {
         (self.normal.dot(point) - self.distance) / self.normal.dot(&self.normal)
     }
 
-    pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
+    pub fn intersects_box3(&self, aabb: &Box3<R>) -> bool {
         // These two lines not necessary with a (center, extents) AABB representation
         let c = aabb.get_center();
         let e = aabb.get_max() - c;
         // Compute the projection interval radius of b onto L(t) = b.c + t * p.n
-        let r = e[0]*Float::abs(self.normal[0]) + e[1]*Float::abs(self.normal[1]) + e[2]*Float::abs(self.normal[2]);
+        let r = e[0] * self.normal[0].abs() + e[1] * self.normal[1].abs() + e[2] * self.normal[2].abs();
         // Compute distance of box center from plane
         let s = self.normal.dot(&c) - self.distance;
         // Intersection occurs when distance s falls within [-r,+r] interval
-        Float::abs(s) <= r
+        s.abs() <= r
     }
 }
 
@@ -74,7 +68,7 @@ impl<TScalar: RealNumber> ClosestPoint3 for Plane3<TScalar> {
 
 pub enum Plane3Plane3Intersection<TScalar: RealNumber> {
     Line(Line3<TScalar>),
-    Plane
+    Plane,
 }
 
 impl<TScalar: RealNumber> IntersectsPlane3 for Plane3<TScalar> {
@@ -100,7 +94,7 @@ impl<TScalar: RealNumber> IntersectsPlane3 for Plane3<TScalar> {
 
         let line = Line3::new(
             self.normal * c0 + other.normal * c1,
-            self.normal.cross(&other.normal)
+            self.normal.cross(&other.normal),
         );
 
         Some(Plane3Plane3Intersection::Line(line))

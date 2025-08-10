@@ -1,14 +1,13 @@
 use crate::{
-    algo::utils,
     geometry::{
         primitives::{box3::Box3, sphere3::Sphere3, triangle3::Triangle3},
-        traits::{ClosestPoint3, HasBBox3, RealNumber},
+        traits::*,
     },
     helpers::aliases::Vec3,
     mesh::traits::Triangles,
 };
 use nalgebra::Vector3;
-use num_traits::{cast, Float, ToPrimitive, Zero};
+use num_traits::AsPrimitive;
 use std::collections::HashMap;
 
 type Cell = Vector3<isize>;
@@ -88,17 +87,18 @@ impl<TObject: HasBBox3> Grid<TObject> {
 
     #[inline]
     fn point_to_cell(&self, point: &Vec3<TObject::Scalar>) -> Cell {
-        let mut cell = utils::cast(&point.component_div(&self.cell_size));
+        let cell_div = point.component_div(&self.cell_size);
+        let mut cell = Vec3::new(cell_div.x.as_(), cell_div.y.as_(), cell_div.z.as_());
 
-        if point.x < Zero::zero() {
+        if point.x < TObject::Scalar::zero() {
             cell.x -= 1;
         }
 
-        if point.y < Zero::zero() {
+        if point.y < TObject::Scalar::zero() {
             cell.y -= 1;
         }
 
-        if point.z < Zero::zero() {
+        if point.z < TObject::Scalar::zero() {
             cell.z -= 1;
         }
 
@@ -122,12 +122,12 @@ impl<TObject: HasBBox3> Grid<TObject> {
             bbox.union_box(&object.bbox());
         }
 
-        let mut x = bbox.size_x().to_f64().unwrap();
-        let mut y = bbox.size_y().to_f64().unwrap();
-        let mut z = bbox.size_z().to_f64().unwrap();
+        let mut x = bbox.size_x().as_();
+        let mut y = bbox.size_y().as_();
+        let mut z = bbox.size_z().as_();
 
         let eps = 1e-6;
-        let eps_scalar = cast(eps).unwrap();
+        let eps_scalar = TObject::Scalar::f64(eps);
         if x < eps && y < eps && z < eps {
             return Vector3::new(eps_scalar, eps_scalar, eps_scalar);
         }
@@ -139,9 +139,13 @@ impl<TObject: HasBBox3> Grid<TObject> {
 
         let number_of_cells = objects.len() as f64;
         let cell_volume = (x * y * z) / number_of_cells;
-        let cell_size = cast(cell_volume.cbrt()).unwrap();
+        let cell_size = cell_volume.cbrt();
 
-        Vector3::new(cell_size, cell_size, cell_size)
+        Vector3::new(
+            TObject::Scalar::f64(cell_size),
+            TObject::Scalar::f64(cell_size),
+            TObject::Scalar::f64(cell_size),
+        )
     }
 }
 
@@ -172,7 +176,7 @@ where
 
         // intersected cells
         let cells = self.box_to_cell_range(&sphere_bbox);
-        let mut distance_squared = Float::infinity();
+        let mut distance_squared = TObject::Scalar::inf();
         let mut closest_point = Vec3::zeros();
 
         // Search for closest point
@@ -211,29 +215,32 @@ where
             }
         }
 
-        if distance_squared.is_infinite() {
+        if !distance_squared.is_finite() {
             return None;
         }
 
         Some(closest_point)
     }
 
-    #[inline]
     pub fn cell_to_box(&self, cell: &Cell) -> Box3<TObject::Scalar> {
-        Box3::new(
-            self.cell_size.component_mul(&utils::cast(cell)),
-            self.cell_size
-                .component_mul(&utils::cast(&cell.add_scalar(1))),
-        )
+        let min = self.cell_size.component_mul(&Vec3::new(
+            TObject::Scalar::isize(cell.x),
+            TObject::Scalar::isize(cell.y),
+            TObject::Scalar::isize(cell.z),
+        ));
+        let max = self.cell_size.component_mul(&Vec3::new(
+            TObject::Scalar::isize(cell.x + 1),
+            TObject::Scalar::isize(cell.y + 1),
+            TObject::Scalar::isize(cell.z + 1),
+        ));
+        Box3::new(min, max)
     }
 }
 
 impl<S: RealNumber> Grid<Triangle3<S>> {
     /// Create grid from faces of triangular mesh
     pub fn from_mesh<TMesh: Triangles<Scalar = S>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<S>> = mesh
-            .triangles()
-            .collect();
+        let faces: Vec<Triangle3<S>> = mesh.triangles().collect();
 
         Self::new(faces)
     }
@@ -242,7 +249,10 @@ impl<S: RealNumber> Grid<Triangle3<S>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{helpers::aliases::Vec3f, mesh::{corner_table::CornerTableF, traits::FromIndexed}};
+    use crate::{
+        helpers::aliases::Vec3f,
+        mesh::{corner_table::CornerTableF, traits::FromIndexed},
+    };
 
     #[test]
     fn test_grid_creation_zero_volume_cases() {

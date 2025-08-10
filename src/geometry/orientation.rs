@@ -1,13 +1,11 @@
-use nalgebra::{Point2, Matrix2, Vector2};
-use num_traits::{Float, cast};
-
 use super::traits::RealNumber;
+use nalgebra::{Matrix2, Point2, Vector2};
 
 #[derive(PartialEq, Eq)]
 pub enum Orientation {
     Clockwise,
     CounterClockwise,
-    Colinear
+    Colinear,
 }
 
 /// Returns orientation of triangle `a`-`b`-`c`
@@ -19,22 +17,22 @@ pub fn orientation2d<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScala
 
     let det = mat.determinant();
 
-    if det < TScalar::zero() {
+    if det < R::zero() {
         Orientation::Clockwise
-    } else if det > TScalar::zero() {
+    } else if det > R::zero() {
         Orientation::CounterClockwise
     } else {
         Orientation::Colinear
     }
 }
- 
+
 /// Returns signed angle between vectors in range [0; 2PI)
 #[inline]
-pub fn signed_angle_between_vectors<TScalar: RealNumber>(v1: &Vector2<TScalar>, v2: &Vector2<TScalar>) -> TScalar {
-    let mut angle = Float::atan2(v1.perp(v2), v1.dot(v2));
+pub fn signed_angle_between_vectors<R: RealNumber>(v1: &Vector2<R>, v2: &Vector2<R>) -> R {
+    let mut angle = R::atan2(v1.perp(v2), v1.dot(v2));
 
-    if angle < TScalar::zero() {
-        angle += TScalar::two_pi();
+    if angle < R::zero() {
+        angle += R::two_pi();
     }
 
     angle
@@ -42,22 +40,22 @@ pub fn signed_angle_between_vectors<TScalar: RealNumber>(v1: &Vector2<TScalar>, 
 
 /// Returns signed angle between X-axis and vector (x, y) in range [0; 4]
 #[inline]
-pub fn signed_diamond_angle<TScalar: RealNumber>(y: TScalar, x: TScalar) -> TScalar {
-    if y >= TScalar::zero() {
-        if x >= TScalar::zero() { 
-            y / (x + y) 
+pub fn signed_diamond_angle<R: RealNumber>(y: R, x: R) -> R {
+    if y >= R::zero() {
+        if x >= R::zero() {
+            y / (x + y)
         } else {
-            TScalar::one() - x / (-x + y) 
+            R::one() - x / (-x + y)
         }
-    } else if x < TScalar::zero() {
-        cast::<f64, TScalar>(2.0).unwrap() - y / (-x - y) 
-    } else { 
-        cast::<f64, TScalar>(3.0).unwrap() + x / (x - y)
+    } else if x < R::zero() {
+        R::two() - y / (-x - y)
+    } else {
+        R::one() + R::two() + x / (x - y)
     }
 }
 
 /// Returns signed angle between vectors in range [0; 4]
 #[inline]
-pub fn signed_diamond_angle_between_vectors<TScalar: RealNumber>(v1: &Vector2<TScalar>, v2: &Vector2<TScalar>) -> TScalar {
+pub fn signed_diamond_angle_between_vectors<R: RealNumber>(v1: &Vector2<R>, v2: &Vector2<R>) -> R {
     signed_diamond_angle(v1.perp(v2), v1.dot(v2))
 }

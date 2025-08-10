@@ -1,9 +1,6 @@
-use nalgebra::Point2;
-use num_traits::Float;
-
-use crate::geometry::traits::{HasScalarType, Intersects, RealNumber};
-
 use super::line_segment2::LineSegment2;
+use crate::geometry::traits::{HasScalarType, Intersects, RealNumber};
+use nalgebra::Point2;
 
 /// 2d line
 #[derive(Debug)]
@@ -12,25 +9,25 @@ pub struct Line2<TScalar: RealNumber> {
     p2: Point2<TScalar>,
 }
 
-impl<TScalar: RealNumber> Line2<TScalar> {
-    pub fn new(p1: Point2<TScalar>, p2: Point2<TScalar>) -> Self {
+impl<R: RealNumber> Line2<R> {
+    pub fn new(p1: Point2<R>, p2: Point2<R>) -> Self {
         Self { p1, p2 }
     }
 
     // Returns start of the line
     #[inline]
-    pub fn origin(&self) -> &Point2<TScalar> {
+    pub fn origin(&self) -> &Point2<R> {
         &self.p1
     }
 
     #[inline]
-    pub fn end(&self) -> &Point2<TScalar> {
+    pub fn end(&self) -> &Point2<R> {
         &self.p2
     }
 
     /// Returns point at parameter `t`
     #[inline]
-    pub fn point_at(&self, t: TScalar) -> Point2<TScalar> {
+    pub fn point_at(&self, t: R) -> Point2<R> {
         self.p1 + (self.p2 - self.p1) * t
     }
 
@@ -38,7 +35,7 @@ impl<TScalar: RealNumber> Line2<TScalar> {
     /// Returns intersection of line with another line.
     /// `(intersection parameter at self, intersection parameter at other)`
     ///
-    pub fn intersects_line2_at_t(&self, other: &Line2<TScalar>) -> Option<(TScalar, TScalar)> {
+    pub fn intersects_line2_at_t(&self, other: &Line2<R>) -> Option<(R, R)> {
         // Graphic Gems III p. 199-202
         let by = other.p1.y - other.p2.y;
         let bx = other.p1.x - other.p2.x;
@@ -50,7 +47,7 @@ impl<TScalar: RealNumber> Line2<TScalar> {
         let num1 = by * cx - bx * cy;
         let denom1 = ay * bx - ax * by;
 
-        if Float::abs(denom1) < TScalar::epsilon() {
+        if denom1.abs() < R::default_epsilon() {
             return None;
         }
 
@@ -70,7 +67,8 @@ impl<TScalar: RealNumber> Intersects<Line2<TScalar>> for Line2<TScalar> {
 
     #[inline]
     fn intersects_at(&self, other: &Line2<TScalar>) -> Option<Self::Output> {
-        self.intersects_line2_at_t(other).map(|(t1, _)| self.point_at(t1))
+        self.intersects_line2_at_t(other)
+            .map(|(t1, _)| self.point_at(t1))
     }
 }
 

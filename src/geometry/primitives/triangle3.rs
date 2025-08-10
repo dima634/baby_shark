@@ -2,7 +2,6 @@ use std::mem::swap;
 
 use nalgebra::Vector3;
 use nalgebra_glm::{max2, min2};
-use num_traits::{cast, Float};
 
 use crate::{
     algo::utils::{has_same_sign, triple_product},
@@ -70,28 +69,28 @@ pub struct Triangle3<TScalar: Number> {
     c: Vec3<TScalar>,
 }
 
-impl<TScalar: RealNumber> Triangle3<TScalar> {
-    pub fn new(a: Vec3<TScalar>, b: Vec3<TScalar>, c: Vec3<TScalar>) -> Self {
+impl<R: RealNumber> Triangle3<R> {
+    pub fn new(a: Vec3<R>, b: Vec3<R>, c: Vec3<R>) -> Self {
         Self { a, b, c }
     }
 
     #[inline]
-    pub fn p1(&self) -> &Vec3<TScalar> {
+    pub fn p1(&self) -> &Vec3<R> {
         &self.a
     }
 
     #[inline]
-    pub fn p2(&self) -> &Vec3<TScalar> {
+    pub fn p2(&self) -> &Vec3<R> {
         &self.b
     }
 
     #[inline]
-    pub fn p3(&self) -> &Vec3<TScalar> {
+    pub fn p3(&self) -> &Vec3<R> {
         &self.c
     }
 
     #[inline]
-    pub fn point_at(&self, barycoords: &BarycentricCoords<TScalar>) -> Vec3<TScalar> {
+    pub fn point_at(&self, barycoords: &BarycentricCoords<R>) -> Vec3<R> {
         Vec3::new(
             barycoords.u() * self.a.x + barycoords.v() * self.b.x + barycoords.w() * self.c.x,
             barycoords.u() * self.a.y + barycoords.v() * self.b.y + barycoords.w() * self.c.y,
@@ -100,32 +99,32 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn plane(&self) -> Plane3<TScalar> {
+    pub fn plane(&self) -> Plane3<R> {
         Plane3::from_points(&self.a.into(), &self.b.into(), &self.c.into())
     }
 
     #[inline]
-    pub fn basis(&self) -> Option<Basis2<TScalar>> {
+    pub fn basis(&self) -> Option<Basis2<R>> {
         let normal = self.get_normal()?;
         Some(Basis2::from_normal_and_point(normal, self.a.into()))
     }
 
     #[inline]
-    pub fn center(&self) -> Vec3<TScalar> {
-        (self.a + self.b + self.c) / cast::<_, TScalar>(3).unwrap()
+    pub fn center(&self) -> Vec3<R> {
+        (self.a + self.b + self.c) / R::u32(3)
     }
 
-    pub fn max_side(&self) -> TScalar {
+    pub fn max_side(&self) -> R {
         let ab = (self.b - self.a).norm_squared();
         let ac = (self.c - self.a).norm_squared();
         let bc = (self.c - self.b).norm_squared();
-        let max = Float::max(Float::max(ab, ac), bc);
+        let max = ab.max(ac).max(bc);
 
-        Float::sqrt(max)
+        max.sqrt()
     }
 
     /// Computes barycentric coordinates of `point`
-    pub fn barycentric(&self, point: &Vec3<TScalar>) -> BarycentricCoords<TScalar> {
+    pub fn barycentric(&self, point: &Vec3<R>) -> BarycentricCoords<R> {
         let v0 = self.b - self.a;
         let v1 = self.c - self.a;
         let v2 = point - self.a;
@@ -134,37 +133,37 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         let d11 = v1.dot(&v1);
         let d20 = v2.dot(&v0);
         let d21 = v2.dot(&v1);
-        let denom_inv = TScalar::one() / (d00 * d11 - d01 * d01);
+        let denom_inv = R::one() / (d00 * d11 - d01 * d01);
 
         let v = (d11 * d20 - d01 * d21) * denom_inv;
         let w = (d00 * d21 - d01 * d20) * denom_inv;
-        let u = TScalar::one() - v - w;
+        let u = R::one() - v - w;
 
         BarycentricCoords(Vector3::new(u, v, w))
     }
 
     #[inline]
-    pub fn is_point_within(&self, point: &Vec3<TScalar>) -> bool {
+    pub fn is_point_within(&self, point: &Vec3<R>) -> bool {
         self.barycentric(point).is_within_triangle()
     }
 
     #[inline]
-    pub fn get_normal(&self) -> Option<Vec3<TScalar>> {
+    pub fn get_normal(&self) -> Option<Vec3<R>> {
         Triangle3::normal(&self.a, &self.b, &self.c)
     }
 
     #[inline]
-    pub fn get_area(&self) -> TScalar {
+    pub fn get_area(&self) -> R {
         Triangle3::area(&self.a, &self.b, &self.c)
     }
 
     #[inline]
-    pub fn get_quality(&self) -> TScalar {
+    pub fn get_quality(&self) -> R {
         Triangle3::quality(&self.a, &self.b, &self.c)
     }
 
     /// Test triangle - bbox intersection
-    pub fn intersects_box3(&self, aabb: &Box3<TScalar>) -> bool {
+    pub fn intersects_box3(&self, aabb: &Box3<R>) -> bool {
         if !aabb.intersects_box3(&self.bbox()) {
             return false;
         }
@@ -195,25 +194,22 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     /// Test triangle - triangle intersection
-    pub fn intersects_triangle3(&self, _other: &Triangle3<TScalar>) -> bool {
+    pub fn intersects_triangle3(&self, _other: &Triangle3<R>) -> bool {
         todo!()
     }
 
     /// Returns barycentric coordinates of line - triangle intersection point
-    pub fn intersects_line3_at(
-        &self,
-        line: &Line3<TScalar>,
-    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
-        line_triangle_intersection_moller::<false, TScalar>(self, line)
+    pub fn intersects_line3_at(&self, line: &Line3<R>) -> Option<(BarycentricCoords<R>, R)> {
+        line_triangle_intersection_moller::<false, R>(self, line)
     }
 
     #[inline]
-    pub fn intersects_line3(&self, line: &Line3<TScalar>) -> bool {
+    pub fn intersects_line3(&self, line: &Line3<R>) -> bool {
         self.intersects_line3_at(line).is_some()
     }
 
     #[inline]
-    pub fn intersects_line_segment3(&self, line_segment: &LineSegment3<TScalar>) -> bool {
+    pub fn intersects_line_segment3(&self, line_segment: &LineSegment3<R>) -> bool {
         self.intersects_line_segment3_at(line_segment).is_some()
     }
 
@@ -221,8 +217,8 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     #[inline]
     pub fn intersects_line_segment3_at(
         &self,
-        line_segment: &LineSegment3<TScalar>,
-    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
+        line_segment: &LineSegment3<R>,
+    ) -> Option<(BarycentricCoords<R>, R)> {
         let intersection = self.intersects_line3_at(line_segment.get_line());
 
         match intersection {
@@ -240,16 +236,13 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
 
     /// Face culling on
     #[inline]
-    pub fn intersects_ray3_at(
-        &self,
-        ray: &Ray3<TScalar>,
-    ) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
-        let intersection = line_triangle_intersection_moller::<true, TScalar>(self, ray.get_line());
+    pub fn intersects_ray3_at(&self, ray: &Ray3<R>) -> Option<(BarycentricCoords<R>, R)> {
+        let intersection = line_triangle_intersection_moller::<true, R>(self, ray.get_line());
 
         match intersection {
             Some(i) => {
                 let t = i.1;
-                if t < TScalar::zero() {
+                if t < R::zero() {
                     return None;
                 }
 
@@ -260,19 +253,15 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn intersects_ray3(&self, ray: &Ray3<TScalar>) -> bool {
+    pub fn intersects_ray3(&self, ray: &Ray3<R>) -> bool {
         self.intersects_ray3_at(ray).is_some()
     }
 
     #[inline]
-    pub fn normal(
-        a: &Vec3<TScalar>,
-        b: &Vec3<TScalar>,
-        c: &Vec3<TScalar>,
-    ) -> Option<Vec3<TScalar>> {
+    pub fn normal(a: &Vec3<R>, b: &Vec3<R>, c: &Vec3<R>) -> Option<Vec3<R>> {
         let cross = (b - a).cross(&(c - a));
 
-        if cross.norm_squared() == TScalar::zero() {
+        if cross.norm_squared() == R::zero() {
             return None;
         }
 
@@ -280,23 +269,23 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
     }
 
     #[inline]
-    pub fn is_degenerate(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> bool {
+    pub fn is_degenerate(a: &Vec3<R>, b: &Vec3<R>, c: &Vec3<R>) -> bool {
         let cross = (b - a).cross(&(c - a));
-        cross.norm_squared() == TScalar::zero()
+        cross.norm_squared() == R::zero()
     }
 
     #[inline]
-    pub fn area(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
-        (b - a).cross(&(c - a)).norm() * TScalar::from(0.5).unwrap()
+    pub fn area(a: &Vec3<R>, b: &Vec3<R>, c: &Vec3<R>) -> R {
+        (b - a).cross(&(c - a)).norm() * R::half()
     }
 
-    pub fn quality(a: &Vec3<TScalar>, b: &Vec3<TScalar>, c: &Vec3<TScalar>) -> TScalar {
+    pub fn quality(a: &Vec3<R>, b: &Vec3<R>, c: &Vec3<R>) -> R {
         let ab = b - a;
         let ac = c - a;
         let double_area = ab.cross(&ac).norm();
 
         if double_area.is_zero() {
-            return TScalar::zero();
+            return R::zero();
         }
 
         let bc = c - b;
@@ -304,8 +293,8 @@ impl<TScalar: RealNumber> Triangle3<TScalar> {
         let ab_len = ab.norm_squared();
         let ac_len = ac.norm_squared();
         let bc_len = bc.norm_squared();
-        let len_max = Float::max(Float::max(ab_len, ac_len), bc_len);
-        let equilateral_triangle_aspect_ratio = TScalar::from(1.1547005383792515).unwrap();
+        let len_max = ab_len.max(ac_len).max(bc_len);
+        let equilateral_triangle_aspect_ratio = R::f64(1.1547005383792515);
 
         equilateral_triangle_aspect_ratio * double_area / len_max
     }
@@ -438,19 +427,15 @@ impl<TScalar: RealNumber> IntersectsTriangle3 for Triangle3<TScalar> {
                 }
 
                 // Intersection is intervals overlap
-                let t_min = Float::max(t1t1, t1t2);
-                let t_max = Float::min(t2t1, t2t2);
+                let t_min = t1t1.max(t1t2);
+                let t_max = t2t1.min(t2t2);
 
                 // Is interval a point (zero length)?
                 if t_min == t_max {
                     return Some(Triangle3Triangle3Intersection::Point(line.point_at(t_min)));
                 }
 
-                let segment = LineSegment3::from_line_and_t(
-                    &line,
-                    Float::max(t1t1, t1t2),
-                    Float::min(t2t1, t2t2),
-                );
+                let segment = LineSegment3::from_line_and_t(&line, t_min, t_max);
                 Some(Triangle3Triangle3Intersection::LineSegment(segment))
             }
             Plane3Plane3Intersection::Plane => Some(Triangle3Triangle3Intersection::Coplanar),
@@ -489,10 +474,10 @@ fn line_triangle_intersection<TScalar: RealNumber>(
 }
 
 /// Based on: https://cadxfem.org/inf/Fast%20MinimumStorage%20RayTriangle%20Intersection.pdf
-fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumber>(
-    triangle: &Triangle3<TScalar>,
-    line: &Line3<TScalar>,
-) -> Option<(BarycentricCoords<TScalar>, TScalar)> {
+fn line_triangle_intersection_moller<const FACE_CULLING: bool, R: RealNumber>(
+    triangle: &Triangle3<R>,
+    line: &Line3<R>,
+) -> Option<(BarycentricCoords<R>, R)> {
     let edge1 = triangle.b - triangle.a;
     let edge2 = triangle.c - triangle.a;
 
@@ -500,56 +485,56 @@ fn line_triangle_intersection_moller<const FACE_CULLING: bool, TScalar: RealNumb
     let det = edge1.dot(&pvec);
 
     if FACE_CULLING {
-        if det < TScalar::epsilon() {
+        if det < R::default_epsilon() {
             return None;
         }
 
         let tvec = line.get_point() - triangle.a;
         let mut u = tvec.dot(&pvec);
 
-        if u < TScalar::zero() || u > det {
+        if u < R::zero() || u > det {
             return None;
         }
 
         let qvec = tvec.cross(&edge1);
         let mut v = line.get_direction().dot(&qvec);
 
-        if v < TScalar::zero() || v + u > det {
+        if v < R::zero() || v + u > det {
             return None;
         }
 
         let mut t = edge2.dot(&qvec);
-        let inv_det = TScalar::one() / det;
+        let inv_det = R::one() / det;
 
         t *= inv_det;
         u *= inv_det;
         v *= inv_det;
-        let w = TScalar::one() - u - v;
+        let w = R::one() - u - v;
 
         Some((BarycentricCoords(Vector3::new(w, u, v)), t))
     } else {
-        if Float::abs(det) < TScalar::epsilon() {
+        if det.abs() < R::default_epsilon() {
             return None;
         }
 
-        let inv_det = TScalar::one() / det;
+        let inv_det = R::one() / det;
 
         let tvec = line.get_point() - triangle.a;
         let u = tvec.dot(&pvec) * inv_det;
 
-        if u < TScalar::zero() || u > TScalar::one() {
+        if u < R::zero() || u > R::one() {
             return None;
         }
 
         let qvec = tvec.cross(&edge1);
         let v = line.get_direction().dot(&qvec) * inv_det;
 
-        if v < TScalar::zero() || v + u > TScalar::one() {
+        if v < R::zero() || v + u > R::one() {
             return None;
         }
 
         let t = edge2.dot(&qvec) * inv_det;
-        let w = TScalar::one() - u - v;
+        let w = R::one() - u - v;
 
         Some((BarycentricCoords(Vector3::new(w, u, v)), t))
     }

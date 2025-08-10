@@ -5,7 +5,7 @@ use crate::{
     mesh::corner_table::*,
 };
 use nalgebra::{Matrix4, Vector4};
-use num_traits::{cast, Float};
+use num_traits::Bounded;
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
@@ -291,17 +291,17 @@ where
     }
 }
 
-impl<S: RealNumber, TCollapseStrategy, TEdgeDecimationCriteria> Default
-    for IncrementalDecimator<S, TCollapseStrategy, TEdgeDecimationCriteria>
+impl<R: RealNumber, TCollapseStrategy, TEdgeDecimationCriteria> Default
+    for IncrementalDecimator<R, TCollapseStrategy, TEdgeDecimationCriteria>
 where
-    TCollapseStrategy: CollapseStrategy<S>,
-    TEdgeDecimationCriteria: EdgeDecimationCriteria<S>,
+    TCollapseStrategy: CollapseStrategy<R>,
+    TEdgeDecimationCriteria: EdgeDecimationCriteria<R>,
 {
     fn default() -> Self {
         Self {
             decimation_criteria: TEdgeDecimationCriteria::default(),
             min_faces_count: 0,
-            min_face_quality: cast(0.1).unwrap(),
+            min_face_quality: R::f32(0.1),
             keep_boundary: false,
             priority_queue: BinaryHeap::new(),
             collapse_strategy: TCollapseStrategy::default(),
@@ -347,28 +347,28 @@ impl<S: RealNumber> EdgeDecimationCriteria<S> for NeverDecimate {
 /// This will result in a uniform decimation result.
 ///
 #[derive(Debug)]
-pub struct ConstantErrorDecimationCriteria<S: RealNumber> {
-    max_error: S,
+pub struct ConstantErrorDecimationCriteria<R: RealNumber> {
+    max_error: R,
 }
 
-impl<S: RealNumber> ConstantErrorDecimationCriteria<S> {
+impl<R: RealNumber> ConstantErrorDecimationCriteria<R> {
     #[inline]
-    pub fn new(max_error: S) -> Self {
+    pub fn new(max_error: R) -> Self {
         Self { max_error }
     }
 }
 
-impl<S: RealNumber> EdgeDecimationCriteria<S> for ConstantErrorDecimationCriteria<S> {
+impl<R: RealNumber> EdgeDecimationCriteria<R> for ConstantErrorDecimationCriteria<R> {
     #[inline]
-    fn should_decimate(&self, error: S, _mesh: &CornerTable<S>, _edge: EdgeId) -> bool {
+    fn should_decimate(&self, error: R, _mesh: &CornerTable<R>, _edge: EdgeId) -> bool {
         error < self.max_error
     }
 }
 
-impl<S: RealNumber> Default for ConstantErrorDecimationCriteria<S> {
+impl<R: RealNumber> Default for ConstantErrorDecimationCriteria<R> {
     #[inline]
     fn default() -> Self {
-        Self::new(cast(0.001).unwrap())
+        Self::new(R::f32(0.001))
     }
 }
 
@@ -413,8 +413,8 @@ impl<S: RealNumber> EdgeDecimationCriteria<S> for BoundingSphereDecimationCriter
 impl<S: RealNumber> Default for BoundingSphereDecimationCriteria<S> {
     fn default() -> Self {
         let origin = Vec3::<S>::zeros();
-        let radius = Float::max_value();
-        let radii_error = vec![(radius, cast(0.001).unwrap())];
+        let radius = Bounded::max_value();
+        let radii_error = vec![(radius, S::f64(0.001))];
         Self::new(origin, radii_error)
     }
 }
@@ -476,15 +476,10 @@ impl Quadric {
     }
 
     fn error<S: RealNumber>(&self, v: &Vec3<S>) -> S {
-        let v = Vector4::new(
-            v.x.to_f64().unwrap(),
-            v.y.to_f64().unwrap(),
-            v.z.to_f64().unwrap(),
-            1.0,
-        );
+        let v = Vector4::new(v.x.as_(), v.y.as_(), v.z.as_(), 1.0);
         let v_t = v.transpose();
-        let cost = Float::sqrt(Float::abs((v_t * self.0 * v)[0]));
-        S::from_f64(cost).unwrap_or(S::infinity())
+        let cost = (v_t * self.0 * v)[0].abs().sqrt();
+        S::f64(cost)
     }
 
     fn find_minimum<S: RealNumber>(&self) -> Option<Vec3<S>> {
@@ -518,6 +513,6 @@ impl Quadric {
         let d = plane.get_distance();
         let p = Vector4::new(n.x, n.y, n.z, -d);
         let p_t = p.transpose();
-        self.0 += (p * p_t).map(|v| v.to_f64().unwrap_or(f64::MAX));
+        self.0 += (p * p_t).map(|v| v.as_());
     }
 }

@@ -1,14 +1,11 @@
-use num_traits::Float;
+use crate::{geometry::traits::*, helpers::aliases::Vec3};
 
-use crate::{geometry::traits::RealNumber, helpers::aliases::Vec3};
-
-pub fn hash_float<TFloat: RealNumber>(float: TFloat) -> i32 {
-    if float == TFloat::zero() {
+pub fn hash_float<R: RealNumber>(float: R) -> i32 {
+    if float == R::zero() {
         return 0;
     }
 
-    let i = Float::floor(float * TFloat::from(73856093).unwrap()) % TFloat::from(i32::MAX).unwrap();
-    i.to_i32().unwrap()
+    (R::floor(float * R::i32(73856093)) % R::i32(i32::MAX)).as_()
 }
 
 pub fn hash_vec3<T: RealNumber>(v: &Vec3<T>) -> i32 {

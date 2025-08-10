@@ -4,7 +4,6 @@ use crate::{
     mesh::{corner_table::*, traits::stats},
     spatial_partitioning::grid::Grid,
 };
-use num_traits::{cast, Float};
 
 ///
 /// Incremental isotropic remesher.
@@ -96,9 +95,9 @@ impl IncrementalRemesher {
     /// * `mesh` - triangular mesh
     /// * `target_edge_length` - desired length of edge
     ///
-    pub fn remesh<S: RealNumber>(&self, mesh: &mut CornerTable<S>, target_edge_length: S) {
-        let max_edge_length = cast::<f64, S>(4.0 / 3.0).unwrap() * target_edge_length;
-        let min_edge_length = cast::<f64, S>(4.0 / 5.0).unwrap() * target_edge_length;
+    pub fn remesh<R: RealNumber>(&self, mesh: &mut CornerTable<R>, target_edge_length: R) {
+        let max_edge_length = R::f64(4.0 / 3.0) * target_edge_length;
+        let min_edge_length = R::f64(4.0 / 5.0) * target_edge_length;
 
         let mut reference_mesh = Grid::empty();
         if self.project_vertices {
@@ -128,7 +127,7 @@ impl IncrementalRemesher {
         }
     }
 
-    fn split_edges<S: RealNumber>(&self, mesh: &mut CornerTable<S>, max_edge_length: S) {
+    fn split_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>, max_edge_length: R) {
         // Cache all edges, in the case when split edge affects edges iterator
         let edges: Vec<EdgeId> = mesh.unique_edges().collect();
         let max_edge_length_squared = max_edge_length * max_edge_length;
@@ -139,16 +138,16 @@ impl IncrementalRemesher {
             // Split long edges at the middle
             if edge_length_squared > max_edge_length_squared {
                 let (v1, v2) = mesh.edge_positions(edge);
-                let split_at = v1 + (v2 - v1).scale(cast(0.5).unwrap());
+                let split_at = v1 + (v2 - v1).scale(R::half());
                 mesh.split_edge(edge, &split_at);
             }
         }
     }
 
-    fn shift_vertices<S: RealNumber>(
+    fn shift_vertices<R: RealNumber>(
         &self,
-        mesh: &mut CornerTable<S>,
-        target_edge_length_squared: S,
+        mesh: &mut CornerTable<R>,
+        target_edge_length_squared: R,
     ) {
         let vertices: Vec<VertexId> = mesh.vertices().collect();
         let mut one_ring = Vec::with_capacity(stats::MAX_VERTEX_VALENCE);
@@ -180,7 +179,7 @@ impl IncrementalRemesher {
         }
     }
 
-    fn collapse_edges<S: RealNumber>(&self, mesh: &mut CornerTable<S>, min_edge_length: S) {
+    fn collapse_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>, min_edge_length: R) {
         let edges: Vec<EdgeId> = mesh.unique_edges().collect();
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
@@ -205,15 +204,15 @@ impl IncrementalRemesher {
 
             let v1_pos = mesh.vertex_position(v1);
             let v2_pos = mesh.vertex_position(v2);
-            let collapse_at = (v1_pos + v2_pos) * cast::<f32, S>(0.5).unwrap();
+            let collapse_at = (v1_pos + v2_pos) * R::half();
 
-            if edge_collapse::is_safe(mesh, edge, &collapse_at, cast(0.5).unwrap()) {
+            if edge_collapse::is_safe(mesh, edge, &collapse_at, R::half()) {
                 mesh.collapse_edge(edge, &collapse_at);
             }
         }
     }
 
-    fn flip_edges<S: RealNumber>(&self, mesh: &mut CornerTable<S>) {
+    fn flip_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>) {
         let edges: Vec<EdgeId> = mesh.unique_edges().collect();
 
         // Flip edges to improve valence
@@ -224,11 +223,11 @@ impl IncrementalRemesher {
         }
     }
 
-    fn project_vertices<S: RealNumber>(
+    fn project_vertices<R: RealNumber>(
         &self,
-        mesh: &mut CornerTable<S>,
-        grid: &Grid<Triangle3<S>>,
-        target_edge_length: S,
+        mesh: &mut CornerTable<R>,
+        grid: &Grid<Triangle3<R>>,
+        target_edge_length: R,
     ) {
         let vertices: Vec<VertexId> = mesh.vertices().collect();
 
@@ -242,7 +241,7 @@ impl IncrementalRemesher {
         }
     }
 
-    fn is_flip_safe<S: RealNumber>(&self, mesh: &mut CornerTable<S>, edge: EdgeId) -> bool {
+    fn is_flip_safe<R: RealNumber>(&self, mesh: &mut CornerTable<R>, edge: EdgeId) -> bool {
         let corner = &mesh[edge.corner()];
         let Some(opposite_corner) = corner.opposite_corner().map(|c| &mesh[c]) else {
             return false; // Not safe if edge is on boundary
@@ -270,16 +269,24 @@ impl IncrementalRemesher {
             return false;
         }
 
-        let Some(old_normal1) = Triangle3::normal(&v0, &v1, &v2) else { return false; };
-        let Some(new_normal1) = Triangle3::normal(&v1, &v2, &v3) else { return false; };
-        let threshold = cast::<f64, S>(5.0).unwrap().to_radians();
+        let Some(old_normal1) = Triangle3::normal(&v0, &v1, &v2) else {
+            return false;
+        };
+        let Some(new_normal1) = Triangle3::normal(&v1, &v2, &v3) else {
+            return false;
+        };
+        let threshold = R::f64(5.0) * R::pi() / R::u32(180);
 
         if old_normal1.angle(&new_normal1) > threshold {
             return false;
         }
 
-        let Some(old_normal2) = Triangle3::normal(&v0, &v2, &v3) else { return false; };
-        let Some(new_normal2) = Triangle3::normal(&v0, &v1, &v3) else { return false; };
+        let Some(old_normal2) = Triangle3::normal(&v0, &v2, &v3) else {
+            return false;
+        };
+        let Some(new_normal2) = Triangle3::normal(&v0, &v1, &v3) else {
+            return false;
+        };
 
         if old_normal2.angle(&new_normal2) > threshold
             || old_normal2.angle(&new_normal1) > threshold
@@ -291,9 +298,9 @@ impl IncrementalRemesher {
         true
     }
 
-    fn will_flip_improve_quality<S: RealNumber>(
+    fn will_flip_improve_quality<R: RealNumber>(
         &self,
-        mesh: &mut CornerTable<S>,
+        mesh: &mut CornerTable<R>,
         edge: EdgeId,
     ) -> bool {
         let mut walker = mesh.walker_from_corner(edge.corner());
@@ -327,22 +334,22 @@ impl IncrementalRemesher {
         let v2_pos = mesh.vertex_position(v2);
         let v3_pos = mesh.vertex_position(v3);
 
-        let old_face_quality = Float::min(
+        let old_face_quality = R::min(
             Triangle3::quality(v0_pos, v1_pos, v2_pos),
             Triangle3::quality(v0_pos, v2_pos, v3_pos),
         );
-        let new_face_quality = Float::min(
+        let new_face_quality = R::min(
             Triangle3::quality(v1_pos, v2_pos, v3_pos),
             Triangle3::quality(v0_pos, v1_pos, v3_pos),
         );
 
-        (new_deviation < old_deviation && new_face_quality >= old_face_quality * cast(0.5).unwrap()) ||
+        (new_deviation < old_deviation && new_face_quality >= old_face_quality * R::half()) ||
                (new_deviation == old_deviation && new_face_quality > old_face_quality) || // Same valence but better quality
-               (new_face_quality > old_face_quality * cast(1.5).unwrap()) // Hurt valence but improve quality by much
+               (new_face_quality > old_face_quality * (R::one() + R::half())) // Hurt valence but improve quality by much
     }
 
     #[inline]
-    fn ideal_valence<S: RealNumber>(&self, mesh: &CornerTable<S>, vertex: VertexId) -> isize {
+    fn ideal_valence<R: RealNumber>(&self, mesh: &CornerTable<R>, vertex: VertexId) -> isize {
         if mesh.is_vertex_on_boundary(vertex) {
             stats::IDEAL_BOUNDARY_VERTEX_VALENCE as isize
         } else {
@@ -388,6 +395,9 @@ mod tests {
             length < target_edge_length * 0.8
         });
 
-        assert!(!has_short_edges, "should not have short edges after remeshing");
+        assert!(
+            !has_short_edges,
+            "should not have short edges after remeshing"
+        );
     }
 }

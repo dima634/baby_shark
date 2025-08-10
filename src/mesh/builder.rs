@@ -1,7 +1,6 @@
 use super::traits::FromIndexed;
+use crate::geometry::traits::*;
 use crate::helpers::aliases::Vec3;
-use nalgebra_glm::pi;
-use num_traits::*;
 
 pub fn cube<T: FromIndexed>(
     origin: Vec3<T::Scalar>,
@@ -44,13 +43,10 @@ pub fn cylinder<T: FromIndexed>(
 
     // Generate vertices
     for i in 0..=num_sections {
-        let y = T::Scalar::from_usize(i).unwrap() * height
-            / T::Scalar::from_usize(num_sections).unwrap();
+        let y = T::Scalar::usize(i) * height / T::Scalar::usize(num_sections);
+
         for j in 0..num_segments {
-            let theta = T::Scalar::from_usize(j).unwrap()
-                * T::Scalar::from_f64(2.0).unwrap()
-                * pi::<T::Scalar>()
-                / T::Scalar::from_usize(num_segments).unwrap();
+            let theta = T::Scalar::usize(j) * T::Scalar::two() * T::Scalar::pi() / T::Scalar::usize(num_segments);
             let x = radius * theta.cos();
             let z = radius * theta.sin();
             vertices.push(Vec3::new(x, y, z));

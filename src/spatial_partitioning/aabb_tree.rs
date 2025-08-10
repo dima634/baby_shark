@@ -1,13 +1,12 @@
-use nalgebra::Vector3;
-use num_traits::*;
 use crate::{
     geometry::{
         primitives::{box3::Box3, plane3::Plane3, triangle3::Triangle3},
-        traits::{ClosestPoint3, HasBBox3, RealNumber},
+        traits::*,
     },
     helpers::aliases::Vec3,
     mesh::traits::Triangles,
 };
+use nalgebra::Vector3;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum NodeType {
@@ -130,12 +129,7 @@ where
     #[inline]
     pub fn traverse<TFunc>(&self, visit: &mut TFunc)
     where
-        TFunc: FnMut(
-            (
-                &[(TObject, Box3<TObject::Scalar>)],
-                &Box3<TObject::Scalar>,
-            ),
-        ),
+        TFunc: FnMut((&[(TObject, Box3<TObject::Scalar>)], &Box3<TObject::Scalar>)),
     {
         self.visit_node(self.nodes.len() - 1, visit);
     }
@@ -143,12 +137,7 @@ where
     /// Recursively visit tree node
     fn visit_node<TFunc>(&self, node_index: usize, visit: &mut TFunc)
     where
-        TFunc: FnMut(
-            (
-                &[(TObject, Box3<TObject::Scalar>)],
-                &Box3<TObject::Scalar>,
-            ),
-        ),
+        TFunc: FnMut((&[(TObject, Box3<TObject::Scalar>)], &Box3<TObject::Scalar>)),
     {
         let node = &self.nodes[node_index];
 
@@ -204,17 +193,7 @@ where
 
                     self.nodes.len() - 1
                 }
-                None => {
-                    // println!("SPLIT FAILED");
-                    // Create leaf node if split failed
-                    
-
-                    // if self.nodes[node].bbox.size_max() > TObject::ScalarType::from_f64(100.0).unwrap() {
-                    //     std::io::stdin().read_line(&mut String::new());
-                    // }
-
-                    self.leaf_node_from_objects(first, last)
-                }
+                None => self.leaf_node_from_objects(first, last),
             }
         }
     }
@@ -307,9 +286,7 @@ impl<S: RealNumber> AABBTree<Triangle3<S>> {
     /// To finish tree construction it should be chained with call of construction strategy ([top_down](AABBTree) etc)
     ///
     pub fn from_mesh<TMesh: Triangles<Scalar = S>>(mesh: &TMesh) -> Self {
-        let faces: Vec<Triangle3<S>> = mesh
-            .triangles()
-            .collect();
+        let faces: Vec<Triangle3<S>> = mesh.triangles().collect();
 
         Self::new(faces)
     }
@@ -331,11 +308,9 @@ where
         stack.push(self.nodes.last().unwrap());
 
         let mut closest_point = Vec3::zeros();
-        let mut distance_squared = Float::infinity();
+        let mut distance_squared = TObject::Scalar::inf();
 
         while let Some(top) = stack.pop() {
-            
-
             if top.is_leaf() {
                 for (obj, _) in &self.objects[top.left..top.right + 1] {
                     let new_closest = obj.closest_point(point);
@@ -364,7 +339,7 @@ where
             }
         }
 
-        if distance_squared.is_infinite() {
+        if !distance_squared.is_finite() {
             return None;
         }
 
@@ -471,15 +446,13 @@ where
         };
         const NUM_BUCKETS: usize = 12;
         let mut buckets = [empty_bucket; NUM_BUCKETS];
-        let num_buckets = TObject::Scalar::from_usize(NUM_BUCKETS).unwrap();
+        let num_buckets = TObject::Scalar::usize(NUM_BUCKETS);
 
         // Put objects into `NUM_BUCKETS` buckets and compute bounds of each bucket
         for (_, bbox) in objects {
             let center = bbox.get_center();
-            let bucket_idx = (num_buckets * centroid_bounds.offset(&center)[axis])
-                .to_usize()
-                .unwrap()
-                .min(NUM_BUCKETS - 1);
+            let tmp: usize = (num_buckets * centroid_bounds.offset(&center)[axis]).as_();
+            let bucket_idx = tmp.min(NUM_BUCKETS - 1);
 
             let bucket = &mut buckets[bucket_idx];
             bucket.primitives_count += 1;
@@ -506,12 +479,12 @@ where
                 b1_count += buckets[j].primitives_count;
             }
 
-            let b0_count = TObject::Scalar::from_usize(b0_count).unwrap();
-            let b1_count = TObject::Scalar::from_usize(b1_count).unwrap();
-            let c = TObject::Scalar::from_f64(0.125).unwrap();
+            let b0_count = TObject::Scalar::usize(b0_count);
+            let b1_count = TObject::Scalar::usize(b1_count);
+            let c = TObject::Scalar::f64(0.125);
 
             if b0_count == TObject::Scalar::zero() || b1_count == TObject::Scalar::zero() {
-                costs[i] = TObject::Scalar::infinity();
+                costs[i] = TObject::Scalar::inf();
             } else {
                 costs[i] = c + (b0_count * b0.area() + b1_count * b1.area()) / objects_bbox.area();
             }
@@ -523,15 +496,13 @@ where
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .unwrap();
 
-        let leaf_cost = TObject::Scalar::from_usize(objects.len()).unwrap();
+        let leaf_cost = TObject::Scalar::usize(objects.len());
 
         if costs[min_cost_bucket_idx] < leaf_cost {
             let split_at = objects.iter().position(|(_, bbox)| {
                 let center = bbox.get_center();
-                let bucket_idx = (num_buckets * centroid_bounds.offset(&center)[axis])
-                    .to_usize()
-                    .unwrap()
-                    .min(NUM_BUCKETS - 1);
+                let tmp: usize = (num_buckets * centroid_bounds.offset(&center)[axis]).as_();
+                let bucket_idx = tmp.min(NUM_BUCKETS - 1);
                 bucket_idx > min_cost_bucket_idx
             });
 
@@ -559,9 +530,9 @@ where
     TObject::Scalar: RealNumber,
 {
     let mut split_axis = Vector3::<TObject::Scalar>::zeros();
-    split_axis[axis] = One::one();
+    split_axis[axis] = TObject::Scalar::one();
     let split_point = (objects[split_at].1.get_center() + objects[split_at - 1].1.get_center())
-        * TObject::Scalar::from_f32(0.5).unwrap();
+        * TObject::Scalar::half();
     let plane = Plane3::new(split_axis, split_point[axis]);
 
     // Test whether all objects intersects plane
@@ -586,7 +557,7 @@ where
     let second_child_volume = second_child_box.volume();
 
     let parent_volume = parent_bbox.volume();
-    let threshold = TObject::Scalar::from_f64(0.8).unwrap();
+    let threshold = TObject::Scalar::f64(0.8);
 
     if first_child_volume / parent_volume > threshold
         && second_child_volume / parent_volume > threshold
@@ -600,8 +571,6 @@ where
 pub mod winding_numbers {
     use std::f32::consts::PI;
 
-    use num_traits::Float;
-
     use crate::{
         geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
         helpers::aliases::{Mat3f, Vec3, Vec3f},
@@ -610,7 +579,7 @@ pub mod winding_numbers {
 
     use super::{AABBTree, Area, BinaryNode, MedianCut, NodeType};
 
-    pub fn solid_angle<T: RealNumber>(tri: &Triangle3<T>, q: &Vec3<T>) -> T {
+    pub fn solid_angle<R: RealNumber>(tri: &Triangle3<R>, q: &Vec3<R>) -> R {
         let mut qa = tri.p1() - q;
         let mut qb = tri.p2() - q;
         let mut qc = tri.p3() - q;
@@ -619,7 +588,7 @@ pub mod winding_numbers {
         let b_length = qb.norm();
         let c_length = qc.norm();
 
-        let zero = T::zero();
+        let zero = R::zero();
 
         // If any triangle vertices are coincident with query,
         // query is on the surface, which we treat as no solid angle.
@@ -640,9 +609,9 @@ pub mod winding_numbers {
             return zero;
         }
 
-        let denominator = T::one() + qa.dot(&qb) + qa.dot(&qc) + qb.dot(&qc);
+        let denominator = R::one() + qa.dot(&qb) + qa.dot(&qc) + qb.dot(&qc);
 
-        Float::atan2(numerator, denominator) * T::from_f32(2.0).unwrap()
+        R::atan2(numerator, denominator) * R::two()
     }
 
     pub fn winding_number<'tri>(
@@ -785,7 +754,9 @@ pub mod winding_numbers {
 
         for t in node.left..node.right {
             let (tri, _) = &tree.objects[t];
-            let Some(n) = tri.get_normal() else { continue; };
+            let Some(n) = tri.get_normal() else {
+                continue;
+            };
             let area = tri.get_area();
 
             total_area += area;
