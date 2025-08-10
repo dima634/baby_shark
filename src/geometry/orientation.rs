@@ -9,7 +9,7 @@ pub enum Orientation {
 }
 
 /// Returns orientation of triangle `a`-`b`-`c`
-pub fn orientation2d<TScalar: RealNumber>(a: &Point2<TScalar>, b: &Point2<TScalar>, c: &Point2<TScalar>) -> Orientation {
+pub fn orientation2d<R: RealNumber>(a: &Point2<R>, b: &Point2<R>, c: &Point2<R>) -> Orientation {
     let mat = Matrix2::new(
         a.x - c.x, a.y - c.y,
         b.x - c.x, b.y - c.y
