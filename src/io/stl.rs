@@ -1,11 +1,9 @@
 use crate::{
-    algo::utils::cast,
-    geometry::primitives::triangle3::Triangle3,
+    geometry::{primitives::triangle3::Triangle3, traits::*},
     helpers::aliases::Vec3f,
     mesh::traits::{FromSoup, Triangles},
 };
 use nalgebra::{Point3, Vector3};
-use simba::scalar::SupersetOf;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Write},
@@ -34,11 +32,10 @@ impl StlReader {
     }
 
     /// Reads mesh from file
-    pub fn read_stl_from_file<TMesh>(&mut self, filepath: &Path) -> std::io::Result<TMesh>
-    where
-        TMesh: FromSoup,
-        TMesh::Scalar: SupersetOf<f32>,
-    {
+    pub fn read_stl_from_file<TMesh: FromSoup>(
+        &mut self,
+        filepath: &Path,
+    ) -> std::io::Result<TMesh> {
         let file = OpenOptions::new().read(true).open(filepath)?;
         let mut reader = BufReader::new(file);
 
@@ -53,7 +50,6 @@ impl StlReader {
     where
         TBuffer: Read,
         TMesh: FromSoup,
-        TMesh::Scalar: SupersetOf<f32>,
     {
         // Read header
         let mut header = [0u8; STL_HEADER_SIZE];
@@ -138,8 +134,7 @@ impl StlWriter {
             .write(true)
             .truncate(true)
             .create(true)
-            .open(path)
-            .unwrap();
+            .open(path)?;
         let mut writer = BufWriter::new(file);
 
         self.write_stl(mesh, &mut writer)
@@ -167,10 +162,22 @@ impl StlWriter {
         for triangle in mesh.triangles() {
             let normal = triangle.get_normal().unwrap_or(Vector3::zeros()); // Write zeros for degenerate faces
 
-            let p1 = cast(triangle.p1()).into();
-            let p2 = cast(triangle.p2()).into();
-            let p3 = cast(triangle.p3()).into();
-            let n = cast(&normal);
+            let p1 = Point3::new(
+                triangle.p1().x.as_(),
+                triangle.p1().y.as_(),
+                triangle.p1().z.as_(),
+            );
+            let p2 = Point3::new(
+                triangle.p2().x.as_(),
+                triangle.p2().y.as_(),
+                triangle.p2().z.as_(),
+            );
+            let p3 = Point3::new(
+                triangle.p3().x.as_(),
+                triangle.p3().y.as_(),
+                triangle.p3().z.as_(),
+            );
+            let n = Vec3f::new(normal.x.as_(), normal.y.as_(), normal.z.as_());
 
             self.write_face(writer, &p1, &p2, &p3, &n)?;
         }

@@ -3,14 +3,13 @@ use crate::{
     helpers::aliases::Vec3,
     mesh::corner_table::*,
 };
-use num_traits::cast;
 
-pub fn is_vertex_shift_safe<S: RealNumber>(
+pub fn is_vertex_shift_safe<R: RealNumber>(
     vertex: VertexId,
-    old_position: &Vec3<S>,
-    new_position: &Vec3<S>,
-    target_edge_length_squared: S,
-    mesh: &CornerTable<S>,
+    old_position: &Vec3<R>,
+    new_position: &Vec3<R>,
+    target_edge_length_squared: R,
+    mesh: &CornerTable<R>,
 ) -> bool {
     if (old_position - new_position).norm_squared() > target_edge_length_squared {
         return false;
@@ -31,7 +30,7 @@ pub fn is_vertex_shift_safe<S: RealNumber>(
         let v2_pos = mesh[v2].position();
 
         let new_quality = Triangle3::quality(new_position, v1_pos, v2_pos);
-        damages_quality |= new_quality < cast(0.001).unwrap();
+        damages_quality |= new_quality < R::f64(0.001);
     });
 
     !damages_quality

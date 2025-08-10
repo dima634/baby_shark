@@ -1,41 +1,39 @@
 use nalgebra::Point2;
-
 use crate::geometry::traits::{RealNumber, HasScalarType, Intersects};
-
 use super::line2::Line2;
 
 // 2d line segment
 #[derive(Debug)]
 pub struct LineSegment2<TScalar: RealNumber>(Line2<TScalar>);
 
-impl<TScalar: RealNumber> LineSegment2<TScalar> {
-    pub fn new(p1: Point2<TScalar>, p2: Point2<TScalar>) -> Self {
+impl<R: RealNumber> LineSegment2<R> {
+    pub fn new(p1: Point2<R>, p2: Point2<R>) -> Self {
         Self(Line2::new(p1, p2))
     }
 
     #[inline]
-    pub fn line(&self) -> &Line2<TScalar> {
+    pub fn line(&self) -> &Line2<R> {
         &self.0
     }
 
     #[inline]
-    pub fn contains_point(&self, p: &Point2<TScalar>) -> bool {
+    pub fn contains_point(&self, p: &Point2<R>) -> bool {
         let len = 
             (self.0.origin() - p).norm() + 
             (self.0.end() - p).norm() - 
             (self.0.origin() - self.0.end()).norm();
-        len < TScalar::epsilon()
+        len < R::default_epsilon()
     }
 
     #[inline]
-    pub fn at(&self, t: TScalar) -> Point2<TScalar> {
+    pub fn at(&self, t: R) -> Point2<R> {
         self.0.point_at(t)
     }
 
     #[inline]
-    pub fn intersects_line_segment2_at(&self, other: &Self) -> Option<(TScalar, TScalar)> {
+    pub fn intersects_line_segment2_at(&self, other: &Self) -> Option<(R, R)> {
         self.line().intersects_line2_at_t(other.line())
-            .filter(|(t1, t2)| *t1 >= TScalar::zero() && *t1 <= TScalar::one() && *t2 >= TScalar::zero() && *t2 <= TScalar::one())
+            .filter(|(t1, t2)| *t1 >= R::zero() && *t1 <= R::one() && *t2 >= R::zero() && *t2 <= R::one())
     }
 }
 
