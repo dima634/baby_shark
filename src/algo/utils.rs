@@ -14,7 +14,7 @@ where
         size += 1;
     }
 
-    barycenter /= R::from_usize(size).unwrap();
+    barycenter /= R::usize(size);
 
     barycenter
 }
