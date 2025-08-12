@@ -62,6 +62,14 @@ impl MarchingCubesMesher {
         self.vertices.clone()
     }
 
+    /// A helper method that does the same as the `mesh()` method, but returns they data in any
+    /// (f32 based) vector type the user requires
+    // This method could be optimized more if `self.vertices` were created in the desired format
+    // in the first place.
+    pub fn mesh_generic<V: From<[f32; 3]>>(&mut self, sdf: &Volume) -> Vec<V> {
+        self.mesh(sdf).iter().map(|v| V::from(v.clone().into())).collect()
+    }
+
     fn clear(&mut self) {
         self.vertices.clear();
         self.x_int.clear();

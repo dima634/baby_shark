@@ -22,16 +22,23 @@ pub trait FromIndexed {
     type Scalar: RealNumber;
 
     /// Creates mesh from vertices and face indices
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
-        faces: impl Iterator<Item = usize>,
-    ) -> Self;
+    fn from_vertex_and_face_iters<V, I>(
+        vertices: impl Iterator<Item = V>,
+        faces: impl Iterator<Item = I>,
+    ) -> Self
+    where
+        V: Clone + Into<[Self::Scalar; 3]>,
+        I: Clone + TryInto<usize>,
+        I::Error: std::fmt::Debug;
 
     /// Creates mesh from vertices and face indices saved in slices
     #[inline]
-    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::Scalar>], faces: &[usize]) -> Self
+    fn from_vertex_and_face_slices<V, I>(vertices: &[V], faces: &[I]) -> Self
     where
         Self: Sized,
+        V: Clone + Into<[Self::Scalar; 3]>,
+        I: Clone + TryInto<usize>,
+        I::Error: std::fmt::Debug,
     {
         Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
     }
