@@ -131,7 +131,7 @@ impl<S: RealNumber> CornerTable<S> {
     #[inline]
     /// Returns a vertex as any type that implements `From<[S; 3]>`
     pub fn vertex_position_generic<V: From<[S; 3]>>(&self, vertex: VertexId) -> V {
-        V::from(self[vertex].position().clone().into())
+        V::from(self.vertex_position(vertex).clone().into())
     }
 
     pub fn vertex_normal(&self, vertex: VertexId) -> Option<Vec3<S>> {
