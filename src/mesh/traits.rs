@@ -35,7 +35,7 @@ pub trait FromIndexed {
     ) -> Self
     where
         V: Clone + Into<[Self::Scalar; 3]>,
-        I: Clone + TryInto<usize> + sealed::IndexType,
+        I: Copy + TryInto<usize> + sealed::IndexType,
         I::Error: std::fmt::Debug;
 
     /// Creates mesh from vertices and face indices saved in slices
@@ -44,7 +44,7 @@ pub trait FromIndexed {
     where
         Self: Sized,
         V: Clone + Into<[Self::Scalar; 3]>,
-        I: Clone + TryInto<usize> + sealed::IndexType,
+        I: Copy + TryInto<usize> + sealed::IndexType,
         I::Error: std::fmt::Debug,
     {
         Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())

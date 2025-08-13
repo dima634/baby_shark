@@ -50,7 +50,7 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
     ) -> Self
     where
         V: Clone + Into<[S; 3]>,
-        I: Clone + TryInto<usize>,
+        I: TryInto<usize>,
         I::Error: std::fmt::Debug,
     {
         let num_faces = faces.size_hint().1.unwrap_or(0);
@@ -69,13 +69,13 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
     where
         Self: Sized,
         V: Clone + Into<[Self::Scalar; 3]>,
-        I: Clone + TryInto<usize>,
+        I: Copy + TryInto<usize>,
         I::Error: std::fmt::Debug,
     {
         let mut soup = Vec::<Vec3<S>>::with_capacity(faces.len());
 
         for vertex_index in faces {
-            soup.push(vertices[vertex_index.clone().try_into().unwrap()]
+            soup.push(vertices[(*vertex_index).try_into().unwrap()]
                 .clone()
                 .into()
                 .into());
