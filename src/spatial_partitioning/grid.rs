@@ -265,7 +265,7 @@ mod tests {
                 Vec3f::new(0.0, 1.0, 1.0),
                 Vec3f::new(0.0, 0.0, 1.0),
             ],
-            &vec![0, 1, 2, 0, 2, 3],
+            &vec![0_u32, 1, 2, 0, 2, 3],
         );
 
         let grid = Grid::from_mesh(&x_0);
@@ -278,7 +278,7 @@ mod tests {
                 Vec3f::new(1.0, 0.0, 1.0),
                 Vec3f::new(0.0, 0.0, 1.0),
             ],
-            &vec![0, 1, 2, 0, 2, 3],
+            &vec![0_u32, 1, 2, 0, 2, 3],
         );
 
         let grid = Grid::from_mesh(&y_0);
@@ -291,7 +291,7 @@ mod tests {
                 Vec3f::new(1.0, 1.0, 0.0),
                 Vec3f::new(0.0, 1.0, 0.0),
             ],
-            &vec![0, 1, 2, 0, 2, 3],
+            &vec![0_u32, 1, 2, 0, 2, 3],
         );
 
         let grid = Grid::from_mesh(&z_0);
