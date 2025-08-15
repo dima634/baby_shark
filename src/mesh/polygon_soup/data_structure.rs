@@ -88,8 +88,9 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
 impl<S: RealNumber> FromSoup for PolygonSoup<S> {
     type Scalar = S;
 
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
-        let mut vertices: Vec<_> = triangles.collect();
+    fn from_triangles_soup<V>(triangles: impl Iterator<Item = V>) -> Self
+    where V: Into<[Self::Scalar; 3]> {
+        let mut vertices: Vec<Vec3<S>> = triangles.map(|v|v.into().into()).collect();
         vertices.resize(vertices.len() - vertices.len() % 3, Vec3::zeros());
         Self { vertices }
     }

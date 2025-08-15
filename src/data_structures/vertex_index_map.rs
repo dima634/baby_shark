@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 use std::hash::Hash;
 use nalgebra::SVector;
 use crate::{algo::float_hash::{combine_hash, hash_float}, geometry::traits::RealNumber};
@@ -75,6 +75,12 @@ impl<const D: usize, TScalar: RealNumber> PointIndexMap<D, TScalar> {
     pub fn insert(&mut self, point: SVector<TScalar, D>, index: usize) {
         let hashable = HashablePoint(point);
         self.map.insert(hashable, index);
+    }
+
+    /// Gets an entry for the given point, allowing for efficient insertion
+    #[inline]
+    pub(crate) fn entry(&mut self, point: SVector<TScalar, D>) -> Entry<'_, HashablePoint<D, TScalar>, usize> {
+        self.map.entry(HashablePoint(point))
     }
 }
 

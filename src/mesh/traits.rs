@@ -8,7 +8,8 @@ pub trait FromSoup {
 
     /// # Arguments
     /// * `triangles` - iterator of triangles, each triangle is represented as a vector of 3 vertices
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self;
+    fn from_triangles_soup<V>(triangles: impl Iterator<Item = V>) -> Self
+        where V: Clone + Into<[Self::Scalar; 3]>;
 }
 
 pub trait Triangles {
