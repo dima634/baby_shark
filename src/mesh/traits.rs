@@ -19,9 +19,15 @@ pub trait Triangles {
 
 mod sealed {
     pub trait IndexType {}
+
+    // Zero-cost conversions to usize (on 32/64-bit platforms)
+    // `I.try_into().unwrap()` is optimized as `I as usize`
     impl IndexType for usize {}
     impl IndexType for u32 {}
     impl IndexType for u16 {}
+    // Runtime-checked conversion - included for ergonomics since i32 is the
+    // default integer literal type in Rust. Negative values will panic.
+    impl IndexType for i32 {}
 }
 
 /// Triangular mesh

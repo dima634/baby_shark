@@ -9,7 +9,7 @@ pub fn create_unit_square_mesh() -> CornerTableF {
         Vec3f::new(1.0, 1.0, 0.0)
     ];
 
-    let indices = vec![0_u32, 1, 2, 2, 3, 0];
+    let indices = vec![0, 1, 2, 2, 3, 0];
 
     CornerTableF::from_vertex_and_face_slices(&vertices, &indices)
 }
@@ -24,7 +24,7 @@ pub fn create_unit_cross_square_mesh() -> CornerTableF {
     ];
 
     let indices = vec![
-        0_u32, 1, 4,
+        0, 1, 4, 
         1, 2, 4, 
         2, 3, 4, 
         3, 0, 4
@@ -40,7 +40,7 @@ pub fn create_single_face_mesh() -> CornerTableF {
         Vec3f::new(1.0, 0.0, 0.0)
     ];
 
-    let indices = vec![0_u32, 1, 2];
+    let indices = vec![0, 1, 2];
 
     CornerTableF::from_vertex_and_face_slices(&vertices, &indices)
 }
@@ -61,7 +61,7 @@ pub fn create_collapse_edge_sample_mesh1() -> CornerTableF {
     ];
 
     let indices = vec![
-        0_u32, 1, 8,
+        0, 1, 8,
         1, 2, 8,
         2, 3, 8,
         3, 9, 8,
@@ -89,7 +89,7 @@ pub fn create_collapse_edge_sample_mesh2() -> CornerTableF {
     ];
 
     let indices = vec![
-        0_u32, 1, 6,
+        0, 1, 6,
         1, 2, 6,
         2, 3, 6,
         3, 4, 6,
@@ -111,7 +111,7 @@ pub fn create_collapse_edge_sample_mesh3() -> CornerTableF {
     ];
 
     let indices = vec![
-        0_u32, 1, 4,
+        0, 1, 4,
         1, 2, 4,
         2, 3, 4
     ];
@@ -132,7 +132,7 @@ pub fn create_flip_edge_sample_mesh() -> CornerTableF {
     ];
 
     let indices = vec![
-        0_u32, 1, 2,
+        0, 1, 2,
         2, 3, 0,
         1, 6, 2,
         2, 7, 3,
