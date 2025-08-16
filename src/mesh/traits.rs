@@ -1,6 +1,5 @@
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
-    helpers::aliases::Vec3,
 };
 
 pub trait FromSoup {
@@ -9,7 +8,8 @@ pub trait FromSoup {
     /// # Arguments
     /// * `triangles` - iterator of triangles, each triangle is represented as a vector of 3 vertices
     fn from_triangles_soup<V>(triangles: impl Iterator<Item = V>) -> Self
-        where V: Clone + Into<[Self::Scalar; 3]>;
+    where
+        V: Into<[Self::Scalar; 3]>;
 }
 
 pub trait Triangles {
@@ -41,8 +41,8 @@ pub trait FromIndexed {
         faces: impl Iterator<Item = I>,
     ) -> Self
     where
-        V: Clone + Into<[Self::Scalar; 3]>,
-        I: Copy + TryInto<usize> + sealed::IndexType,
+        V: Into<[Self::Scalar; 3]>,
+        I: TryInto<usize> + sealed::IndexType,
         I::Error: std::fmt::Debug;
 
     /// Creates mesh from vertices and face indices saved in slices

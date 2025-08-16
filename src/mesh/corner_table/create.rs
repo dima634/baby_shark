@@ -171,7 +171,9 @@ impl<S: RealNumber> FromSoup for CornerTable<S> {
     type Scalar = S;
 
     fn from_triangles_soup<V>(triangles: impl Iterator<Item = V>) -> Self
-    where V: Clone + Into<[Self::Scalar; 3]> {
+    where
+        V: Into<[Self::Scalar; 3]>,
+    {
         let indexed = merge_points(triangles);
         Self::from_vertex_and_face_slices(&indexed.points, &indexed.indices)
     }

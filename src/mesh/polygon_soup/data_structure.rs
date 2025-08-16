@@ -49,16 +49,16 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
         faces: impl Iterator<Item = I>,
     ) -> Self
     where
-        V: Clone + Into<[S; 3]>,
+        V: Into<[S; 3]>,
         I: TryInto<usize>,
         I::Error: std::fmt::Debug,
     {
         let num_faces = faces.size_hint().1.unwrap_or(0);
         let mut soup = Vec::<Vec3<S>>::with_capacity(num_faces * 3);
-        let vertices: Vec<Vec3<S>> = vertices.map(|v|v.into().into()).collect();
+        let vertices: Vec<Vec3<S>> = vertices.map(|v| v.into().into()).collect();
 
         for vertex_index in faces {
-            soup.push( vertices[vertex_index.try_into().unwrap()].clone());
+            soup.push(vertices[vertex_index.try_into().unwrap()]);
         }
 
         Self { vertices: soup }
@@ -75,10 +75,12 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
         let mut soup = Vec::<Vec3<S>>::with_capacity(faces.len());
 
         for vertex_index in faces {
-            soup.push(vertices[(*vertex_index).try_into().unwrap()]
-                .clone()
-                .into()
-                .into());
+            soup.push(
+                vertices[(*vertex_index).try_into().unwrap()]
+                    .clone()
+                    .into()
+                    .into(),
+            );
         }
 
         Self { vertices: soup }
@@ -89,8 +91,10 @@ impl<S: RealNumber> FromSoup for PolygonSoup<S> {
     type Scalar = S;
 
     fn from_triangles_soup<V>(triangles: impl Iterator<Item = V>) -> Self
-    where V: Into<[Self::Scalar; 3]> {
-        let mut vertices: Vec<Vec3<S>> = triangles.map(|v|v.into().into()).collect();
+    where
+        V: Into<[Self::Scalar; 3]>,
+    {
+        let mut vertices: Vec<Vec3<S>> = triangles.map(|v| v.into().into()).collect();
         vertices.resize(vertices.len() - vertices.len() % 3, Vec3::zeros());
         Self { vertices }
     }
