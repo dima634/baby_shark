@@ -1,9 +1,6 @@
 use super::{traversal::*, *};
 use crate::{
-    algo::merge_points::merge_points,
-    geometry::traits::RealNumber,
-    helpers::aliases::Vec3,
-    mesh::traits::{FromIndexed, FromSoup},
+    algo::merge_points::merge_points, geometry::traits::RealNumber, helpers::aliases::Vec3, io::{BuildError, BuildMode, CreateBuilder, MeshBuilder}, mesh::traits::{stats::IDEAL_INTERIOR_VERTEX_VALENCE, FromIndexed, FromSoup}
 };
 use std::collections::{BTreeSet, HashMap};
 
@@ -52,8 +49,8 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
     fn corner_from(
         &mut self,
-        edge_opposite_corner_map: &mut HashMap<helpers::Edge, CornerId>,
-        edge: helpers::Edge,
+        edge_opposite_corner_map: &mut HashMap<Edge, CornerId>,
+        edge: Edge,
         vertex_id: VertexId,
     ) -> CornerId {
         let (corner_id, corner) = self.create_corner(vertex_id);
@@ -89,110 +86,316 @@ impl<S: RealNumber> FromIndexed for CornerTable<S> {
         vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
         mut faces: impl Iterator<Item = usize>,
     ) -> Self {
-        let num_faces = faces.size_hint().1.unwrap_or(0) / 3;
+        let mut builder = IndexedBuilder::default();
+
+        let num_faces = faces.size_hint().1.unwrap_or(0);
+        builder.set_num_faces(num_faces);
+
         let num_vertices = vertices.size_hint().1.unwrap_or(0);
-        let mut corner_table = Self::with_capacity(num_vertices, num_faces);
+        builder.set_num_vertices(num_vertices);
 
-        for vert in vertices {
-            corner_table.create_vertex(None, vert);
+        for vertex in vertices {
+            if let Err(_) = builder.add_vertex(vertex) {
+                break;
+            }
         }
-
-        let mut edge_opposite_corner_map = HashMap::<helpers::Edge, CornerId>::with_capacity(num_faces * 3);
-        let mut vertex_corners = HashMap::<VertexId, BTreeSet<CornerId>>::with_capacity(num_vertices);
 
         loop {
-            let Some(v1_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
-            let Some(v2_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
-            let Some(v3_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
+            let Some(v1) = faces.next() else { break };
+            let Some(v2) = faces.next() else { break };
+            let Some(v3) = faces.next() else { break };
 
-            let edge1 = helpers::Edge::new(v2_index, v3_index);
-            let edge2 = helpers::Edge::new(v3_index, v1_index);
-            let edge3 = helpers::Edge::new(v1_index, v2_index);
-
-            // If edge already exist in map then it is non manifold. For now we will skip faces that introduce non-manifoldness.
-            if edge_opposite_corner_map.contains_key(&edge1)
-                || edge_opposite_corner_map.contains_key(&edge2)
-                || edge_opposite_corner_map.contains_key(&edge3)
-            {
-                continue;
-            }
-
-            let c1 = corner_table.corner_from(&mut edge_opposite_corner_map, edge1, v1_index);
-            let c2 = corner_table.corner_from(&mut edge_opposite_corner_map, edge2, v2_index);
-            let c3 = corner_table.corner_from(&mut edge_opposite_corner_map, edge3, v3_index);
-
-            vertex_corners.entry(v1_index).or_default().insert(c1);
-            vertex_corners.entry(v2_index).or_default().insert(c2);
-            vertex_corners.entry(v3_index).or_default().insert(c3);
-        }
-
-        // Delete isolated vertices
-        for vertex in &mut corner_table.vertices {
-            if !vertex.corner().is_valid() {
-                vertex.set_deleted(true);
+            if let Err(_) = builder.add_face_indexed(v1, v2, v3) {
+                break;
             }
         }
 
-        // Duplicate non-manifold vertices
-        for (&vertex_id, corners) in vertex_corners.iter_mut() {
-            if corner_table[vertex_id].is_deleted() {
-                continue;
-            }
-
-            corner_table.corners_around_vertex(vertex_id, |corner_index| {
-                corners.remove(&corner_index);
-            });
-
-            let vertex_pos = *corner_table[vertex_id].position();
-
-            // Duplicate vertex for each "corner fan"
-            while let Some(corner_idx) = corners.pop_first() {
-                let duplicate_vertex = corner_table.create_vertex(Some(corner_idx), vertex_pos);
-
-                for adj_corner in collect_corners_around_vertex(&corner_table, duplicate_vertex) {
-                    corner_table[adj_corner].set_vertex(duplicate_vertex);
-                    corners.remove(&adj_corner);
-                }
-            }
-        }
-
-        corner_table
+        builder.finish().unwrap_or_default()
     }
 }
 
 impl<S: RealNumber> FromSoup for CornerTable<S> {
     type Scalar = S;
 
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
-        let indexed = merge_points(triangles);
-        Self::from_vertex_and_face_slices(&indexed.points, &indexed.indices)
+    fn from_triangles_soup(mut triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
+        let mut builder = SoupBuilder::default();
+        let num_faces = triangles.size_hint().1.unwrap_or(0);
+        builder.set_num_faces(num_faces);
+
+        loop {
+            let Some(v1) = triangles.next() else { break };
+            let Some(v2) = triangles.next() else { break };
+            let Some(v3) = triangles.next() else { break };
+
+            if let Err(_) = builder.add_face(v1, v2, v3) {
+                break;
+            }
+        }
+
+        builder.finish().unwrap_or_default()
     }
 }
 
-pub mod helpers {
-    use crate::mesh::corner_table::vertex::VertexId;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct Edge {
+    start_vertex: VertexId,
+    end_vertex: VertexId,
+}
 
-    #[derive(Hash, PartialEq, Eq, Clone, Copy)]
-    pub struct Edge {
-        start_vertex: VertexId,
-        end_vertex: VertexId,
+impl Edge {
+    pub fn new(start: VertexId, end: VertexId) -> Self {
+        Self {
+            start_vertex: start,
+            end_vertex: end,
+        }
     }
 
-    impl Edge {
-        pub fn new(start: VertexId, end: VertexId) -> Self {
-            Self {
-                start_vertex: start,
-                end_vertex: end,
+    #[inline]
+    pub fn flipped(&self) -> Self {
+        Self {
+            start_vertex: self.end_vertex,
+            end_vertex: self.start_vertex,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct IndexedBuilder<R: RealNumber> {
+    corner_table: CornerTable<R>,
+    edge_opposite_corner_map: HashMap::<Edge, CornerId>,
+    vertex_corners: HashMap::<VertexId, BTreeSet<CornerId>>,
+}
+
+impl<R: RealNumber> Default for IndexedBuilder<R> {
+    fn default() -> Self {
+        Self {
+            corner_table: CornerTable::new(),
+            edge_opposite_corner_map: HashMap::new(),
+            vertex_corners: HashMap::new(),
+        }
+    }
+}
+
+impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for IndexedBuilder<R> {
+    fn add_face<T: Into<[R; 3]>>(&mut self, _: T, _: T, _: T) -> Result<(), BuildError> {
+        Err(BuildError::WrongMode)
+    }
+
+    fn add_vertex<T: Into<[R; 3]>>(&mut self, vertex: T) -> Result<usize, BuildError> {
+        let idx = self.corner_table.create_vertex(None, vertex.into().into()).index();
+        Ok(idx)
+    }
+
+    fn add_face_indexed(&mut self, v1: usize, v2: usize, v3: usize) -> Result<(), BuildError> {
+        if v1 >= self.corner_table.vertices.len()
+            || v2 >= self.corner_table.vertices.len()
+            || v3 >= self.corner_table.vertices.len()
+        {
+            return Err(BuildError::InvalidVertex);
+        }
+
+        if v1 > u32::MAX as usize
+            || v2 > u32::MAX as usize
+            || v3 > u32::MAX as usize
+        {
+            return Err(BuildError::TooBig);
+        }
+
+        let v1_id = VertexId::new(v1 as u32);
+        let v2_id = VertexId::new(v2 as u32);
+        let v3_id = VertexId::new(v3 as u32);
+
+        let edge1 = Edge::new(v2_id, v3_id);
+        let edge2 = Edge::new(v3_id, v1_id);
+        let edge3 = Edge::new(v1_id, v2_id);
+
+        // If edge already exist in map then it is non manifold. For now we will skip faces that introduce non-manifoldness.
+        if self.edge_opposite_corner_map.contains_key(&edge1)
+            || self.edge_opposite_corner_map.contains_key(&edge2)
+            || self.edge_opposite_corner_map.contains_key(&edge3)
+        {
+            return Ok(());
+        }
+
+        let c1 = self.corner_table.corner_from(&mut self.edge_opposite_corner_map, edge1, v1_id);
+        let c2 = self.corner_table.corner_from(&mut self.edge_opposite_corner_map, edge2, v2_id);
+        let c3 = self.corner_table.corner_from(&mut self.edge_opposite_corner_map, edge3, v3_id);
+
+        self.vertex_corners.entry(v1_id).or_default().insert(c1);
+        self.vertex_corners.entry(v2_id).or_default().insert(c2);
+        self.vertex_corners.entry(v3_id).or_default().insert(c3);
+
+        Ok(())
+    }
+
+    #[inline]
+    fn set_num_vertices(&mut self, count: usize) {
+        self.corner_table.vertices.reserve(count);
+        self.vertex_corners.reserve(count);
+    }
+
+    fn set_num_faces(&mut self, count: usize) {
+        self.corner_table.corners.reserve(count);
+        self.edge_opposite_corner_map.reserve(count);
+    }
+
+    fn finish(mut self) -> Result<CornerTable<R>, BuildError> {
+        // Delete isolated vertices
+        for vertex in &mut self.corner_table.vertices {
+            if !vertex.corner().is_valid() {
+                vertex.set_deleted(true);
             }
         }
 
-        #[inline]
-        pub fn flipped(&self) -> Self {
-            Self {
-                start_vertex: self.end_vertex,
-                end_vertex: self.start_vertex,
+        // Duplicate non-manifold vertices
+        for (&vertex_id, corners) in self.vertex_corners.iter_mut() {
+            if self.corner_table[vertex_id].is_deleted() {
+                continue;
+            }
+
+            self.corner_table.corners_around_vertex(vertex_id, |corner_index| {
+                corners.remove(&corner_index);
+            });
+
+            let vertex_pos = *self.corner_table[vertex_id].position();
+
+            // Duplicate vertex for each "corner fan"
+            while let Some(corner_idx) = corners.pop_first() {
+                let duplicate_vertex = self.corner_table.create_vertex(Some(corner_idx), vertex_pos);
+
+                for adj_corner in collect_corners_around_vertex(&self.corner_table, duplicate_vertex) {
+                    self.corner_table[adj_corner].set_vertex(duplicate_vertex);
+                    corners.remove(&adj_corner);
+                }
             }
         }
+
+        Ok(self.corner_table)
+    }
+}
+
+#[derive(Debug)]
+struct SoupBuilder<R: RealNumber> {
+    triangles: Vec<Vec3<R>>,
+}
+
+impl<R: RealNumber> Default for SoupBuilder<R> {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            triangles: Vec::new(),
+        }
+    }
+}
+
+impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for SoupBuilder<R> {
+    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError> {
+        self.triangles.push(v1.into().into());
+        self.triangles.push(v2.into().into());
+        self.triangles.push(v3.into().into());
+        Ok(())
+    }
+
+    fn add_vertex<T: Into<[R; 3]>>(&mut self, _: T) -> Result<usize, BuildError> {
+        Err(BuildError::WrongMode)
+    }
+
+    fn add_face_indexed(&mut self, _: usize, _: usize, _: usize) -> Result<(), BuildError> {
+        Err(BuildError::WrongMode)
+    }
+
+    fn set_num_vertices(&mut self, _: usize) {}
+
+    fn set_num_faces(&mut self, count: usize) {
+        self.triangles.reserve(count * 3);
+    }
+
+    fn finish(self) -> Result<CornerTable<R>, BuildError> {
+        let indexed = merge_points(self.triangles.iter().cloned());
+        
+        let mut indexed_builder = IndexedBuilder::default();
+        indexed_builder.set_num_vertices(self.triangles.len() / IDEAL_INTERIOR_VERTEX_VALENCE);
+        indexed_builder.set_num_faces(self.triangles.len() / 3);
+
+        for vertex in indexed.points {
+            indexed_builder.add_vertex(vertex)?;
+        }
+
+        for face in indexed.indices.chunks_exact(3) {
+            indexed_builder.add_face_indexed(face[0], face[1], face[2])?;
+        }
+
+        indexed_builder.finish()
+    }
+}
+
+#[derive(Debug)]
+enum DynModeBuilder<R: RealNumber> {
+    Indexed(IndexedBuilder<R>),
+    Soup(SoupBuilder<R>),
+}
+
+
+impl<R: RealNumber> DynModeBuilder<R> {
+    fn new(mode: BuildMode) -> Self {
+        match mode {
+            BuildMode::Indexed => DynModeBuilder::Indexed(IndexedBuilder::default()),
+            BuildMode::Soup => DynModeBuilder::Soup(SoupBuilder::default()),
+        }
+    }
+}
+
+impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for DynModeBuilder<R> {
+    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError> {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.add_face(v1, v2, v3),
+            DynModeBuilder::Soup(builder) => builder.add_face(v1, v2, v3),
+        }
+    }
+
+    fn add_vertex<T: Into<[R; 3]>>(&mut self, vertex: T) -> Result<usize, BuildError> {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.add_vertex(vertex),
+            DynModeBuilder::Soup(builder) => builder.add_vertex(vertex),
+        }
+    }
+
+    fn add_face_indexed(&mut self, v1: usize, v2: usize, v3: usize) -> Result<(), BuildError> {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.add_face_indexed(v1, v2, v3),
+            DynModeBuilder::Soup(builder) => builder.add_face_indexed(v1, v2, v3),
+        }
+    }
+
+    fn set_num_vertices(&mut self, count: usize) {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.set_num_vertices(count),
+            DynModeBuilder::Soup(builder) => builder.set_num_vertices(count),
+        }
+    }
+
+    fn set_num_faces(&mut self, count: usize) {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.set_num_faces(count),
+            DynModeBuilder::Soup(builder) => builder.set_num_faces(count),
+        }
+    }
+
+    fn finish(self) -> Result<CornerTable<R>, BuildError> {
+        match self {
+            DynModeBuilder::Indexed(builder) => builder.finish(),
+            DynModeBuilder::Soup(builder) => builder.finish(),
+        }
+    }
+}
+
+impl<R: RealNumber> CreateBuilder for CornerTable<R> {
+    type Scalar = R;
+    type Mesh = CornerTable<R>;
+
+    #[inline]
+    fn builder(mode: BuildMode) -> impl MeshBuilder<Self::Scalar, Self::Mesh> {
+        DynModeBuilder::new(mode)
     }
 }
 

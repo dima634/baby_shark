@@ -37,6 +37,11 @@ pub trait FromIndexed {
     }
 }
 
+pub enum PolygonData<R: RealNumber, V: Iterator<Item = [R; 3]>, F: Iterator<Item = [u32; 3]>> {
+    Indexed(V, F),
+    Soup(V),
+}
+
 /// Contains constants which defines what is good mesh
 pub mod stats {
     pub const IDEAL_INTERIOR_VERTEX_VALENCE: usize = 6;

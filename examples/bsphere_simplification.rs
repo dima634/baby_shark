@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use baby_shark::{
     decimation::{BoundingSphereDecimationCriteria, EdgeDecimator},
-    io::stl::{StlReader, StlWriter},
+    io::*,
     mesh::corner_table::CornerTableF,
 };
 use nalgebra::Vector3;
+use std::path::Path;
 
 fn main() {
     let mut reader = StlReader::new();
@@ -15,7 +14,7 @@ fn main() {
     let output = args.next().expect("Enter an output file");
 
     let mut mesh: CornerTableF = reader
-        .read_stl_from_file(Path::new(&path))
+        .read_from_file(Path::new(&path))
         .expect("Read mesh from STL");
 
     let origin = Vector3::<f32>::zeros();
@@ -28,6 +27,6 @@ fn main() {
 
     let writer = StlWriter::new();
     writer
-        .write_stl_to_file(&mesh, Path::new(&output))
+        .write_to_file(&mesh, Path::new(&output))
         .expect("Save mesh to STL");
 }

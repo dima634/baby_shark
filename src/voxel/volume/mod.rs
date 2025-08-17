@@ -127,7 +127,7 @@ mod tests {
     use std::path::Path;
 
     use crate::{
-        io::stl::StlReader,
+        io::*,
         mesh::polygon_soup::data_structure::PolygonSoup,
         voxel::{meshing::MarchingCubesMesher, prelude::MeshToVolume},
     };
@@ -136,7 +136,7 @@ mod tests {
     fn test_volume_offset() {
         let mut reader = StlReader::new();
         let mesh: PolygonSoup<f32> = reader
-            .read_stl_from_file(Path::new("./assets/box2.stl"))
+            .read_from_file(Path::new("./assets/box2.stl"))
             .expect("Read mesh");
 
         let volume = MeshToVolume::default()

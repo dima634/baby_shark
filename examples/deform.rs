@@ -1,6 +1,6 @@
 use baby_shark::{
     exports::nalgebra as na,
-    io::stl::StlWriter,
+    io::*,
     mesh::{builder::cylinder, corner_table::CornerTableD},
     prepare_deform,
 };
@@ -37,6 +37,6 @@ fn main() {
         .expect("should deform mesh");
 
     StlWriter::new()
-        .write_stl_to_file(&deformed_cylinder, Path::new("deformed_cylinder.stl"))
+        .write_to_file(&deformed_cylinder, Path::new("deformed_cylinder.stl"))
         .expect("should write stl file");
 }
