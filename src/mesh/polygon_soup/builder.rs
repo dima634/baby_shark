@@ -6,13 +6,13 @@ use crate::{
 };
 
 #[derive(Debug)]
-struct IndexedBuilder<R: RealNumber> {
+struct Builder<R: RealNumber> {
     mode: BuildMode,
     vertices: Vec<Vec3<R>>,
     indices: Vec<usize>,
 }
 
-impl<R: RealNumber> IndexedBuilder<R> {
+impl<R: RealNumber> Builder<R> {
     #[inline]
     fn new(mode: BuildMode) -> Self {
         Self {
@@ -23,7 +23,7 @@ impl<R: RealNumber> IndexedBuilder<R> {
     }
 }
 
-impl<R: RealNumber> MeshBuilder<R, PolygonSoup<R>> for IndexedBuilder<R> {
+impl<R: RealNumber> MeshBuilder<R, PolygonSoup<R>> for Builder<R> {
     fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError> {
         if self.mode != BuildMode::Soup {
             return Err(BuildError::WrongMode);
@@ -96,6 +96,11 @@ impl<R: RealNumber> MeshBuilder<R, PolygonSoup<R>> for IndexedBuilder<R> {
             }),
         }
     }
+    
+    #[inline]
+    fn mode(&self) -> BuildMode {
+        self.mode
+    }
 }
 
 impl<R: RealNumber> CreateBuilder for PolygonSoup<R> {
@@ -103,6 +108,6 @@ impl<R: RealNumber> CreateBuilder for PolygonSoup<R> {
     type Mesh = PolygonSoup<R>;
 
     fn builder(mode: BuildMode) -> impl MeshBuilder<Self::Scalar, Self::Mesh> {
-        IndexedBuilder::new(mode)
+        Builder::new(mode)
     }
 }

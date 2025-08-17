@@ -1,40 +1,9 @@
-use crate::{
-    geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
-    helpers::aliases::Vec3,
-};
-
-pub trait FromSoup {
-    type Scalar: RealNumber; // TODO: move scalar to supertrait
-
-    /// # Arguments
-    /// * `triangles` - iterator of triangles, each triangle is represented as a vector of 3 vertices
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self;
-}
+use crate::geometry::{primitives::triangle3::Triangle3, traits::RealNumber};
 
 pub trait Triangles {
     type Scalar: RealNumber;
 
     fn triangles(&self) -> impl Iterator<Item = Triangle3<Self::Scalar>>;
-}
-
-/// Triangular mesh
-pub trait FromIndexed {
-    type Scalar: RealNumber;
-
-    /// Creates mesh from vertices and face indices
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
-        faces: impl Iterator<Item = usize>,
-    ) -> Self;
-
-    /// Creates mesh from vertices and face indices saved in slices
-    #[inline]
-    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::Scalar>], faces: &[usize]) -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
-    }
 }
 
 pub enum PolygonData<R: RealNumber, V: Iterator<Item = [R; 3]>, F: Iterator<Item = [u32; 3]>> {

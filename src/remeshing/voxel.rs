@@ -1,9 +1,10 @@
 use crate::{
-    mesh::traits::{FromSoup, Triangles},
+    io::*, 
+    mesh::traits::Triangles, 
     voxel::{
         mesh_to_volume::MeshToVolume,
         meshing::{DualContouringMesher, MarchingCubesMesher},
-    },
+    }
 };
 
 pub enum MeshingMethod {
@@ -62,7 +63,7 @@ impl VoxelRemesher {
 
     pub fn remesh<T>(&mut self, mesh: &T) -> Option<T>
     where
-        T: Triangles<Scalar = f32> + FromSoup<Scalar = f32>,
+        T: Triangles<Scalar = f32> + CreateBuilder<Scalar = f32, Mesh = T>,
     {
         let distance_field = self.mesh_to_sdf.convert(mesh)?;
 
@@ -77,9 +78,9 @@ impl VoxelRemesher {
             }
         };
 
-        let mesh = T::from_triangles_soup(faces.into_iter());
-
-        Some(mesh)
+        let mut builder = T::builder(BuildMode::Soup);
+        builder.add_faces(faces.into_iter()).ok()?;
+        builder.finish().ok()
     }
 }
 
@@ -103,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_voxel_remeshing() {
-        let mesh: PolygonSoup<f32> = builder::cube(Vec3::zeros(), 1.0, 1.0, 1.0);
+        let mesh = builder::cube::<PolygonSoup<f32>>(Vec3::zeros(), 1.0, 1.0, 1.0);
         let mut remesher = VoxelRemesher::default().with_voxel_size(0.1);
         let remeshed = remesher.remesh(&mesh).unwrap();
 

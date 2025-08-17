@@ -251,7 +251,7 @@ mod tests {
     use super::*;
     use crate::{
         helpers::aliases::Vec3f,
-        mesh::{corner_table::CornerTableF, traits::FromIndexed},
+        mesh::corner_table::CornerTableF,
     };
 
     #[test]

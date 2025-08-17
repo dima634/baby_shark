@@ -16,7 +16,7 @@ impl MeshReader for ObjReader {
     ) -> std::io::Result<TMesh>
     where
         TBuffer: Read,
-        TMesh: FromSoup 
+        TMesh: CreateBuilder 
     {
         let mut vertices = Vec::new();
         let mut faces = Vec::new();

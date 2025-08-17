@@ -1,6 +1,6 @@
 use super::{traversal::*, *};
 use crate::{
-    algo::merge_points::merge_points, geometry::traits::RealNumber, helpers::aliases::Vec3, io::{BuildError, BuildMode, CreateBuilder, MeshBuilder}, mesh::traits::{stats::IDEAL_INTERIOR_VERTEX_VALENCE, FromIndexed, FromSoup}
+    algo::merge_points::merge_points, geometry::traits::RealNumber, helpers::aliases::Vec3, io::{BuildError, BuildMode, CreateBuilder, MeshBuilder}, mesh::traits::{stats::IDEAL_INTERIOR_VERTEX_VALENCE}
 };
 use std::collections::{BTreeSet, HashMap};
 
@@ -79,11 +79,14 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
     }
 }
 
-impl<S: RealNumber> FromIndexed for CornerTable<S> {
-    type Scalar = S;
+impl<R: RealNumber>  CornerTable<R> {
+    #[inline]
+    pub fn from_vertex_and_face_slices(vertices: &[Vec3<R>], faces: &[usize]) -> Self {
+        Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
+    }
 
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
+    pub fn from_vertex_and_face_iters(
+        vertices: impl Iterator<Item = Vec3<R>>,
         mut faces: impl Iterator<Item = usize>,
     ) -> Self {
         let mut builder = IndexedBuilder::default();
@@ -112,12 +115,8 @@ impl<S: RealNumber> FromIndexed for CornerTable<S> {
 
         builder.finish().unwrap_or_default()
     }
-}
 
-impl<S: RealNumber> FromSoup for CornerTable<S> {
-    type Scalar = S;
-
-    fn from_triangles_soup(mut triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
+    pub fn from_triangles_soup(mut triangles: impl Iterator<Item = Vec3<R>>) -> Self {
         let mut builder = SoupBuilder::default();
         let num_faces = triangles.size_hint().1.unwrap_or(0);
         builder.set_num_faces(num_faces);
@@ -272,6 +271,11 @@ impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for IndexedBuilder<R> {
 
         Ok(self.corner_table)
     }
+    
+    #[inline]
+    fn mode(&self) -> BuildMode {
+        BuildMode::Indexed
+    }
 }
 
 #[derive(Debug)]
@@ -326,6 +330,11 @@ impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for SoupBuilder<R> {
         }
 
         indexed_builder.finish()
+    }
+    
+    #[inline]
+    fn mode(&self) -> BuildMode {
+        BuildMode::Soup
     }
 }
 
@@ -387,6 +396,13 @@ impl<R: RealNumber> MeshBuilder<R, CornerTable<R>> for DynModeBuilder<R> {
             DynModeBuilder::Soup(builder) => builder.finish(),
         }
     }
+    
+    fn mode(&self) -> BuildMode {
+        match self {
+            DynModeBuilder::Indexed(_) => BuildMode::Indexed,
+            DynModeBuilder::Soup(_) => BuildMode::Soup,
+        }
+    }
 }
 
 impl<R: RealNumber> CreateBuilder for CornerTable<R> {
@@ -408,7 +424,6 @@ mod tests {
                 test_helpers::{assert_mesh_eq, create_unit_square_mesh},
                 *,
             },
-            traits::FromIndexed,
         },
     };
 

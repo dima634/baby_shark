@@ -1,8 +1,8 @@
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::*},
     helpers::aliases::Vec3f,
-    io::{MeshReader, MeshWriter},
-    mesh::traits::{FromSoup, Triangles},
+    io::*,
+    mesh::traits::Triangles,
 };
 use nalgebra::{Point3, Vector3};
 use std::{
@@ -33,8 +33,7 @@ impl StlReader {
     fn read_face<TBuffer: Read>(
         &mut self,
         reader: &mut BufReader<TBuffer>,
-        triangles: &mut Vec<Triangle3<f32>>,
-    ) -> io::Result<()> {
+    ) -> io::Result<Triangle3<f32>> {
         // Normal
         self.read_vec3(reader)?;
 
@@ -43,12 +42,10 @@ impl StlReader {
         let v2 = self.read_vec3(reader)?;
         let v3 = self.read_vec3(reader)?;
 
-        triangles.push(Triangle3::new(v1, v2, v3));
-
         // Attribute
         reader.read_exact(&mut self.buf16)?;
 
-        Ok(())
+        Ok(Triangle3::new(v1, v2, v3))
     }
 
     fn read_vec3<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<Vec3f> {
@@ -72,7 +69,7 @@ impl MeshReader for StlReader {
     ) -> std::io::Result<TMesh>
     where
         TBuffer: Read,
-        TMesh: FromSoup,
+        TMesh: CreateBuilder<Mesh = TMesh>,
     {
         // Read header
         let mut header = [0u8; STL_HEADER_SIZE];
@@ -83,24 +80,28 @@ impl MeshReader for StlReader {
         let number_of_triangles: u32 = u32::from_le_bytes(self.buf32);
 
         // Faces
-        let mut triangles = Vec::with_capacity(number_of_triangles as usize);
+        let mut builder = TMesh::builder(BuildMode::Soup);
+        builder.set_num_faces(number_of_triangles as usize);
+
         for _ in 0..number_of_triangles {
-            self.read_face(reader, &mut triangles)?;
+            let triangle = self.read_face(reader)?;
+            let result = builder.add_face(
+                triangle.p1().cast(),
+                triangle.p2().cast(),
+                triangle.p3().cast()
+            );
+
+            if let Err(_) = result {
+                break;
+            }
         }
 
-        let casted_triangles = triangles
-            .into_iter()
-            .map(|triangle| {
-                let p1 = triangle.p1();
-                let p2 = triangle.p2();
-                let p3 = triangle.p3();
-
-                [p1.cast(), p2.cast(), p3.cast()]
-            })
-            .flatten();
-
-        // Create mesh
-        Ok(TMesh::from_triangles_soup(casted_triangles))
+        builder.finish().map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to build mesh from STL data: {:?}", e),
+            )
+        })
     }
 }
 

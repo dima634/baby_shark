@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_deform() {
-        let cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 15);
+        let cylinder = cylinder::<CornerTableD>(10.0, 2.0, 4, 15);
         let handle = HashSet::from_iter(cylinder.vertices().filter(|&v| {
             cylinder.vertex_position(v).y == 10.0 || cylinder.vertex_position(v).y == 0.0
         }));
