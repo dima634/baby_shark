@@ -85,25 +85,32 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 impl<S: RealNumber> FromIndexed for CornerTable<S> {
     type Scalar = S;
 
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
-        mut faces: impl Iterator<Item = usize>,
-    ) -> Self {
+    fn from_vertex_and_face_iters<V, I>(
+        vertices: impl Iterator<Item = V>,
+        mut faces: impl Iterator<Item = I>,
+    ) -> Self
+    where
+        V: Into<[S; 3]>,
+        I: TryInto<usize>,
+        I::Error: std::fmt::Debug,
+    {
         let num_faces = faces.size_hint().1.unwrap_or(0) / 3;
         let num_vertices = vertices.size_hint().1.unwrap_or(0);
         let mut corner_table = Self::with_capacity(num_vertices, num_faces);
 
         for vert in vertices {
-            corner_table.create_vertex(None, vert);
+            // convert the generic vertex type into `[S; 3]` then into `Vec3<Self::Scalar>`
+            // The intermediate `[S; 3]` step will be optimized away
+            corner_table.create_vertex(None, vert.into().into());
         }
 
         let mut edge_opposite_corner_map = HashMap::<helpers::Edge, CornerId>::with_capacity(num_faces * 3);
         let mut vertex_corners = HashMap::<VertexId, BTreeSet<CornerId>>::with_capacity(num_vertices);
 
         loop {
-            let Some(v1_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
-            let Some(v2_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
-            let Some(v3_index) = faces.next().map(|i| VertexId::new(i as u32)) else { break; };
+            let Some(v1_index) = faces.next().map(|i| VertexId::new(i.try_into().unwrap() as u32)) else { break; };
+            let Some(v2_index) = faces.next().map(|i| VertexId::new(i.try_into().unwrap() as u32)) else { break; };
+            let Some(v3_index) = faces.next().map(|i| VertexId::new(i.try_into().unwrap() as u32)) else { break; };
 
             let edge1 = helpers::Edge::new(v2_index, v3_index);
             let edge2 = helpers::Edge::new(v3_index, v1_index);
