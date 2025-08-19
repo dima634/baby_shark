@@ -128,6 +128,12 @@ impl<S: RealNumber> CornerTable<S> {
         self[vertex].position()
     }
 
+    #[inline]
+    /// Returns a vertex as any type that implements `From<[S; 3]>`
+    pub fn vertex_position_generic<V: From<[S; 3]>>(&self, vertex: VertexId) -> V {
+        V::from(self.vertex_position(vertex).clone().into())
+    }
+
     pub fn vertex_normal(&self, vertex: VertexId) -> Option<Vec3<S>> {
         let mut sum = Vec3::zeros();
 

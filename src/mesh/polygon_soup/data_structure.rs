@@ -44,29 +44,43 @@ impl<S: RealNumber> Default for PolygonSoup<S> {
 impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
     type Scalar = S;
 
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<S>>,
-        faces: impl Iterator<Item = usize>,
-    ) -> Self {
+    fn from_vertex_and_face_iters<V, I>(
+        vertices: impl Iterator<Item = V>,
+        faces: impl Iterator<Item = I>,
+    ) -> Self
+    where
+        V: Into<[S; 3]>,
+        I: TryInto<usize>,
+        I::Error: std::fmt::Debug,
+    {
         let num_faces = faces.size_hint().1.unwrap_or(0);
-        let mut soup = Vec::with_capacity(num_faces * 3);
-        let vertices: Vec<_> = vertices.collect();
+        let mut soup = Vec::<Vec3<S>>::with_capacity(num_faces * 3);
+        let vertices: Vec<Vec3<S>> = vertices.map(|v| v.into().into()).collect();
 
         for vertex_index in faces {
-            soup.push(vertices[vertex_index]);
+            soup.push(vertices[vertex_index.try_into().unwrap()]);
         }
 
         Self { vertices: soup }
     }
 
-    fn from_vertex_and_face_slices(vertices: &[Vec3<S>], faces: &[usize]) -> Self
+    #[inline]
+    fn from_vertex_and_face_slices<V, I>(vertices: &[V], faces: &[I]) -> Self
     where
         Self: Sized,
+        V: Clone + Into<[Self::Scalar; 3]>,
+        I: Copy + TryInto<usize>,
+        I::Error: std::fmt::Debug,
     {
-        let mut soup = Vec::with_capacity(faces.len());
+        let mut soup = Vec::<Vec3<S>>::with_capacity(faces.len());
 
-        for &vertex_index in faces {
-            soup.push(vertices[vertex_index]);
+        for vertex_index in faces {
+            soup.push(
+                vertices[(*vertex_index).try_into().unwrap()]
+                    .clone()
+                    .into()
+                    .into(),
+            );
         }
 
         Self { vertices: soup }
