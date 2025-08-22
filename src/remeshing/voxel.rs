@@ -63,7 +63,7 @@ impl VoxelRemesher {
 
     pub fn remesh<T>(&mut self, mesh: &T) -> Option<T>
     where
-        T: Triangles<Scalar = f32> + CreateBuilder<Scalar = f32, Mesh = T>,
+        T: Triangles<Scalar = f32> + Builder<Scalar = f32, Mesh = T>,
     {
         let distance_field = self.mesh_to_sdf.convert(mesh)?;
 
@@ -78,7 +78,7 @@ impl VoxelRemesher {
             }
         };
 
-        let mut builder = T::builder(BuildMode::Soup);
+        let mut builder = T::builder_soup();
         builder.add_faces(faces.into_iter()).ok()?;
         builder.finish().ok()
     }

@@ -69,7 +69,7 @@ impl MeshReader for StlReader {
     ) -> std::io::Result<TMesh>
     where
         TBuffer: Read,
-        TMesh: CreateBuilder<Mesh = TMesh>,
+        TMesh: Builder<Mesh = TMesh>,
     {
         // Read header
         let mut header = [0u8; STL_HEADER_SIZE];
@@ -80,7 +80,7 @@ impl MeshReader for StlReader {
         let number_of_triangles: u32 = u32::from_le_bytes(self.buf32);
 
         // Faces
-        let mut builder = TMesh::builder(BuildMode::Soup);
+        let mut builder = TMesh::builder_soup();
         builder.set_num_faces(number_of_triangles as usize);
 
         for _ in 0..number_of_triangles {

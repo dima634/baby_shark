@@ -2,40 +2,46 @@ use crate::geometry::traits::*;
 use crate::helpers::aliases::Vec3;
 use crate::io::*;
 
-pub fn cube<T: CreateBuilder>(
+pub fn cube<T: Builder>(
     origin: Vec3<T::Scalar>,
     x_size: T::Scalar,
     y_size: T::Scalar,
     z_size: T::Scalar,
 ) -> T::Mesh {
-    let mut builder = T::builder(BuildMode::Indexed);
+    let vertices = [
+        origin,
+        Vec3::new(origin.x,          origin.y + y_size,  origin.z),
+        Vec3::new(origin.x + x_size, origin.y + y_size,  origin.z),
+        Vec3::new(origin.x + x_size, origin.y,           origin.z),
 
-    builder.add_vertex(origin                                                    ).unwrap();
-    builder.add_vertex(Vec3::new(origin.x,          origin.y + y_size,  origin.z)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x + x_size, origin.y + y_size,  origin.z)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x + x_size, origin.y,           origin.z)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x,          origin.y,           origin.z + z_size)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x,          origin.y + y_size,  origin.z + z_size)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x + x_size, origin.y + y_size,  origin.z + z_size)).unwrap();
-    builder.add_vertex(Vec3::new(origin.x + x_size, origin.y,           origin.z + z_size)).unwrap();
-    
-    builder.add_face_indexed(0, 1, 2).unwrap();
-    builder.add_face_indexed(0, 2, 3).unwrap();
-    builder.add_face_indexed(6, 5, 4).unwrap();
-    builder.add_face_indexed(7, 6, 4).unwrap();
-    builder.add_face_indexed(0, 4, 5).unwrap();
-    builder.add_face_indexed(0, 5, 1).unwrap();
-    builder.add_face_indexed(0, 7, 4).unwrap();
-    builder.add_face_indexed(0, 3, 7).unwrap();
-    builder.add_face_indexed(3, 6, 7).unwrap();
-    builder.add_face_indexed(3, 2, 6).unwrap();
-    builder.add_face_indexed(1, 5, 6).unwrap();
-    builder.add_face_indexed(1, 6, 2).unwrap();
+        Vec3::new(origin.x,          origin.y,           origin.z + z_size),
+        Vec3::new(origin.x,          origin.y + y_size,  origin.z + z_size),
+        Vec3::new(origin.x + x_size, origin.y + y_size,  origin.z + z_size),
+        Vec3::new(origin.x + x_size, origin.y,           origin.z + z_size)
+    ];
 
-    builder.finish().unwrap()
+    let faces = [
+        [0, 1, 2], 
+        [0, 2, 3],
+        [6, 5, 4], 
+        [7, 6, 4],
+        [0, 4, 5], 
+        [0, 5, 1],
+        [0, 7, 4], 
+        [0, 3, 7],
+        [3, 6, 7], 
+        [3, 2, 6],
+        [1, 5, 6], 
+        [1, 6, 2],
+    ];
+
+    let mut builder = T::builder_indexed();
+    builder.add_vertices(vertices.into_iter()).expect("should add vertices");
+    builder.add_faces(faces.into_iter()).expect("should add faces");
+    builder.finish().expect("should build mesh") // Safe to unwrap because data is for sure valid
 }
 
-pub fn cylinder<T: CreateBuilder>(
+pub fn cylinder<T: Builder>(
     height: T::Scalar,
     radius: T::Scalar,
     num_segments: usize,
@@ -98,8 +104,8 @@ pub fn cylinder<T: CreateBuilder>(
         indices.push([bottom_center_index, bottom_current, bottom_next]);
     }
 
-    let mut builder = T::builder(BuildMode::Indexed);
-    builder.add_vertices(vertices.into_iter()).unwrap();
-    builder.add_faces_indexed(indices.into_iter()).unwrap();
-    builder.finish().unwrap()
+    let mut builder = T::builder_indexed();
+    builder.add_vertices(vertices.into_iter()).expect("should add vertices");
+    builder.add_faces(indices.into_iter()).expect("should add faces");
+    builder.finish().expect("should build mesh") // Safe to unwrap because data is for sure valid
 }

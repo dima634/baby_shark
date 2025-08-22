@@ -2,7 +2,8 @@ use crate::{geometry::traits::*, mesh::traits::*};
 use std::{
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Read, Write},
-    path::Path, usize,
+    path::Path,
+    usize,
 };
 
 pub mod obj;
@@ -11,86 +12,79 @@ pub mod stl;
 pub use stl::{StlReader, StlWriter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BuildMode {
-    Indexed,
-    Soup,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildError {
     TooBig,
     InvalidVertex,
     WrongMode,
 }
 
-pub trait MeshBuilder<R: RealNumber, M> {
-    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError>;
+pub trait IndexedBuilder<R: RealNumber, M> {
     fn add_vertex<T: Into<[R; 3]>>(&mut self, vertex: T) -> Result<usize, BuildError>;
-    fn add_face_indexed(&mut self, v1: usize, v2: usize, v3: usize) -> Result<(), BuildError>;
+    fn add_face(&mut self, v1: usize, v2: usize, v3: usize) -> Result<(), BuildError>;
+    fn finish(self) -> Result<M, BuildError>;
 
-    fn mode(&self) -> BuildMode;
-    /// Sets the number of vertices in the mesh, this is just a hint for builder 
+    /// Sets the number of vertices in the mesh, this is just a hint for builder
     /// and doest not limit max number of vertices
     fn set_num_vertices(&mut self, count: usize);
     /// Sets the number of faces in the mesh, this is just a hint for builder
     /// and doest not limit max number of faces
     fn set_num_faces(&mut self, count: usize);
 
+    /// Shorthand for adding multiple vertices at once.
+    fn add_vertices(
+        &mut self,
+        vertices: impl Iterator<Item: Into<[R; 3]>>,
+    ) -> Result<(), BuildError> {
+        if let Some(num_vertices) = vertices.size_hint().1 {
+            self.set_num_vertices(num_vertices);
+        }
+
+        for vertex in vertices {
+            self.add_vertex(vertex)?;
+        }
+
+        Ok(())
+    }
+
+    /// Shorthand for adding multiple faces at once.
+    fn add_faces(&mut self, faces: impl Iterator<Item = [usize; 3]>) -> Result<(), BuildError> {
+        if let Some(num_faces) = faces.size_hint().1 {
+            self.set_num_faces(num_faces);
+        }
+
+        for face in faces {
+            self.add_face(face[0], face[1], face[2])?;
+        }
+
+        Ok(())
+    }
+}
+
+pub trait SoupBuilder<R: RealNumber, M> {
+    /// Sets the number of faces in the mesh, this is just a hint for builder
+    /// and doest not limit max number of faces
+    fn set_num_faces(&mut self, count: usize);
+    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError>;
     fn finish(self) -> Result<M, BuildError>;
 
-    fn add_vertices(&mut self, vertices: impl Iterator<Item: Into<[R; 3]>>) -> Result<(), BuildError> {
-        match self.mode() {
-            BuildMode::Indexed => {
-                if let Some(num_vertices) = vertices.size_hint().1 {
-                    self.set_num_vertices(num_vertices);
-                }
-
-                for vertex in vertices {
-                    self.add_vertex(vertex)?;
-                }
-
-                Ok(())
-            }
-            BuildMode::Soup => Err(BuildError::WrongMode)
+    /// Shorthand for writing multiple faces at once.
+    fn add_faces(
+        &mut self,
+        mut faces: impl Iterator<Item: Into<[R; 3]>>,
+    ) -> Result<(), BuildError> {
+        if let Some(num_faces) = faces.size_hint().1.map(|v| v / 3) {
+            self.set_num_faces(num_faces);
         }
-    }
 
-    fn add_faces_indexed(&mut self, faces: impl Iterator<Item = [usize; 3]>) -> Result<(), BuildError> {
-        match self.mode() {
-            BuildMode::Indexed => {
-                if let Some(num_faces) = faces.size_hint().1 {
-                    self.set_num_faces(num_faces);
-                }
+        loop {
+            let Some(v1) = faces.next() else { break; };
+            let Some(v2) = faces.next() else { break; };
+            let Some(v3) = faces.next() else { break; };
 
-                for face in faces {
-                    self.add_face_indexed(face[0], face[1], face[2])?;
-                }
-
-                Ok(())
-            }
-            BuildMode::Soup => Err(BuildError::WrongMode)
+            self.add_face(v1, v2, v3)?;
         }
-    }
 
-    fn add_faces(&mut self, mut faces: impl Iterator<Item: Into<[R; 3]>>) -> Result<(), BuildError> {
-        match self.mode() {
-            BuildMode::Soup => {
-                if let Some(num_faces) = faces.size_hint().1 {
-                    self.set_num_faces(num_faces);
-                }
-
-                loop {
-                    let Some(v1) = faces.next() else { break; };
-                    let Some(v2) = faces.next() else { break; };
-                    let Some(v3) = faces.next() else { break; };
-
-                    self.add_face(v1, v2, v3)?;
-                }
-
-                Ok(())
-            }
-            BuildMode::Indexed => Err(BuildError::WrongMode)
-        }
+        Ok(())
     }
 }
 
@@ -102,10 +96,13 @@ pub trait MeshReader {
     ) -> std::io::Result<TMesh>
     where
         TBuffer: Read,
-        TMesh: CreateBuilder<Mesh = TMesh>;
+        TMesh: Builder<Mesh = TMesh>;
 
     /// Reads mesh from file
-    fn read_from_file<TMesh: CreateBuilder<Mesh = TMesh>>(&mut self, filepath: &Path) -> std::io::Result<TMesh> {
+    fn read_from_file<TMesh: Builder<Mesh = TMesh>>(
+        &mut self,
+        filepath: &Path,
+    ) -> std::io::Result<TMesh> {
         let file = OpenOptions::new().read(true).open(filepath)?;
         let mut reader = BufReader::new(file);
 
@@ -113,11 +110,46 @@ pub trait MeshReader {
     }
 }
 
-pub trait CreateBuilder {
+pub trait Builder {
     type Scalar: RealNumber;
     type Mesh;
 
-    fn builder(mode: BuildMode) -> impl MeshBuilder<Self::Scalar, Self::Mesh>;
+    /// Returns a builder for an indexed triangle mesh.
+    ///
+    /// Use this when you already (or will) maintain a **single deduplicated vertex array** and
+    /// faces are specified as triplets of vertex indices. The builder lets you:
+    /// - Pre‑hint counts with `set_num_vertices` / `set_num_faces` for capacity reservation
+    /// - Push vertices via `add_vertex`, receiving their index
+    /// - Add faces via `add_face(index0, index1, index2)` referencing previously added vertices
+    ///
+    /// Example:
+    /// ```ignore
+    /// let mut b = MyMesh::builder_indexed();
+    /// b.set_num_vertices(n);
+    /// for v in verts {
+    ///     b.add_vertex(v)?;
+    /// }
+    /// for [i0,i1,i2] in faces {
+    ///     b.add_face(i0,i1,i2)?;
+    /// }
+    /// let mesh = b.finish()?;
+    /// ```
+    fn builder_indexed() -> impl IndexedBuilder<Self::Scalar, Self::Mesh>;
+
+    /// Returns a builder for a triangle soup (non‑indexed) mesh.
+    ///
+    /// Use this when triangles arrive as **independent triplets of positions**.
+    ///
+    /// Example:
+    /// ```ignore
+    /// let mut b = MyMesh::builder_soup();
+    /// b.set_num_faces(tris_len);
+    /// for (p0,p1,p2) in triangles {
+    ///     b.add_face(p0,p1,p2)?;
+    /// }
+    /// let mesh = b.finish()?;
+    /// ```
+    fn builder_soup() -> impl SoupBuilder<Self::Scalar, Self::Mesh>;
 }
 
 pub trait MeshWriter {

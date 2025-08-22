@@ -1,113 +1,106 @@
 use crate::{
-    geometry::traits::RealNumber,
-    helpers::aliases::Vec3,
-    io::{BuildError, BuildMode, CreateBuilder, MeshBuilder},
+    geometry::traits::RealNumber, helpers::aliases::Vec3, io,
     mesh::polygon_soup::data_structure::PolygonSoup,
 };
 
 #[derive(Debug)]
-struct Builder<R: RealNumber> {
-    mode: BuildMode,
+struct SoupBuilder<R: RealNumber> {
     vertices: Vec<Vec3<R>>,
-    indices: Vec<usize>,
 }
 
-impl<R: RealNumber> Builder<R> {
+impl<R: RealNumber> Default for SoupBuilder<R> {
     #[inline]
-    fn new(mode: BuildMode) -> Self {
+    fn default() -> Self {
         Self {
-            mode,
-            vertices: Vec::new(),
-            indices: Vec::new(),
+            vertices: Vec::default(),
         }
     }
 }
 
-impl<R: RealNumber> MeshBuilder<R, PolygonSoup<R>> for Builder<R> {
-    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), BuildError> {
-        if self.mode != BuildMode::Soup {
-            return Err(BuildError::WrongMode);
-        }
-
+impl<R: RealNumber> io::SoupBuilder<R, PolygonSoup<R>> for SoupBuilder<R> {
+    fn add_face<T: Into<[R; 3]>>(&mut self, v1: T, v2: T, v3: T) -> Result<(), io::BuildError> {
         self.vertices.push(v1.into().into()); // into array and then into nalgebra
         self.vertices.push(v2.into().into());
         self.vertices.push(v3.into().into());
         Ok(())
     }
 
-    fn add_vertex<T: Into<[R; 3]>>(&mut self, vertex: T) -> Result<usize, BuildError> {
-        if self.mode != BuildMode::Indexed {
-            return Err(BuildError::WrongMode);
-        }
-
-        let idx = self.vertices.len();
-        self.vertices.push(vertex.into().into()); // into array and then into nalgebra
-        Ok(idx)
-    }
-
-    fn add_face_indexed(&mut self, v0: usize, v1: usize, v2: usize) -> Result<(), BuildError> {
-        if self.mode != BuildMode::Indexed {
-            return Err(BuildError::WrongMode);
-        }
-
-        if v0 >= self.vertices.len() || v1 >= self.vertices.len() || v2 >= self.vertices.len() {
-            return Err(BuildError::InvalidVertex);
-        }
-
-        self.indices.push(v0);
-        self.indices.push(v1);
-        self.indices.push(v2);
-        Ok(())
-    }
-
-    fn set_num_vertices(&mut self, count: usize) {
-        if self.mode != BuildMode::Indexed {
-            let reserve_count = count.saturating_sub(self.vertices.len());
-            self.vertices.reserve(reserve_count);
-        }
-    }
-
     fn set_num_faces(&mut self, count: usize) {
-        match self.mode {
-            BuildMode::Indexed => {
-                let reserve_count = (count * 3).saturating_sub(self.indices.len());
-                self.indices.reserve(reserve_count);
-            }
-            BuildMode::Soup => {
-                let reserve_count = (count * 3).saturating_sub(self.vertices.len());
-                self.vertices.reserve(reserve_count);
-            }
-        }
+        let reserve_count = (count * 3).saturating_sub(self.vertices.len());
+        self.vertices.reserve(reserve_count);
     }
 
-    fn finish(self) -> Result<PolygonSoup<R>, BuildError> {
-        match self.mode {
-            BuildMode::Indexed => {
-                let mut vertices = Vec::with_capacity(self.indices.len());
-
-                for vertex_idx in self.indices {
-                    vertices.push(self.vertices[vertex_idx].clone());
-                }
-
-                Ok(PolygonSoup { vertices })
-            }
-            BuildMode::Soup => Ok(PolygonSoup {
-                vertices: self.vertices,
-            }),
-        }
-    }
-    
     #[inline]
-    fn mode(&self) -> BuildMode {
-        self.mode
+    fn finish(self) -> Result<PolygonSoup<R>, io::BuildError> {
+        Ok(PolygonSoup {
+            vertices: self.vertices,
+        })
     }
 }
 
-impl<R: RealNumber> CreateBuilder for PolygonSoup<R> {
+#[derive(Debug)]
+struct IndexedBuilder<R: RealNumber> {
+    vertices: Vec<[R; 3]>,
+    triangles: Vec<Vec3<R>>,
+}
+
+impl<R: RealNumber> Default for IndexedBuilder<R> {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            vertices: Vec::default(),
+            triangles: Vec::default(),
+        }
+    }
+}
+
+impl<R: RealNumber> io::IndexedBuilder<R, PolygonSoup<R>> for IndexedBuilder<R> {
+    #[inline]
+    fn add_vertex<T: Into<[R; 3]>>(&mut self, vertex: T) -> Result<usize, io::BuildError> {
+        self.vertices.push(vertex.into());
+        Ok(self.vertices.len() - 1)
+    }
+
+    fn add_face(&mut self, v1: usize, v2: usize, v3: usize) -> Result<(), io::BuildError> {
+        if v1 >= self.vertices.len() || v2 >= self.vertices.len() || v3 >= self.vertices.len() {
+            return Err(io::BuildError::InvalidVertex);
+        }
+
+        self.triangles.push(self.vertices[v1].into());
+        self.triangles.push(self.vertices[v2].into());
+        self.triangles.push(self.vertices[v3].into());
+        Ok(())
+    }
+
+    #[inline]
+    fn finish(self) -> Result<PolygonSoup<R>, io::BuildError> {
+        Ok(PolygonSoup {
+            vertices: self.triangles,
+        })
+    }
+
+    fn set_num_vertices(&mut self, count: usize) {
+        let reserve_count = count.saturating_sub(self.vertices.len());
+        self.vertices.reserve(reserve_count);
+    }
+
+    fn set_num_faces(&mut self, count: usize) {
+        let reserve_count = count.saturating_sub(self.triangles.len());
+        self.triangles.reserve(reserve_count);
+    }
+}
+
+impl<R: RealNumber> io::Builder for PolygonSoup<R> {
     type Scalar = R;
     type Mesh = PolygonSoup<R>;
 
-    fn builder(mode: BuildMode) -> impl MeshBuilder<Self::Scalar, Self::Mesh> {
-        Builder::new(mode)
+    #[inline]
+    fn builder_indexed() -> impl io::IndexedBuilder<Self::Scalar, Self::Mesh> {
+        IndexedBuilder::default()
+    }
+
+    #[inline]
+    fn builder_soup() -> impl io::SoupBuilder<Self::Scalar, Self::Mesh> {
+        SoupBuilder::default()
     }
 }
