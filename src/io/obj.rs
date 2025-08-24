@@ -134,6 +134,6 @@ fn parse_face<'a>(mut parts: impl Iterator<Item = &'a str>) -> Option<Statement>
 }
 
 fn parse_vertex_idx_from_face_stmt(stmt: &str) -> Option<usize> {
-    let (vertex_idx_str, _) = stmt.split_once('/')?;
+    let (vertex_idx_str, _) = stmt.split_once('/').unwrap_or((stmt, ""));
     vertex_idx_str.parse::<usize>().map(|idx| idx - 1).ok() // obj indices are 1-based
 }
