@@ -5,7 +5,7 @@ mod region;
 use crate::{
     algo::merge_points::merge_points,
     helpers::aliases::Vec3,
-    mesh::{corner_table::*, traits::FromIndexed},
+    mesh::corner_table::*,
 };
 use wasm_bindgen::prelude::*;
 

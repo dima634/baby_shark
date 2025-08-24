@@ -29,7 +29,6 @@ impl PreparedDeform {
             .map_err(|err| err.to_string())
     }
 
-    #[inline]
     pub fn set_max_iters(&mut self, max_iters: usize) {
         self.inner.set_max_iters(max_iters);
     }
