@@ -1,4 +1,5 @@
 use crate::geometry::{primitives::triangle3::Triangle3, traits::RealNumber};
+use std::hash::Hash;
 
 pub trait Triangles {
     type Scalar: RealNumber;
@@ -6,9 +7,13 @@ pub trait Triangles {
     fn triangles(&self) -> impl Iterator<Item = Triangle3<Self::Scalar>>;
 }
 
-pub enum PolygonData<R: RealNumber, V: Iterator<Item = [R; 3]>, F: Iterator<Item = [u32; 3]>> {
-    Indexed(V, F),
-    Soup(V),
+pub trait TriangleMesh {
+    type Scalar: RealNumber;
+    type VertexId: Eq + PartialEq + PartialOrd + Ord + Hash;
+
+    fn position(&self, vertex: Self::VertexId) -> [Self::Scalar; 3];
+    fn vertices(&self) -> impl Iterator<Item = Self::VertexId>;
+    fn faces(&self) -> impl Iterator<Item = [Self::VertexId; 3]>;
 }
 
 /// Contains constants which defines what is good mesh

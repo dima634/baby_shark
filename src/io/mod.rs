@@ -10,6 +10,7 @@ pub mod obj;
 pub mod stl;
 
 pub use stl::{StlReader, StlWriter};
+pub use obj::{ObjReader, ObjWriter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildError {
@@ -160,9 +161,9 @@ pub trait MeshWriter {
     ) -> std::io::Result<()>
     where
         TBuffer: Write,
-        TMesh: Triangles;
+        TMesh: TriangleMesh;
 
-    fn write_to_file<TMesh: Triangles>(&self, mesh: &TMesh, path: &Path) -> std::io::Result<()> {
+    fn write_to_file<TMesh: TriangleMesh>(&self, mesh: &TMesh, path: &Path) -> std::io::Result<()> {
         let file = OpenOptions::new()
             .write(true)
             .truncate(true)
@@ -174,17 +175,64 @@ pub trait MeshWriter {
     }
 }
 
-pub enum ReadMeshError {
+#[derive(Debug)]
+pub enum MeshIOError {
     IO(std::io::Error),
+    FilepathHasNoExtension,
     UnsupportedFormat(String),
 }
 
-// pub fn read_from_file<TMesh: FromSoup>(filepath: &Path) -> Result<TMesh, ReadMeshError> {
-//     let file = OpenOptions::new()
-//         .read(true)
-//         .open(filepath)
-//         .map_err(ReadMeshError::IO)?;
-//     let mut reader = BufReader::new(file);
+pub fn read_from_file<TMesh: Builder<Mesh = TMesh>>(filepath: &Path) -> Result<TMesh, MeshIOError> {
+    let ext = filepath
+        .extension()
+        .and_then(|ext| if ext == "" { None } else { Some(ext) })
+        .ok_or(MeshIOError::FilepathHasNoExtension)?;
+    let ext_uppercase = ext.to_string_lossy().to_uppercase();
 
-//     todo!()
-// }
+    match ext_uppercase.as_str() {
+        "STL" => StlReader::default()
+            .read_from_file(filepath)
+            .map_err(MeshIOError::IO),
+        "OBJ" => ObjReader::default()
+            .read_from_file(filepath)
+            .map_err(MeshIOError::IO),
+        _ => Err(MeshIOError::UnsupportedFormat(ext_uppercase)),
+    }
+}
+
+pub fn write_to_file<TMesh: TriangleMesh>(mesh: &TMesh, path: &Path) -> Result<(), MeshIOError> {
+    let ext = path
+        .extension()
+        .and_then(|ext| if ext == "" { None } else { Some(ext) })
+        .ok_or(MeshIOError::FilepathHasNoExtension)?;
+    let ext_uppercase = ext.to_string_lossy().to_uppercase();
+
+    match ext_uppercase.as_str() {
+        "STL" => StlWriter::default()
+            .write_to_file(mesh, path)
+            .map_err(MeshIOError::IO),
+        "OBJ" => ObjWriter::default()
+            .write_to_file(mesh, path)
+            .map_err(MeshIOError::IO),
+        _ => Err(MeshIOError::UnsupportedFormat(ext_uppercase)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use crate::{io::read_from_file, mesh::polygon_soup::data_structure::PolygonSoup};
+
+    #[test]
+    fn test_read_from_file() {
+        type Mesh = PolygonSoup<f64>;
+
+        let mesh = read_from_file::<Mesh>(Path::new("assets/box.stl")).expect("should read mesh");
+        assert_eq!(mesh.vertices().count(), 36); // Polygon soup duplicates vertices
+        assert_eq!(mesh.faces().count(), 12);
+
+        let mesh = read_from_file::<Mesh>(Path::new("assets/box.obj")).expect("should read mesh");
+        assert_eq!(mesh.vertices().count(), 36);
+        assert_eq!(mesh.faces().count(), 12);
+    }
+}

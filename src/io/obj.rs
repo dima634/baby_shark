@@ -1,6 +1,6 @@
 use super::*;
-use crate::{helpers::aliases::Vec3, io::MeshReader};
-use std::io::BufRead;
+use crate::{helpers::aliases::Vec3, io::{MeshReader, MeshWriter}};
+use std::{collections::HashMap, io::BufRead};
 
 // OBJ format spec:
 // https://www.martinreddy.net/gfx/3d/OBJ.spec
@@ -45,6 +45,46 @@ impl MeshReader for ObjReader {
         builder
             .finish()
             .map_err(|_| std::io::ErrorKind::Other.into())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ObjWriter;
+
+impl MeshWriter for ObjWriter {
+    fn write_to_buffer<TBuffer, TMesh>(
+        &self,
+        mesh: &TMesh,
+        writer: &mut BufWriter<TBuffer>,
+    ) -> std::io::Result<()>
+    where
+        TBuffer: Write,
+        TMesh: TriangleMesh 
+    {
+        for vertex in mesh.vertices() {
+            let position = mesh.position(vertex);
+            let stmt = Statement::Vertex(
+                position[0].as_(),
+                position[1].as_(),
+                position[2].as_(),
+            );
+            writer.write(stmt.to_string().as_bytes())?;
+            writer.write(b"\n")?;
+        }
+
+        let vertex_to_index: HashMap<TMesh::VertexId, usize> = mesh
+            .vertices()
+            .enumerate()
+            .map(|(index, id)| (id, index))
+            .collect();
+
+        for [v1, v2, v3] in mesh.faces() {
+            let stmt = Statement::Face(vertex_to_index[&v1], vertex_to_index[&v2], vertex_to_index[&v3]);
+            writer.write(stmt.to_string().as_bytes())?;
+            writer.write(b"\n")?;
+        }
+
+        writer.flush()
     }
 }
 
@@ -102,28 +142,4 @@ fn parse_face<'a>(mut parts: impl Iterator<Item = &'a str>) -> Option<Statement>
 fn parse_vertex_idx_from_face_stmt(stmt: &str) -> Option<usize> {
     let (vertex_idx_str, _) = stmt.split_once('/')?;
     vertex_idx_str.parse::<usize>().map(|idx| idx - 1).ok() // obj indices are 1-based
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mesh::polygon_soup::data_structure::PolygonSoup;
-    use std::path::Path;
-
-    #[test]
-    fn test_obj_reader() {
-        let path = Path::new("C:\\Users\\Dmytro Volovyk\\Downloads\\mini.obj");
-        let mut reader = ObjReader::default();
-        let mesh: PolygonSoup<f32> = reader
-            .read_from_file(&path)
-            .expect("Failed to read OBJ file");
-
-        let slt_writer = super::StlWriter::default();
-        slt_writer
-            .write_to_file(
-                &mesh,
-                &Path::new("C:\\Users\\Dmytro Volovyk\\Downloads\\mini.stl"),
-            )
-            .expect("Failed to write SLT file");
-    }
 }

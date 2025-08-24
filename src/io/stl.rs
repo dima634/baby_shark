@@ -1,10 +1,9 @@
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::*},
-    helpers::aliases::Vec3f,
+    helpers::aliases::{Vec3, Vec3f},
     io::*,
-    mesh::traits::Triangles,
+    mesh::traits::TriangleMesh,
 };
-use nalgebra::{Point3, Vector3};
 use std::{
     io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Write},
     mem::size_of,
@@ -119,13 +118,13 @@ impl StlWriter {
         StlWriter {}
     }
 
-    fn write_face<TBuffer: Write>(
+    fn write_face<TBuffer: Write, TVec3: Index<usize, Output = f32>>(
         &self,
         writer: &mut BufWriter<TBuffer>,
-        v1: &Point3<f32>,
-        v2: &Point3<f32>,
-        v3: &Point3<f32>,
-        normal: &Vector3<f32>,
+        v1: &TVec3,
+        v2: &TVec3,
+        v3: &TVec3,
+        normal: &TVec3,
     ) -> io::Result<()> {
         self.write_point(writer, normal)?;
         self.write_point(writer, v1)?;
@@ -157,32 +156,37 @@ impl MeshWriter for StlWriter {
     ) -> std::io::Result<()>
     where
         TBuffer: Write,
-        TMesh: Triangles,
+        TMesh: TriangleMesh,
     {
         let header = [0u8; STL_HEADER_SIZE];
         writer.write(&header)?;
 
-        let faces_count = mesh.triangles().count();
+        let faces_count = mesh.faces().count();
         if faces_count > u32::max_value() as usize {
             return Err(Error::new(ErrorKind::Other, "Mesh is too big for STL"));
         }
 
         writer.write(&(faces_count as u32).to_le_bytes())?;
 
-        for triangle in mesh.triangles() {
-            let normal = triangle.get_normal().unwrap_or(Vector3::zeros()); // Write zeros for degenerate faces
+        for [v1, v2, v3] in mesh.faces() {
+            let triangle = Triangle3::new(
+                Vec3::from(mesh.position(v1)),
+                Vec3::from(mesh.position(v2)),
+                Vec3::from(mesh.position(v3)),
+            );
+            let normal = triangle.get_normal().unwrap_or(Vec3::zeros()); // Write zeros for degenerate faces
 
-            let p1 = Point3::new(
+            let p1 = Vec3f::new(
                 triangle.p1().x.as_(),
                 triangle.p1().y.as_(),
                 triangle.p1().z.as_(),
             );
-            let p2 = Point3::new(
+            let p2 = Vec3f::new(
                 triangle.p2().x.as_(),
                 triangle.p2().y.as_(),
                 triangle.p2().z.as_(),
             );
-            let p3 = Point3::new(
+            let p3 = Vec3f::new(
                 triangle.p3().x.as_(),
                 triangle.p3().y.as_(),
                 triangle.p3().z.as_(),

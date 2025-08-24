@@ -2,7 +2,7 @@ use super::traversal::{EdgesIter, FacesIter};
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
     helpers::aliases::Vec3,
-    mesh::traits::Triangles,
+    mesh::traits::{Triangles, TriangleMesh},
 };
 
 /// Polygon soup
@@ -83,6 +83,28 @@ impl<S: RealNumber> Triangles for PolygonSoup<S> {
         self.vertices
             .chunks_exact(3)
             .map(|chunk| Triangle3::new(chunk[0], chunk[1], chunk[2]))
+    }
+}
+
+impl<R: RealNumber> TriangleMesh for PolygonSoup<R> {
+    type Scalar = R;
+    type VertexId = usize;
+
+    #[inline]
+    fn position(&self, vertex: Self::VertexId) -> [Self::Scalar; 3] {
+        self.vertices[vertex].into()
+    }
+
+    #[inline]
+    fn vertices(&self) -> impl Iterator<Item = Self::VertexId> {
+        0..self.vertices.len()
+    }
+
+    fn faces(&self) -> impl Iterator<Item = [Self::VertexId; 3]> {
+        (0..self.vertices.len() / 3).map(|i| {
+            let base = i * 3;
+            [base, base + 1, base + 2]
+        })
     }
 }
 
