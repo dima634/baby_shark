@@ -1,4 +1,8 @@
-use baby_shark::{io::*, mesh::polygon_soup::data_structure::PolygonSoup, voxel::prelude::*};
+use baby_shark::{
+    io::write_to_file, 
+    mesh::polygon_soup::data_structure::PolygonSoup, 
+    voxel::prelude::*
+};
 use nalgebra_glm::Vec3;
 use std::path::Path;
 
@@ -16,7 +20,6 @@ fn main() {
     let vertices = mesher.mesh(&bunny_volume).unwrap();
     let mesh = PolygonSoup::from_vertices(vertices);
 
-    StlWriter::new()
-        .write_to_file(&mesh, Path::new("dual_contouring.stl"))
+    write_to_file(&mesh, Path::new("dual_contouring.stl"))
         .expect("Write mesh");
 }

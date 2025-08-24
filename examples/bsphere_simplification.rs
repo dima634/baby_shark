@@ -1,20 +1,18 @@
 use baby_shark::{
     decimation::{BoundingSphereDecimationCriteria, EdgeDecimator},
-    io::*,
+    io::{read_from_file, write_to_file},
     mesh::corner_table::CornerTableF,
 };
 use nalgebra::Vector3;
 use std::path::Path;
 
 fn main() {
-    let mut reader = StlReader::new();
     let mut args = std::env::args();
     args.next();
     let path = args.next().expect("Enter an input file");
     let output = args.next().expect("Enter an output file");
 
-    let mut mesh: CornerTableF = reader
-        .read_from_file(Path::new(&path))
+    let mut mesh: CornerTableF = read_from_file(Path::new(&path))
         .expect("Read mesh from STL");
 
     let origin = Vector3::<f32>::zeros();
@@ -25,8 +23,6 @@ fn main() {
     let mut decimator = EdgeDecimator::new().decimation_criteria(criteria);
     decimator.decimate(&mut mesh);
 
-    let writer = StlWriter::new();
-    writer
-        .write_to_file(&mesh, Path::new(&output))
+    write_to_file(&mesh, Path::new(&output))
         .expect("Save mesh to STL");
 }

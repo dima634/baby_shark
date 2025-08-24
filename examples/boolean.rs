@@ -1,4 +1,8 @@
-use baby_shark::{io::*, mesh::polygon_soup::data_structure::PolygonSoup, voxel::prelude::*};
+use baby_shark::{
+    io::{read_from_file, write_to_file}, 
+    mesh::polygon_soup::data_structure::PolygonSoup, 
+    voxel::prelude::*
+};
 use nalgebra_glm::Vec3;
 use std::path::Path;
 
@@ -6,8 +10,7 @@ fn main() {
     let voxel_size = 0.2;
 
     // Read bunny mesh
-    let bunny_mesh: PolygonSoup<f32> = StlReader::new()
-        .read_from_file(Path::new("./assets/bunny.stl"))
+    let bunny_mesh: PolygonSoup<f32> = read_from_file(Path::new("./assets/bunny.stl"))
         .expect("Read mesh");
 
     // Convert bunny mesh to volume
@@ -41,7 +44,6 @@ fn write_volume_to_stl(volume: &Volume, path: &str) {
         .mesh(volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
-    StlWriter::new()
-        .write_to_file(&mesh, Path::new(path))
+    write_to_file(&mesh, Path::new(path))
         .expect("Should write mesh to STL");
 }
