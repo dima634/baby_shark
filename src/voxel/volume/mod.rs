@@ -124,13 +124,12 @@ impl Clone for Volume {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use crate::{
         io::*,
         mesh::polygon_soup::data_structure::PolygonSoup,
         voxel::{meshing::MarchingCubesMesher, prelude::MeshToVolume},
     };
+    use std::path::Path;
 
     #[test]
     fn test_volume_offset() {

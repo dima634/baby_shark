@@ -6,14 +6,12 @@ use baby_shark::{
 use std::path::Path;
 
 fn main() {
-    let mut mesh: CornerTableF = read_from_file(Path::new("./assets/torus.stl"))
-        .expect("Read mesh from STL");
+    let mut mesh: CornerTableF =
+        read_from_file(Path::new("./assets/torus.stl")).expect("Read mesh from STL");
 
     let decimation_criteria = ConstantErrorDecimationCriteria::new(0.2132);
-
     let mut decimator = EdgeDecimator::new().decimation_criteria(decimation_criteria);
     decimator.decimate(&mut mesh);
 
-    write_to_file(&mesh, Path::new("decimated.stl"))
-        .expect("Save mesh to STL");
+    write_to_file(&mesh, Path::new("decimated.stl")).expect("Save mesh to STL");
 }

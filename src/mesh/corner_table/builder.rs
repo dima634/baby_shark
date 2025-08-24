@@ -46,8 +46,7 @@ impl<TScalar: RealNumber> CornerTable<TScalar> {
 
     #[inline]
     pub(super) fn create_corner(&mut self, vertex: VertexId) -> (CornerId, &mut Corner) {
-        let idx = u32::try_from(self.corners.len())
-            .expect("number of corners is too big");
+        let idx = u32::try_from(self.corners.len()).expect("number of corners is too big");
         self.corners.push(Corner::new(None, vertex));
         (CornerId::new(idx), &mut self.corners[idx as usize])
     }
@@ -95,13 +94,13 @@ impl<R: RealNumber> CornerTable<R> {
         mut faces: impl Iterator<Item = usize>,
     ) -> Self {
         let mut builder = Self::builder_indexed();
-        let Ok(_) = builder.add_vertices(vertices) else { return Self::default(); };
+        let Ok(_) = builder.add_vertices(vertices) else { return Self::default() };
 
         loop {
             let Some(v1) = faces.next() else { break };
             let Some(v2) = faces.next() else { break };
             let Some(v3) = faces.next() else { break };
-            let Ok(_) = builder.add_face(v1, v2, v3) else { return Self::default(); };
+            let Ok(_) = builder.add_face(v1, v2, v3) else { return Self::default() };
         }
 
         builder.finish().unwrap_or_default()
@@ -194,11 +193,14 @@ impl<R: RealNumber> io::IndexedBuilder<R, CornerTable<R>> for IndexedBuilder<R> 
             return Ok(());
         }
 
-        let c1 = self.corner_table
+        let c1 = self
+            .corner_table
             .corner_from(&mut self.edge_opposite_corner_map, edge1, v1_id);
-        let c2 = self.corner_table
+        let c2 = self
+            .corner_table
             .corner_from(&mut self.edge_opposite_corner_map, edge2, v2_id);
-        let c3 = self.corner_table
+        let c3 = self
+            .corner_table
             .corner_from(&mut self.edge_opposite_corner_map, edge3, v3_id);
 
         self.vertex_corners.entry(v1_id).or_default().insert(c1);
@@ -243,10 +245,13 @@ impl<R: RealNumber> io::IndexedBuilder<R, CornerTable<R>> for IndexedBuilder<R> 
 
             // Duplicate vertex for each "corner fan"
             while let Some(corner_idx) = corners.pop_first() {
-                let duplicate_vertex = self.corner_table
+                let duplicate_vertex = self
+                    .corner_table
                     .create_vertex(Some(corner_idx), vertex_pos);
 
-                for adj_corner in collect_corners_around_vertex(&self.corner_table, duplicate_vertex) {
+                for adj_corner in
+                    collect_corners_around_vertex(&self.corner_table, duplicate_vertex)
+                {
                     self.corner_table[adj_corner].set_vertex(duplicate_vertex);
                     corners.remove(&adj_corner);
                 }
@@ -343,9 +348,8 @@ mod tests {
         let expected_corners = vec![
             Corner::new(None, VertexId::new(0)),
             Corner::new(Some(CornerId::new(4)), VertexId::new(1)),
-            Corner::new(None,                   VertexId::new(2)),
-
-            Corner::new(None,                   VertexId::new(2)),
+            Corner::new(None, VertexId::new(2)),
+            Corner::new(None, VertexId::new(2)),
             Corner::new(Some(CornerId::new(1)), VertexId::new(3)),
             Corner::new(None, VertexId::new(0)),
         ];
@@ -355,20 +359,17 @@ mod tests {
 
     #[test]
     fn should_remove_face_that_introduces_non_manifold_edge() {
-        let mesh = CornerTableF::from_vertex_and_face_slices(&[
-            Vec3::new(0.0, 1.0, 0.0),
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(1.0, 0.0, 0.0),
-            Vec3::new(-1.0, 0.0, 0.0),
-            Vec3::new(0.0, 0.0, -1.0),
-            Vec3::new(0.0, 0.0, -1.0),
-        ], &[
-            0, 1, 2,
-            0, 1, 4,
-            0, 3, 1,
-            3, 5, 1,
-            1, 5, 2,
-        ]);
+        let mesh = CornerTableF::from_vertex_and_face_slices(
+            &[
+                Vec3::new(0.0, 1.0, 0.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(-1.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, -1.0),
+                Vec3::new(0.0, 0.0, -1.0),
+            ],
+            &[0, 1, 2, 0, 1, 4, 0, 3, 1, 3, 5, 1, 1, 5, 2],
+        );
 
         assert!(mesh.faces().count() == 4);
     }

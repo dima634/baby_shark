@@ -2,7 +2,7 @@ use super::traversal::{EdgesIter, FacesIter};
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
     helpers::aliases::Vec3,
-    mesh::traits::{Triangles, TriangleMesh},
+    mesh::traits::{TriangleMesh, Triangles},
 };
 
 /// Polygon soup
@@ -39,7 +39,6 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
         Self { vertices }
     }
 
-    
     pub fn from_vertex_and_face_iters(
         vertices: impl Iterator<Item = Vec3<TScalar>>,
         faces: impl Iterator<Item = usize>,

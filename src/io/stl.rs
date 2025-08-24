@@ -87,7 +87,7 @@ impl MeshReader for StlReader {
             builder.add_face(
                 triangle.p1().cast(),
                 triangle.p2().cast(),
-                triangle.p3().cast()
+                triangle.p3().cast(),
             )?;
         }
 

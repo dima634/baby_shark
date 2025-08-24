@@ -1,10 +1,10 @@
 use crate::{
-    io::*, 
-    mesh::traits::Triangles, 
+    io::*,
+    mesh::traits::Triangles,
     voxel::{
         mesh_to_volume::MeshToVolume,
         meshing::{DualContouringMesher, MarchingCubesMesher},
-    }
+    },
 };
 
 pub enum MeshingMethod {

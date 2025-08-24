@@ -1,7 +1,7 @@
 use baby_shark::{
-    io::{read_from_file, write_to_file}, 
-    mesh::polygon_soup::data_structure::PolygonSoup, 
-    voxel::prelude::*
+    io::{read_from_file, write_to_file},
+    mesh::polygon_soup::data_structure::PolygonSoup,
+    voxel::prelude::*,
 };
 use std::path::Path;
 
@@ -9,8 +9,8 @@ fn main() {
     let voxel_size = 0.2;
 
     // Read bunny mesh
-    let bunny_mesh: PolygonSoup<f32> = read_from_file(Path::new("./assets/bunny.stl"))
-        .expect("Read mesh");
+    let bunny_mesh: PolygonSoup<f32> =
+        read_from_file(Path::new("./assets/bunny.stl")).expect("Read mesh");
 
     // Convert bunny mesh to volume
     let mut mesh_to_volume = MeshToVolume::default().with_voxel_size(voxel_size);
@@ -29,6 +29,5 @@ fn write_volume_to_stl(volume: &Volume, path: &str) {
         .mesh(volume);
     let mesh = PolygonSoup::from_vertices(vertices);
 
-    write_to_file(&mesh, Path::new(path))
-        .expect("Should write mesh to STL");
+    write_to_file(&mesh, Path::new(path)).expect("Should write mesh to STL");
 }

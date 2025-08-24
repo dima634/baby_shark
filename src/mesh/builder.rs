@@ -8,6 +8,7 @@ pub fn cube<T: Builder>(
     y_size: T::Scalar,
     z_size: T::Scalar,
 ) -> T::Mesh {
+    #[rustfmt::skip]
     let vertices = [
         origin,
         Vec3::new(origin.x,          origin.y + y_size,  origin.z),
@@ -21,23 +22,27 @@ pub fn cube<T: Builder>(
     ];
 
     let faces = [
-        [0, 1, 2], 
+        [0, 1, 2],
         [0, 2, 3],
-        [6, 5, 4], 
+        [6, 5, 4],
         [7, 6, 4],
-        [0, 4, 5], 
+        [0, 4, 5],
         [0, 5, 1],
-        [0, 7, 4], 
+        [0, 7, 4],
         [0, 3, 7],
-        [3, 6, 7], 
+        [3, 6, 7],
         [3, 2, 6],
-        [1, 5, 6], 
+        [1, 5, 6],
         [1, 6, 2],
     ];
 
     let mut builder = T::builder_indexed();
-    builder.add_vertices(vertices.into_iter()).expect("should add vertices");
-    builder.add_faces(faces.into_iter()).expect("should add faces");
+    builder
+        .add_vertices(vertices.into_iter())
+        .expect("should add vertices");
+    builder
+        .add_faces(faces.into_iter())
+        .expect("should add faces");
     builder.finish().expect("should build mesh") // Safe to unwrap because data is for sure valid
 }
 
@@ -55,7 +60,8 @@ pub fn cylinder<T: Builder>(
         let y = T::Scalar::usize(i) * height / T::Scalar::usize(num_sections);
 
         for j in 0..num_segments {
-            let theta = T::Scalar::usize(j) * T::Scalar::two() * T::Scalar::pi() / T::Scalar::usize(num_segments);
+            let theta = T::Scalar::usize(j) * T::Scalar::two() * T::Scalar::pi()
+                / T::Scalar::usize(num_segments);
             let x = radius * theta.cos();
             let z = radius * theta.sin();
             vertices.push(Vec3::new(x, y, z));
@@ -64,11 +70,7 @@ pub fn cylinder<T: Builder>(
 
     // Generate top and bottom faces
     let top_center_index = vertices.len();
-    vertices.push(Vec3::new(
-        T::Scalar::zero(),
-        height,
-        T::Scalar::zero(),
-    ));
+    vertices.push(Vec3::new(T::Scalar::zero(), height, T::Scalar::zero()));
     let bottom_center_index = vertices.len();
     vertices.push(Vec3::new(
         T::Scalar::zero(),
@@ -105,7 +107,11 @@ pub fn cylinder<T: Builder>(
     }
 
     let mut builder = T::builder_indexed();
-    builder.add_vertices(vertices.into_iter()).expect("should add vertices");
-    builder.add_faces(indices.into_iter()).expect("should add faces");
+    builder
+        .add_vertices(vertices.into_iter())
+        .expect("should add vertices");
+    builder
+        .add_faces(indices.into_iter())
+        .expect("should add faces");
     builder.finish().expect("should build mesh") // Safe to unwrap because data is for sure valid
 }

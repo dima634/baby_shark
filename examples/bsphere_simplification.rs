@@ -12,8 +12,7 @@ fn main() {
     let path = args.next().expect("Enter an input file");
     let output = args.next().expect("Enter an output file");
 
-    let mut mesh: CornerTableF = read_from_file(Path::new(&path))
-        .expect("Read mesh from STL");
+    let mut mesh: CornerTableF = read_from_file(Path::new(&path)).expect("Read mesh from STL");
 
     let origin = Vector3::<f32>::zeros();
     let radii_error_map = vec![(5.0f32, 0.0001f32), (10.0f32, 0.001f32), (15.0f32, 0.8f32)];
@@ -23,6 +22,5 @@ fn main() {
     let mut decimator = EdgeDecimator::new().decimation_criteria(criteria);
     decimator.decimate(&mut mesh);
 
-    write_to_file(&mesh, Path::new(&output))
-        .expect("Save mesh to STL");
+    write_to_file(&mesh, Path::new(&output)).expect("Save mesh to STL");
 }

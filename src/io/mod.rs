@@ -9,8 +9,8 @@ use std::{
 pub mod obj;
 pub mod stl;
 
-pub use stl::{StlReader, StlWriter};
 pub use obj::{ObjReader, ObjWriter};
+pub use stl::{StlReader, StlWriter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildError {
@@ -78,9 +78,9 @@ pub trait SoupBuilder<R: RealNumber, M> {
         }
 
         loop {
-            let Some(v1) = faces.next() else { break; };
-            let Some(v2) = faces.next() else { break; };
-            let Some(v3) = faces.next() else { break; };
+            let Some(v1) = faces.next() else { break };
+            let Some(v2) = faces.next() else { break };
+            let Some(v3) = faces.next() else { break };
 
             self.add_face(v1, v2, v3)?;
         }
@@ -238,8 +238,8 @@ pub fn write_to_file<TMesh: TriangleMesh>(mesh: &TMesh, path: &Path) -> Result<(
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use crate::{io::read_from_file, mesh::polygon_soup::data_structure::PolygonSoup};
+    use std::path::Path;
 
     #[test]
     fn test_read_from_file() {
