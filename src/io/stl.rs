@@ -131,7 +131,7 @@ impl StlWriter {
         self.write_point(writer, v1)?;
         self.write_point(writer, v2)?;
         self.write_point(writer, v3)?;
-        writer.write_all(&[0; 2])?;
+        writer.write(&[0; 2])?;
 
         Ok(())
     }
@@ -141,9 +141,9 @@ impl StlWriter {
         writer: &mut BufWriter<TBuffer>,
         point: &TPoint,
     ) -> io::Result<()> {
-        writer.write_all(&point[0].to_le_bytes())?;
-        writer.write_all(&point[1].to_le_bytes())?;
-        writer.write_all(&point[2].to_le_bytes())?;
+        writer.write(&point[0].to_le_bytes())?;
+        writer.write(&point[1].to_le_bytes())?;
+        writer.write(&point[2].to_le_bytes())?;
 
         Ok(())
     }
@@ -160,14 +160,14 @@ impl MeshWriter for StlWriter {
         TMesh: Triangles,
     {
         let header = [0u8; STL_HEADER_SIZE];
-        writer.write_all(&header)?;
+        writer.write(&header)?;
 
         let faces_count = mesh.triangles().count();
         if faces_count > u32::max_value() as usize {
             return Err(Error::new(ErrorKind::Other, "Mesh is too big for STL"));
         }
 
-        writer.write_all(&(faces_count as u32).to_le_bytes())?;
+        writer.write(&(faces_count as u32).to_le_bytes())?;
 
         for triangle in mesh.triangles() {
             let normal = triangle.get_normal().unwrap_or(Vector3::zeros()); // Write zeros for degenerate faces
@@ -192,7 +192,7 @@ impl MeshWriter for StlWriter {
             self.write_face(writer, &p1, &p2, &p3, &n)?;
         }
 
-        Ok(())
+        writer.flush()
     }
 }
 
