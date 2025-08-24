@@ -47,14 +47,14 @@ For more control, you can use format-specific readers and writers directly:
 use baby_shark::io::{StlReader, StlWriter, ObjReader};
 
 // Using specific readers
-let mut stl_reader = StlReader::new();
+let mut stl_reader = StlReader::default();
 let mesh = stl_reader.read_from_file(Path::new("./mesh.stl"))?;
 
-let mut obj_reader = ObjReader::new(); 
+let mut obj_reader = ObjReader::default(); 
 let mesh = obj_reader.read_from_file(Path::new("./mesh.obj"))?;
 
 // Using specific writers
-let stl_writer = StlWriter::new();
+let stl_writer = StlWriter::default();
 stl_writer.write_to_file(&mesh, Path::new("./output.stl"))?;
 ```
 
