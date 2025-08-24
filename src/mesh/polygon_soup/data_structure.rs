@@ -2,7 +2,7 @@ use super::traversal::{EdgesIter, FacesIter};
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
     helpers::aliases::Vec3,
-    mesh::traits::{FromIndexed, FromSoup, Triangles},
+    mesh::traits::{TriangleMesh, Triangles},
 };
 
 /// Polygon soup
@@ -32,20 +32,15 @@ impl<TScalar: RealNumber> PolygonSoup<TScalar> {
     pub fn concat(&mut self, other: PolygonSoup<TScalar>) {
         self.vertices.extend(other.vertices);
     }
-}
 
-impl<S: RealNumber> Default for PolygonSoup<S> {
-    #[inline]
-    fn default() -> Self {
-        Self { vertices: vec![] }
+    pub fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<TScalar>>) -> Self {
+        let mut vertices: Vec<_> = triangles.collect();
+        vertices.resize(vertices.len() - vertices.len() % 3, Vec3::zeros());
+        Self { vertices }
     }
-}
 
-impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
-    type Scalar = S;
-
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<S>>,
+    pub fn from_vertex_and_face_iters(
+        vertices: impl Iterator<Item = Vec3<TScalar>>,
         faces: impl Iterator<Item = usize>,
     ) -> Self {
         let num_faces = faces.size_hint().1.unwrap_or(0);
@@ -59,7 +54,7 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
         Self { vertices: soup }
     }
 
-    fn from_vertex_and_face_slices(vertices: &[Vec3<S>], faces: &[usize]) -> Self
+    pub fn from_vertex_and_face_slices(vertices: &[Vec3<TScalar>], faces: &[usize]) -> Self
     where
         Self: Sized,
     {
@@ -73,13 +68,10 @@ impl<S: RealNumber> FromIndexed for PolygonSoup<S> {
     }
 }
 
-impl<S: RealNumber> FromSoup for PolygonSoup<S> {
-    type Scalar = S;
-
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self {
-        let mut vertices: Vec<_> = triangles.collect();
-        vertices.resize(vertices.len() - vertices.len() % 3, Vec3::zeros());
-        Self { vertices }
+impl<S: RealNumber> Default for PolygonSoup<S> {
+    #[inline]
+    fn default() -> Self {
+        Self { vertices: vec![] }
     }
 }
 
@@ -90,6 +82,28 @@ impl<S: RealNumber> Triangles for PolygonSoup<S> {
         self.vertices
             .chunks_exact(3)
             .map(|chunk| Triangle3::new(chunk[0], chunk[1], chunk[2]))
+    }
+}
+
+impl<R: RealNumber> TriangleMesh for PolygonSoup<R> {
+    type Scalar = R;
+    type VertexId = usize;
+
+    #[inline]
+    fn position(&self, vertex: Self::VertexId) -> [Self::Scalar; 3] {
+        self.vertices[vertex].into()
+    }
+
+    #[inline]
+    fn vertices(&self) -> impl Iterator<Item = Self::VertexId> {
+        0..self.vertices.len()
+    }
+
+    fn faces(&self) -> impl Iterator<Item = [Self::VertexId; 3]> {
+        (0..self.vertices.len() / 3).map(|i| {
+            let base = i * 3;
+            [base, base + 1, base + 2]
+        })
     }
 }
 

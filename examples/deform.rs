@@ -1,6 +1,6 @@
 use baby_shark::{
     exports::nalgebra as na,
-    io::stl::StlWriter,
+    io::write_to_file,
     mesh::{builder::cylinder, corner_table::CornerTableD},
     prepare_deform,
 };
@@ -11,7 +11,7 @@ use std::{
 };
 
 fn main() {
-    let cylinder: CornerTableD = cylinder(10.0, 2.0, 4, 15);
+    let cylinder = cylinder::<CornerTableD>(10.0, 2.0, 4, 15);
     let handle = HashSet::from_iter(cylinder.vertices().filter(|&v| {
         cylinder.vertex_position(v).y == 10.0 || cylinder.vertex_position(v).y == 0.0
     }));
@@ -36,7 +36,6 @@ fn main() {
         .deform(&cylinder, &target)
         .expect("should deform mesh");
 
-    StlWriter::new()
-        .write_stl_to_file(&deformed_cylinder, Path::new("deformed_cylinder.stl"))
+    write_to_file(&deformed_cylinder, Path::new("deformed_cylinder.stl"))
         .expect("should write stl file");
 }

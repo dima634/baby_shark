@@ -375,13 +375,13 @@ impl Default for IncrementalRemesher {
 #[cfg(test)]
 mod tests {
     use super::IncrementalRemesher;
-    use crate::{io::stl::StlReader, mesh::corner_table::*};
+    use crate::{io::*, mesh::corner_table::*};
     use std::path::Path;
 
     #[test]
     fn should_collapse_short_edges() {
         let mut mesh: CornerTable<f32> = StlReader::default()
-            .read_stl_from_file(Path::new("./assets/tube.stl"))
+            .read_from_file(Path::new("./assets/tube.stl"))
             .expect("Read mesh");
 
         // Only collapse edges

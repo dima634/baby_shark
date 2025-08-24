@@ -249,10 +249,7 @@ impl<S: RealNumber> Grid<Triangle3<S>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        helpers::aliases::Vec3f,
-        mesh::{corner_table::CornerTableF, traits::FromIndexed},
-    };
+    use crate::{helpers::aliases::Vec3f, mesh::corner_table::CornerTableF};
 
     #[test]
     fn test_grid_creation_zero_volume_cases() {

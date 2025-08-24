@@ -1,15 +1,5 @@
-use crate::{
-    geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
-    helpers::aliases::Vec3,
-};
-
-pub trait FromSoup {
-    type Scalar: RealNumber; // TODO: move scalar to supertrait
-
-    /// # Arguments
-    /// * `triangles` - iterator of triangles, each triangle is represented as a vector of 3 vertices
-    fn from_triangles_soup(triangles: impl Iterator<Item = Vec3<Self::Scalar>>) -> Self;
-}
+use crate::geometry::{primitives::triangle3::Triangle3, traits::RealNumber};
+use std::hash::Hash;
 
 pub trait Triangles {
     type Scalar: RealNumber;
@@ -17,24 +7,13 @@ pub trait Triangles {
     fn triangles(&self) -> impl Iterator<Item = Triangle3<Self::Scalar>>;
 }
 
-/// Triangular mesh
-pub trait FromIndexed {
+pub trait TriangleMesh {
     type Scalar: RealNumber;
+    type VertexId: Eq + PartialEq + PartialOrd + Ord + Hash;
 
-    /// Creates mesh from vertices and face indices
-    fn from_vertex_and_face_iters(
-        vertices: impl Iterator<Item = Vec3<Self::Scalar>>,
-        faces: impl Iterator<Item = usize>,
-    ) -> Self;
-
-    /// Creates mesh from vertices and face indices saved in slices
-    #[inline]
-    fn from_vertex_and_face_slices(vertices: &[Vec3<Self::Scalar>], faces: &[usize]) -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_vertex_and_face_iters(vertices.iter().cloned(), faces.iter().cloned())
-    }
+    fn position(&self, vertex: Self::VertexId) -> [Self::Scalar; 3];
+    fn vertices(&self) -> impl Iterator<Item = Self::VertexId>;
+    fn faces(&self) -> impl Iterator<Item = [Self::VertexId; 3]>;
 }
 
 /// Contains constants which defines what is good mesh

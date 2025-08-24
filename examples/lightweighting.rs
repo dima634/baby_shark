@@ -1,5 +1,5 @@
 use baby_shark::{
-    io::stl::{StlReader, StlWriter},
+    io::{read_from_file, write_to_file},
     mesh::polygon_soup::data_structure::PolygonSoup,
     voxel::prelude::*,
 };
@@ -10,9 +10,8 @@ fn main() {
     let voxel_size = 0.2;
 
     // Read bunny mesh
-    let bunny_mesh: PolygonSoup<f32> = StlReader::new()
-        .read_stl_from_file(Path::new("./assets/bunny.stl"))
-        .expect("Should read read mesh from STL");
+    let bunny_mesh: PolygonSoup<f32> =
+        read_from_file(Path::new("./assets/bunny.stl")).expect("Should read read mesh from STL");
 
     // Convert bunny mesh to volume
     let mut mesh_to_sdf = MeshToVolume::default().with_voxel_size(voxel_size);
@@ -42,7 +41,5 @@ fn main() {
         .expect("Should convert volume to mesh");
     let mesh = PolygonSoup::from_vertices(vertices);
 
-    StlWriter::new()
-        .write_stl_to_file(&mesh, Path::new("result.stl"))
-        .expect("Should write mesh to STL");
+    write_to_file(&mesh, Path::new("result.stl")).expect("Should write mesh to STL");
 }

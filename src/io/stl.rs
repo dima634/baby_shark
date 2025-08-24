@@ -1,15 +1,13 @@
 use crate::{
     geometry::{primitives::triangle3::Triangle3, traits::*},
-    helpers::aliases::Vec3f,
-    mesh::traits::{FromSoup, Triangles},
+    helpers::aliases::{Vec3, Vec3f},
+    io::*,
+    mesh::traits::TriangleMesh,
 };
-use nalgebra::{Point3, Vector3};
 use std::{
-    fs::{File, OpenOptions},
     io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Write},
     mem::size_of,
     ops::Index,
-    path::Path,
 };
 
 const STL_HEADER_SIZE: usize = 80;
@@ -31,60 +29,10 @@ impl StlReader {
         }
     }
 
-    /// Reads mesh from file
-    pub fn read_stl_from_file<TMesh: FromSoup>(
-        &mut self,
-        filepath: &Path,
-    ) -> std::io::Result<TMesh> {
-        let file = OpenOptions::new().read(true).open(filepath)?;
-        let mut reader = BufReader::new(file);
-
-        self.read_stl::<File, TMesh>(&mut reader)
-    }
-
-    /// Reads mesh from buffer
-    pub fn read_stl<TBuffer, TMesh>(
-        &mut self,
-        reader: &mut BufReader<TBuffer>,
-    ) -> std::io::Result<TMesh>
-    where
-        TBuffer: Read,
-        TMesh: FromSoup,
-    {
-        // Read header
-        let mut header = [0u8; STL_HEADER_SIZE];
-        reader.read_exact(&mut header)?;
-
-        // Read number of triangle
-        reader.read_exact(&mut self.buf32)?;
-        let number_of_triangles: u32 = u32::from_le_bytes(self.buf32);
-
-        // Faces
-        let mut triangles = Vec::with_capacity(number_of_triangles as usize);
-        for _ in 0..number_of_triangles {
-            self.read_face(reader, &mut triangles)?;
-        }
-
-        let casted_triangles = triangles
-            .into_iter()
-            .map(|triangle| {
-                let p1 = triangle.p1();
-                let p2 = triangle.p2();
-                let p3 = triangle.p3();
-
-                [p1.cast(), p2.cast(), p3.cast()]
-            })
-            .flatten();
-
-        // Create mesh
-        Ok(TMesh::from_triangles_soup(casted_triangles))
-    }
-
     fn read_face<TBuffer: Read>(
         &mut self,
         reader: &mut BufReader<TBuffer>,
-        triangles: &mut Vec<Triangle3<f32>>,
-    ) -> io::Result<()> {
+    ) -> io::Result<Triangle3<f32>> {
         // Normal
         self.read_vec3(reader)?;
 
@@ -93,12 +41,10 @@ impl StlReader {
         let v2 = self.read_vec3(reader)?;
         let v3 = self.read_vec3(reader)?;
 
-        triangles.push(Triangle3::new(v1, v2, v3));
-
         // Attribute
         reader.read_exact(&mut self.buf16)?;
 
-        Ok(())
+        Ok(Triangle3::new(v1, v2, v3))
     }
 
     fn read_vec3<TBuffer: Read>(&mut self, reader: &mut BufReader<TBuffer>) -> io::Result<Vec3f> {
@@ -112,6 +58,40 @@ impl StlReader {
         let z = f32::from_le_bytes(self.buf32);
 
         Ok(Vec3f::new(x, y, z))
+    }
+}
+
+impl MeshReader for StlReader {
+    fn read_from_buffer<TBuffer, TMesh>(
+        &mut self,
+        reader: &mut BufReader<TBuffer>,
+    ) -> Result<TMesh, ReadError>
+    where
+        TBuffer: Read,
+        TMesh: Builder<Mesh = TMesh>,
+    {
+        // Read header
+        let mut header = [0u8; STL_HEADER_SIZE];
+        reader.read_exact(&mut header)?;
+
+        // Read number of triangle
+        reader.read_exact(&mut self.buf32)?;
+        let number_of_triangles: u32 = u32::from_le_bytes(self.buf32);
+
+        // Faces
+        let mut builder = TMesh::builder_soup();
+        builder.set_num_faces(number_of_triangles as usize);
+
+        for _ in 0..number_of_triangles {
+            let triangle = self.read_face(reader)?;
+            builder.add_face(
+                triangle.p1().cast(),
+                triangle.p2().cast(),
+                triangle.p3().cast(),
+            )?;
+        }
+
+        Ok(builder.finish()?)
     }
 }
 
@@ -129,75 +109,19 @@ impl StlWriter {
         StlWriter {}
     }
 
-    pub fn write_stl_to_file<TMesh: Triangles>(&self, mesh: &TMesh, path: &Path) -> io::Result<()> {
-        let file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(path)?;
-        let mut writer = BufWriter::new(file);
-
-        self.write_stl(mesh, &mut writer)
-    }
-
-    pub fn write_stl<TBuffer, TMesh>(
-        &self,
-        mesh: &TMesh,
-        writer: &mut BufWriter<TBuffer>,
-    ) -> io::Result<()>
-    where
-        TBuffer: Write,
-        TMesh: Triangles,
-    {
-        let header = [0u8; STL_HEADER_SIZE];
-        writer.write_all(&header)?;
-
-        let faces_count = mesh.triangles().count();
-        if faces_count > u32::max_value() as usize {
-            return Err(Error::new(ErrorKind::Other, "Mesh is too big for STL"));
-        }
-
-        writer.write_all(&(faces_count as u32).to_le_bytes())?;
-
-        for triangle in mesh.triangles() {
-            let normal = triangle.get_normal().unwrap_or(Vector3::zeros()); // Write zeros for degenerate faces
-
-            let p1 = Point3::new(
-                triangle.p1().x.as_(),
-                triangle.p1().y.as_(),
-                triangle.p1().z.as_(),
-            );
-            let p2 = Point3::new(
-                triangle.p2().x.as_(),
-                triangle.p2().y.as_(),
-                triangle.p2().z.as_(),
-            );
-            let p3 = Point3::new(
-                triangle.p3().x.as_(),
-                triangle.p3().y.as_(),
-                triangle.p3().z.as_(),
-            );
-            let n = Vec3f::new(normal.x.as_(), normal.y.as_(), normal.z.as_());
-
-            self.write_face(writer, &p1, &p2, &p3, &n)?;
-        }
-
-        Ok(())
-    }
-
-    fn write_face<TBuffer: Write>(
+    fn write_face<TBuffer: Write, TVec3: Index<usize, Output = f32>>(
         &self,
         writer: &mut BufWriter<TBuffer>,
-        v1: &Point3<f32>,
-        v2: &Point3<f32>,
-        v3: &Point3<f32>,
-        normal: &Vector3<f32>,
+        v1: &TVec3,
+        v2: &TVec3,
+        v3: &TVec3,
+        normal: &TVec3,
     ) -> io::Result<()> {
         self.write_point(writer, normal)?;
         self.write_point(writer, v1)?;
         self.write_point(writer, v2)?;
         self.write_point(writer, v3)?;
-        writer.write_all(&[0; 2])?;
+        writer.write(&[0; 2])?;
 
         Ok(())
     }
@@ -207,11 +131,63 @@ impl StlWriter {
         writer: &mut BufWriter<TBuffer>,
         point: &TPoint,
     ) -> io::Result<()> {
-        writer.write_all(&point[0].to_le_bytes())?;
-        writer.write_all(&point[1].to_le_bytes())?;
-        writer.write_all(&point[2].to_le_bytes())?;
+        writer.write(&point[0].to_le_bytes())?;
+        writer.write(&point[1].to_le_bytes())?;
+        writer.write(&point[2].to_le_bytes())?;
 
         Ok(())
+    }
+}
+
+impl MeshWriter for StlWriter {
+    fn write_to_buffer<TBuffer, TMesh>(
+        &self,
+        mesh: &TMesh,
+        writer: &mut BufWriter<TBuffer>,
+    ) -> std::io::Result<()>
+    where
+        TBuffer: Write,
+        TMesh: TriangleMesh,
+    {
+        let header = [0u8; STL_HEADER_SIZE];
+        writer.write(&header)?;
+
+        let faces_count = mesh.faces().count();
+        if faces_count > u32::max_value() as usize {
+            return Err(Error::new(ErrorKind::Other, "Mesh is too big for STL"));
+        }
+
+        writer.write(&(faces_count as u32).to_le_bytes())?;
+
+        for [v1, v2, v3] in mesh.faces() {
+            let triangle = Triangle3::new(
+                Vec3::from(mesh.position(v1)),
+                Vec3::from(mesh.position(v2)),
+                Vec3::from(mesh.position(v3)),
+            );
+            let normal = triangle.get_normal().unwrap_or(Vec3::zeros()); // Write zeros for degenerate faces
+
+            let p1 = Vec3f::new(
+                triangle.p1().x.as_(),
+                triangle.p1().y.as_(),
+                triangle.p1().z.as_(),
+            );
+            let p2 = Vec3f::new(
+                triangle.p2().x.as_(),
+                triangle.p2().y.as_(),
+                triangle.p2().z.as_(),
+            );
+            let p3 = Vec3f::new(
+                triangle.p3().x.as_(),
+                triangle.p3().y.as_(),
+                triangle.p3().z.as_(),
+            );
+            let n = Vec3f::new(normal.x.as_(), normal.y.as_(), normal.z.as_());
+
+            self.write_face(writer, &p1, &p2, &p3, &n)?;
+        }
+
+        writer.flush()
     }
 }
 

@@ -1,7 +1,7 @@
 mod attribute;
 mod boundary;
+mod builder;
 mod corner;
-mod create;
 mod edge;
 mod edit;
 mod face;
@@ -17,14 +17,14 @@ pub use boundary::BoundaryRing;
 pub use corner::CornerId;
 pub use edge::EdgeId;
 pub use face::FaceId;
+pub use traversal::IncidentEdge;
 pub use vertex::VertexId;
 pub use walker::CornerWalker;
-pub use traversal::IncidentEdge;
 
 pub type CornerTableF = CornerTable<f32>;
 pub type CornerTableD = CornerTable<f64>;
 
-use super::traits::Triangles;
+use super::traits::{TriangleMesh, Triangles};
 use crate::geometry::{primitives::triangle3::Triangle3, traits::RealNumber};
 use corner::*;
 use vertex::*;
@@ -40,6 +40,25 @@ impl<S: RealNumber> Triangles for CornerTable<S> {
 
     fn triangles(&self) -> impl Iterator<Item = Triangle3<Self::Scalar>> {
         self.faces().map(|face| self.face_positions(face))
+    }
+}
+
+impl<R: RealNumber> TriangleMesh for CornerTable<R> {
+    type Scalar = R;
+    type VertexId = VertexId;
+
+    #[inline]
+    fn position(&self, vertex: Self::VertexId) -> [Self::Scalar; 3] {
+        self[vertex].position().clone().into()
+    }
+
+    #[inline]
+    fn vertices(&self) -> impl Iterator<Item = Self::VertexId> {
+        self.vertices()
+    }
+
+    fn faces(&self) -> impl Iterator<Item = [Self::VertexId; 3]> {
+        self.faces().map(|face| self.face_vertices(face).into())
     }
 }
 

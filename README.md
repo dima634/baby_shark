@@ -13,27 +13,49 @@
     - Isotropic remeshing
 
 # IO
-## Reading/writing mesh from/to STL file
-You can read/write STL files using `StlReader` and `StlWriter` structs. Ony binary STLs are supported.
+## Reading and writing mesh files
+The library supports reading and writing mesh files in multiple formats with automatic format detection based on file extension:
+
+- **STL** (binary only) - Widely used for 3D printing and CAD
+- **OBJ** - Common format for graphics applications
+
+The `read_from_file` and `write_to_file` functions automatically detect the format from the file extension and use the appropriate reader/writer.
 
 ### Example
 ```rust
 use std::path::Path;
-
 use baby_shark::{
-    io::stl::{StlReader, StlWriter}, 
+    io::{read_from_file, write_to_file}, 
     mesh::corner_table::prelude::CornerTableF
 };
 
 fn main() {
-    let mut reader = StlReader::new();
-    let mesh: CornerTableF = reader.read_stl_from_file(Path::new("./read.stl"))
-        .expect("Read mesh from STL file");
+    // Read mesh - format automatically detected from extension
+    let mesh: CornerTableF = read_from_file(Path::new("./input.stl"))
+        .expect("Failed to read mesh file");
 
-    let writer = StlWriter::new();
-    writer.write_stl_to_file(&mesh, Path::new("./write.stl"))
-        .expect("Save mesh to STL file");
+    // Write mesh - format automatically detected from extension  
+    write_to_file(&mesh, Path::new("./output.obj"))
+        .expect("Failed to write mesh file");
 }
+```
+
+### Advanced usage with specific readers/writers
+For more control, you can use format-specific readers and writers directly:
+
+```rust
+use baby_shark::io::{StlReader, StlWriter, ObjReader};
+
+// Using specific readers
+let mut stl_reader = StlReader::new();
+let mesh = stl_reader.read_from_file(Path::new("./mesh.stl"))?;
+
+let mut obj_reader = ObjReader::new(); 
+let mesh = obj_reader.read_from_file(Path::new("./mesh.obj"))?;
+
+// Using specific writers
+let stl_writer = StlWriter::new();
+stl_writer.write_to_file(&mesh, Path::new("./output.stl"))?;
 ```
 
 # Implicit modeling
