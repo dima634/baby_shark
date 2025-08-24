@@ -65,7 +65,7 @@ impl MeshReader for StlReader {
     fn read_from_buffer<TBuffer, TMesh>(
         &mut self,
         reader: &mut BufReader<TBuffer>,
-    ) -> std::io::Result<TMesh>
+    ) -> Result<TMesh, ReadError>
     where
         TBuffer: Read,
         TMesh: Builder<Mesh = TMesh>,
@@ -84,23 +84,14 @@ impl MeshReader for StlReader {
 
         for _ in 0..number_of_triangles {
             let triangle = self.read_face(reader)?;
-            let result = builder.add_face(
+            builder.add_face(
                 triangle.p1().cast(),
                 triangle.p2().cast(),
                 triangle.p3().cast()
-            );
-
-            if let Err(_) = result {
-                break;
-            }
+            )?;
         }
 
-        builder.finish().map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
-                format!("Failed to build mesh from STL data: {:?}", e),
-            )
-        })
+        Ok(builder.finish()?)
     }
 }
 

@@ -89,28 +89,6 @@ pub trait SoupBuilder<R: RealNumber, M> {
     }
 }
 
-pub trait MeshReader {
-    /// Reads mesh from buffer
-    fn read_from_buffer<TBuffer, TMesh>(
-        &mut self,
-        reader: &mut BufReader<TBuffer>,
-    ) -> std::io::Result<TMesh>
-    where
-        TBuffer: Read,
-        TMesh: Builder<Mesh = TMesh>;
-
-    /// Reads mesh from file
-    fn read_from_file<TMesh: Builder<Mesh = TMesh>>(
-        &mut self,
-        filepath: &Path,
-    ) -> std::io::Result<TMesh> {
-        let file = OpenOptions::new().read(true).open(filepath)?;
-        let mut reader = BufReader::new(file);
-
-        self.read_from_buffer::<File, TMesh>(&mut reader)
-    }
-}
-
 pub trait Builder {
     type Scalar: RealNumber;
     type Mesh;
@@ -153,6 +131,28 @@ pub trait Builder {
     fn builder_soup() -> impl SoupBuilder<Self::Scalar, Self::Mesh>;
 }
 
+pub trait MeshReader {
+    /// Reads mesh from buffer
+    fn read_from_buffer<TBuffer, TMesh>(
+        &mut self,
+        reader: &mut BufReader<TBuffer>,
+    ) -> Result<TMesh, ReadError>
+    where
+        TBuffer: Read,
+        TMesh: Builder<Mesh = TMesh>;
+
+    /// Reads mesh from file
+    fn read_from_file<TMesh: Builder<Mesh = TMesh>>(
+        &mut self,
+        filepath: &Path,
+    ) -> Result<TMesh, ReadError> {
+        let file = OpenOptions::new().read(true).open(filepath)?;
+        let mut reader = BufReader::new(file);
+
+        self.read_from_buffer::<File, TMesh>(&mut reader)
+    }
+}
+
 pub trait MeshWriter {
     fn write_to_buffer<TBuffer, TMesh>(
         &self,
@@ -176,45 +176,63 @@ pub trait MeshWriter {
 }
 
 #[derive(Debug)]
-pub enum MeshIOError {
+pub enum ReadError {
+    IO(std::io::Error),
+    FilepathHasNoExtension,
+    UnsupportedFormat(String),
+    FailedToBuildMesh(BuildError),
+}
+
+impl From<BuildError> for ReadError {
+    #[inline]
+    fn from(err: BuildError) -> Self {
+        ReadError::FailedToBuildMesh(err)
+    }
+}
+
+impl From<std::io::Error> for ReadError {
+    #[inline]
+    fn from(err: std::io::Error) -> Self {
+        ReadError::IO(err)
+    }
+}
+
+pub fn read_from_file<TMesh: Builder<Mesh = TMesh>>(filepath: &Path) -> Result<TMesh, ReadError> {
+    let ext = filepath
+        .extension()
+        .and_then(|ext| if ext == "" { None } else { Some(ext) })
+        .ok_or(ReadError::FilepathHasNoExtension)?;
+    let ext_uppercase = ext.to_string_lossy().to_uppercase();
+
+    match ext_uppercase.as_str() {
+        "STL" => StlReader::default().read_from_file(filepath),
+        "OBJ" => ObjReader::default().read_from_file(filepath),
+        _ => Err(ReadError::UnsupportedFormat(ext_uppercase)),
+    }
+}
+
+#[derive(Debug)]
+pub enum WriteError {
     IO(std::io::Error),
     FilepathHasNoExtension,
     UnsupportedFormat(String),
 }
 
-pub fn read_from_file<TMesh: Builder<Mesh = TMesh>>(filepath: &Path) -> Result<TMesh, MeshIOError> {
-    let ext = filepath
-        .extension()
-        .and_then(|ext| if ext == "" { None } else { Some(ext) })
-        .ok_or(MeshIOError::FilepathHasNoExtension)?;
-    let ext_uppercase = ext.to_string_lossy().to_uppercase();
-
-    match ext_uppercase.as_str() {
-        "STL" => StlReader::default()
-            .read_from_file(filepath)
-            .map_err(MeshIOError::IO),
-        "OBJ" => ObjReader::default()
-            .read_from_file(filepath)
-            .map_err(MeshIOError::IO),
-        _ => Err(MeshIOError::UnsupportedFormat(ext_uppercase)),
-    }
-}
-
-pub fn write_to_file<TMesh: TriangleMesh>(mesh: &TMesh, path: &Path) -> Result<(), MeshIOError> {
+pub fn write_to_file<TMesh: TriangleMesh>(mesh: &TMesh, path: &Path) -> Result<(), WriteError> {
     let ext = path
         .extension()
         .and_then(|ext| if ext == "" { None } else { Some(ext) })
-        .ok_or(MeshIOError::FilepathHasNoExtension)?;
+        .ok_or(WriteError::FilepathHasNoExtension)?;
     let ext_uppercase = ext.to_string_lossy().to_uppercase();
 
     match ext_uppercase.as_str() {
         "STL" => StlWriter::default()
             .write_to_file(mesh, path)
-            .map_err(MeshIOError::IO),
+            .map_err(WriteError::IO),
         "OBJ" => ObjWriter::default()
             .write_to_file(mesh, path)
-            .map_err(MeshIOError::IO),
-        _ => Err(MeshIOError::UnsupportedFormat(ext_uppercase)),
+            .map_err(WriteError::IO),
+        _ => Err(WriteError::UnsupportedFormat(ext_uppercase)),
     }
 }
 

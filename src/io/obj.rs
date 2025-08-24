@@ -1,5 +1,5 @@
 use super::*;
-use crate::{helpers::aliases::Vec3, io::{MeshReader, MeshWriter}};
+use crate::helpers::aliases::Vec3;
 use std::{collections::HashMap, io::BufRead};
 
 // OBJ format spec:
@@ -12,7 +12,7 @@ impl MeshReader for ObjReader {
     fn read_from_buffer<TBuffer, TMesh>(
         &mut self,
         reader: &mut BufReader<TBuffer>,
-    ) -> std::io::Result<TMesh>
+    ) -> Result<TMesh, ReadError>
     where
         TBuffer: Read,
         TMesh: Builder<Mesh = TMesh>,
@@ -36,15 +36,9 @@ impl MeshReader for ObjReader {
         }
 
         let mut builder = TMesh::builder_indexed();
-        builder
-            .add_vertices(vertices.into_iter().map(|v| v.cast()))
-            .map_err(|_| std::io::ErrorKind::Other)?;
-        builder
-            .add_faces(faces.into_iter())
-            .map_err(|_| std::io::ErrorKind::Other)?;
-        builder
-            .finish()
-            .map_err(|_| std::io::ErrorKind::Other.into())
+        builder.add_vertices(vertices.into_iter().map(|v| v.cast()))?;
+        builder.add_faces(faces.into_iter())?;
+        Ok(builder.finish()?)
     }
 }
 
@@ -59,15 +53,11 @@ impl MeshWriter for ObjWriter {
     ) -> std::io::Result<()>
     where
         TBuffer: Write,
-        TMesh: TriangleMesh 
+        TMesh: TriangleMesh,
     {
         for vertex in mesh.vertices() {
             let position = mesh.position(vertex);
-            let stmt = Statement::Vertex(
-                position[0].as_(),
-                position[1].as_(),
-                position[2].as_(),
-            );
+            let stmt = Statement::Vertex(position[0].as_(), position[1].as_(), position[2].as_());
             writer.write(stmt.to_string().as_bytes())?;
             writer.write(b"\n")?;
         }
@@ -79,7 +69,11 @@ impl MeshWriter for ObjWriter {
             .collect();
 
         for [v1, v2, v3] in mesh.faces() {
-            let stmt = Statement::Face(vertex_to_index[&v1], vertex_to_index[&v2], vertex_to_index[&v3]);
+            let stmt = Statement::Face(
+                vertex_to_index[&v1],
+                vertex_to_index[&v2],
+                vertex_to_index[&v3],
+            );
             writer.write(stmt.to_string().as_bytes())?;
             writer.write(b"\n")?;
         }
