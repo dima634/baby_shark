@@ -508,13 +508,13 @@ impl PlyWriter {
         face_count: usize,
     ) -> std::io::Result<()> {
         writeln!(writer, "ply")?;
-        writeln!(writer, "format ascii 1.0")?;
+        writeln!(writer, "format binary_little_endian 1.0")?;
         writeln!(writer, "element vertex {}", vertex_count)?;
-        writeln!(writer, "property float x")?;
-        writeln!(writer, "property float y")?;
-        writeln!(writer, "property float z")?;
+        writeln!(writer, "property double x")?;
+        writeln!(writer, "property double y")?;
+        writeln!(writer, "property double z")?;
         writeln!(writer, "element face {}", face_count)?;
-        writeln!(writer, "property list uchar int vertex_indices")?;
+        writeln!(writer, "property list uchar uint vertex_indices")?;
         writeln!(writer, "end_header")?;
         Ok(())
     }
@@ -539,10 +539,15 @@ impl MeshWriter for PlyWriter {
         // Write vertices
         for vertex in mesh.vertices() {
             let position = mesh.position(vertex);
-            writeln!(writer, "{} {} {}", position[0], position[1], position[2])?;
+            let x: f64 = position[0].as_();
+            let y: f64 = position[1].as_();
+            let z: f64 = position[2].as_();
+
+            writer.write(&x.to_le_bytes())?;
+            writer.write(&y.to_le_bytes())?;
+            writer.write(&z.to_le_bytes())?;
         }
 
-        // Create vertex to index mapping
         let vertex_to_index: HashMap<TMesh::VertexId, usize> = mesh
             .vertices()
             .enumerate()
@@ -550,12 +555,15 @@ impl MeshWriter for PlyWriter {
             .collect();
 
         // Write faces
-        for [v1, v2, v3] in mesh.faces() {
-            writeln!(
-                writer,
-                "3 {} {} {}",
-                vertex_to_index[&v1], vertex_to_index[&v2], vertex_to_index[&v3]
-            )?;
+        for [v1_id, v2_id, v3_id] in mesh.faces() {
+            let Ok(v1): Result<u32, _> = vertex_to_index[&v1_id].try_into() else { break };
+            let Ok(v2): Result<u32, _> = vertex_to_index[&v2_id].try_into() else { break };
+            let Ok(v3): Result<u32, _> = vertex_to_index[&v3_id].try_into() else { break };
+
+            writer.write(&3_u8.to_le_bytes())?;
+            writer.write(&v1.to_le_bytes())?;
+            writer.write(&v2.to_le_bytes())?;
+            writer.write(&v3.to_le_bytes())?;
         }
 
         writer.flush()
