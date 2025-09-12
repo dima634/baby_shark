@@ -1,15 +1,17 @@
 use crate::{geometry::traits::*, mesh::traits::*};
 use std::{
     fs::{File, OpenOptions},
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read, Seek, Write},
     path::Path,
     usize,
 };
 
 pub mod obj;
+pub mod ply;
 pub mod stl;
 
 pub use obj::{ObjReader, ObjWriter};
+pub use ply::{PlyReader, PlyWriter};
 pub use stl::{StlReader, StlWriter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,7 +107,7 @@ pub trait Builder {
     /// ```ignore
     /// let mut b = MyMesh::builder_indexed();
     /// b.set_num_vertices(n);
-    /// for v in verts {
+    /// for v in vertices {
     ///     b.add_vertex(v)?;
     /// }
     /// for [i0,i1,i2] in faces {
@@ -138,7 +140,7 @@ pub trait MeshReader {
         reader: &mut BufReader<TBuffer>,
     ) -> Result<TMesh, ReadError>
     where
-        TBuffer: Read,
+        TBuffer: Read + Seek,
         TMesh: Builder<Mesh = TMesh>;
 
     /// Reads mesh from file
@@ -180,6 +182,7 @@ pub enum ReadError {
     IO(std::io::Error),
     FilepathHasNoExtension,
     UnsupportedFormat(String),
+    Malformed,
     FailedToBuildMesh(BuildError),
 }
 
@@ -207,6 +210,7 @@ pub fn read_from_file<TMesh: Builder<Mesh = TMesh>>(filepath: &Path) -> Result<T
     match ext_uppercase.as_str() {
         "STL" => StlReader::default().read_from_file(filepath),
         "OBJ" => ObjReader::default().read_from_file(filepath),
+        "PLY" => PlyReader::default().read_from_file(filepath),
         _ => Err(ReadError::UnsupportedFormat(ext_uppercase)),
     }
 }
@@ -232,6 +236,9 @@ pub fn write_to_file<TMesh: TriangleMesh>(mesh: &TMesh, path: &Path) -> Result<(
         "OBJ" => ObjWriter::default()
             .write_to_file(mesh, path)
             .map_err(WriteError::IO),
+        "PLY" => PlyWriter::default()
+            .write_to_file(mesh, path)
+            .map_err(WriteError::IO),
         _ => Err(WriteError::UnsupportedFormat(ext_uppercase)),
     }
 }
@@ -252,5 +259,13 @@ mod tests {
         let mesh = read_from_file::<Mesh>(Path::new("assets/box.obj")).expect("should read mesh");
         assert_eq!(mesh.vertices().count(), 36);
         assert_eq!(mesh.faces().count(), 12);
+
+        let mesh = read_from_file::<Mesh>(Path::new("assets/box.ply")).expect("should read mesh");
+        assert_eq!(mesh.vertices().count(), 36);
+        assert_eq!(mesh.faces().count(), 12);
+
+        let mesh = read_from_file::<Mesh>(Path::new("assets/bunny.ply")).expect("should read mesh");
+        assert_eq!(mesh.vertices().count(), 39_000);
+        assert_eq!(mesh.faces().count(), 13_000);
     }
 }

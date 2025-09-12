@@ -75,10 +75,12 @@ trait TreeNode: Send + Sync + Sized {
     /// Returns ref to value at grid point `index`
     fn at(&self, index: &Vec3i) -> Option<&Self::Value>;
     /// Returns mut ref value at grid point `index`
+    #[allow(dead_code)]
     fn at_mut(&mut self, index: &Vec3i) -> Option<&mut Self::Value>;
     /// Inserts value at grid point `index`
     fn insert(&mut self, index: &Vec3i, value: Self::Value);
     /// Removes value at grid point `index`
+    #[allow(dead_code)]
     fn remove(&mut self, index: &Vec3i);
 
     /// Creates empty node
@@ -119,6 +121,7 @@ trait TreeNode: Send + Sync + Sized {
     }
 
     /// Total number of voxels
+    #[allow(dead_code)]
     #[inline]
     fn size() -> usize {
         1 << (Self::BRANCHING_TOTAL * 3)
@@ -134,6 +137,7 @@ where
     fn fill_with_sign(&mut self, sign: Sign);
     fn first_value_sign(&self) -> Sign;
     fn last_value_sign(&self) -> Sign;
+    #[allow(dead_code)]
     fn sign_at(&self, index: &Vec3i) -> Sign;
 }
 
