@@ -1,6 +1,10 @@
 use super::*;
 use crate::helpers::aliases::Vec3;
-use std::{collections::HashMap, io::BufRead};
+use num_traits::{FromBytes, FromPrimitive};
+use std::{
+    collections::HashMap,
+    io::{BufRead, Seek},
+};
 
 #[derive(Debug, Default)]
 pub struct PlyReader;
@@ -311,11 +315,11 @@ impl PlyReader {
         Ok((vertices, faces))
     }
 
-    fn read_binary_data<TBuffer: Read>(
+    fn read_binary_data<TBuffer: Read + Seek, R: RealNumber>(
         &self,
         reader: &mut BufReader<TBuffer>,
         header: &PlyHeader,
-    ) -> Result<(Vec<Vec3<f64>>, Vec<[usize; 3]>), ReadError> {
+    ) -> Result<(Vec<Vec3<R>>, Vec<[usize; 3]>), ReadError> {
         let mut vertices = Vec::with_capacity(header.vertex_count);
         let mut faces = Vec::with_capacity(header.face_count);
 
@@ -323,29 +327,16 @@ impl PlyReader {
 
         // Read vertices
         for _ in 0..header.vertex_count {
-            let mut x = 0.0;
-            let mut y = 0.0;
-            let mut z = 0.0;
+            let mut x = R::zero();
+            let mut y = R::zero();
+            let mut z = R::zero();
 
             for prop in &header.vertex_properties {
-                if prop.is_list {
-                    // Skip list properties for now
-                    let count = self.read_binary_value(
-                        reader,
-                        prop.list_count_type.unwrap(),
-                        is_little_endian,
-                    )? as usize;
-                    for _ in 0..count {
-                        self.read_binary_value(reader, prop.data_type, is_little_endian)?;
-                    }
-                } else {
-                    let value = self.read_binary_value(reader, prop.data_type, is_little_endian)?;
-                    match prop.name.as_str() {
-                        "x" => x = value,
-                        "y" => y = value,
-                        "z" => z = value,
-                        _ => {} // Ignore other properties
-                    }
+                match prop.name.as_str() {
+                    "x" => x = read_binary_value(reader, prop.data_type, is_little_endian)?,
+                    "y" => y = read_binary_value(reader, prop.data_type, is_little_endian)?,
+                    "z" => z = read_binary_value(reader, prop.data_type, is_little_endian)?,
+                    _ => skip_property(reader, prop, is_little_endian)?,
                 }
             }
 
@@ -355,120 +346,122 @@ impl PlyReader {
         // Read faces
         for _ in 0..header.face_count {
             for prop in &header.face_properties {
-                if prop.is_list && (prop.name == "vertex_indices" || prop.name == "vertex_index") {
-                    let count = self.read_binary_value(
-                        reader,
-                        prop.list_count_type.unwrap(),
-                        is_little_endian,
-                    )? as usize;
-                    if count >= 3 {
-                        let v1 = self.read_binary_value(reader, prop.data_type, is_little_endian)?
-                            as usize;
-                        let v2 = self.read_binary_value(reader, prop.data_type, is_little_endian)?
-                            as usize;
-                        let v3 = self.read_binary_value(reader, prop.data_type, is_little_endian)?
-                            as usize;
+                let is_vertex_indices =
+                    prop.is_list && (prop.name == "vertex_indices" || prop.name == "vertex_index");
 
-                        faces.push([v1, v2, v3]);
+                if is_vertex_indices {
+                    let count: usize =
+                        read_binary_value(reader, prop.list_count_type.unwrap(), is_little_endian)?;
 
-                        // Triangulate remaining vertices
-                        for i in 3..count {
-                            let vi =
-                                self.read_binary_value(reader, prop.data_type, is_little_endian)?
-                                    as usize;
-                            let prev_vi = if i == 3 {
-                                v3
-                            } else {
-                                // This is a simplification - proper triangulation would be more complex
-                                self.read_binary_value(reader, prop.data_type, is_little_endian)?
-                                    as usize
-                            };
-                            faces.push([v1, prev_vi, vi]);
-                        }
-                    } else {
-                        // Skip vertices for degenerate faces
-                        for _ in 0..count {
-                            self.read_binary_value(reader, prop.data_type, is_little_endian)?;
-                        }
+                    if count < 3 {
+                        return Err(ReadError::Malformed);
                     }
-                } else if prop.is_list {
-                    // Skip other list properties
-                    let count = self.read_binary_value(
-                        reader,
-                        prop.list_count_type.unwrap(),
-                        is_little_endian,
-                    )? as usize;
-                    for _ in 0..count {
-                        self.read_binary_value(reader, prop.data_type, is_little_endian)?;
+
+                    // Read the first three vertices for triangle
+                    let v1 = read_binary_value(reader, prop.data_type, is_little_endian)?;
+                    let v2 = read_binary_value(reader, prop.data_type, is_little_endian)?;
+                    let v3 = read_binary_value(reader, prop.data_type, is_little_endian)?;
+
+                    faces.push([v1, v2, v3]);
+
+                    // If it's a quad or polygon, triangulate by adding more triangles
+                    let mut prev_vertex = v3;
+                    for _ in 3..count {
+                        let vi = read_binary_value(reader, prop.data_type, is_little_endian)?;
+                        faces.push([v1, prev_vertex, vi]);
+                        prev_vertex = vi;
                     }
                 } else {
-                    // Skip scalar properties for faces
-                    self.read_binary_value(reader, prop.data_type, is_little_endian)?;
+                    skip_property(reader, prop, is_little_endian)?;
                 }
             }
         }
 
         Ok((vertices, faces))
     }
+}
 
-    fn read_binary_value<TBuffer: Read>(
-        &self,
-        reader: &mut BufReader<TBuffer>,
-        data_type: PlyDataType,
-        is_little_endian: bool,
-    ) -> Result<f64, ReadError> {
-        let mut buffer = [0u8; 8];
-        let size = data_type.size();
-        reader.read_exact(&mut buffer[..size])?;
+fn skip_property<TBuffer: Read + Seek>(
+    reader: &mut BufReader<TBuffer>,
+    prop: &PropertyInfo,
+    is_little_endian: bool,
+) -> Result<(), ReadError> {
+    if prop.is_list {
+        // Skip list property
+        // First read the count, then skip the list items
+        let count = read_binary_value::<TBuffer, usize>(
+            reader,
+            prop.list_count_type.unwrap(),
+            is_little_endian,
+        )?;
+        let item_size = prop.data_type.size();
+        reader.seek_relative((count * item_size) as i64)?;
+    } else {
+        reader.seek_relative(prop.data_type.size() as i64)?;
+    }
 
-        let value = match data_type {
-            PlyDataType::Char => i8::from_le_bytes([buffer[0]]) as f64,
-            PlyDataType::UChar => buffer[0] as f64,
-            PlyDataType::Short => {
-                if is_little_endian {
-                    i16::from_le_bytes([buffer[0], buffer[1]]) as f64
-                } else {
-                    i16::from_be_bytes([buffer[0], buffer[1]]) as f64
-                }
-            }
-            PlyDataType::UShort => {
-                if is_little_endian {
-                    u16::from_le_bytes([buffer[0], buffer[1]]) as f64
-                } else {
-                    u16::from_be_bytes([buffer[0], buffer[1]]) as f64
-                }
-            }
-            PlyDataType::Int => {
-                if is_little_endian {
-                    i32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                } else {
-                    i32::from_be_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                }
-            }
-            PlyDataType::UInt => {
-                if is_little_endian {
-                    u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                } else {
-                    u32::from_be_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                }
-            }
-            PlyDataType::Float => {
-                if is_little_endian {
-                    f32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                } else {
-                    f32::from_be_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as f64
-                }
-            }
-            PlyDataType::Double => {
-                if is_little_endian {
-                    f64::from_le_bytes(buffer)
-                } else {
-                    f64::from_be_bytes(buffer)
-                }
-            }
-        };
+    Ok(())
+}
 
-        Ok(value)
+fn read_binary_value<TBuffer: Read, TTy: FromPrimitive>(
+    reader: &mut BufReader<TBuffer>,
+    data_type: PlyDataType,
+    is_little_endian: bool,
+) -> Result<TTy, ReadError> {
+    let mut buffer = [0u8; 8];
+    let size = data_type.size();
+    reader.read_exact(&mut buffer[..size])?;
+
+    match data_type {
+        PlyDataType::Char => {
+            let val = read_from_bytes::<u8>(&[buffer[0]], is_little_endian);
+            TTy::from_u8(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::UChar => {
+            let val = read_from_bytes::<u8>(&[buffer[0]], is_little_endian);
+            TTy::from_u8(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::Short => {
+            let val = read_from_bytes::<i16>(&[buffer[0], buffer[1]], is_little_endian);
+            TTy::from_i16(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::UShort => {
+            let val = read_from_bytes::<u16>(&[buffer[0], buffer[1]], is_little_endian);
+            TTy::from_u16(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::Int => {
+            let val = read_from_bytes::<i32>(
+                &[buffer[0], buffer[1], buffer[2], buffer[3]],
+                is_little_endian,
+            );
+            TTy::from_i32(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::UInt => {
+            let val = read_from_bytes::<u32>(
+                &[buffer[0], buffer[1], buffer[2], buffer[3]],
+                is_little_endian,
+            );
+            TTy::from_u32(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::Float => {
+            let val = read_from_bytes::<f32>(
+                &[buffer[0], buffer[1], buffer[2], buffer[3]],
+                is_little_endian,
+            );
+            TTy::from_f32(val).ok_or(ReadError::Malformed)
+        }
+        PlyDataType::Double => {
+            let val = read_from_bytes::<f64>(&buffer, is_little_endian);
+            TTy::from_f64(val).ok_or(ReadError::Malformed)
+        }
+    }
+}
+
+fn read_from_bytes<T: FromBytes>(bytes: &T::Bytes, is_little_endian: bool) -> T {
+    if is_little_endian {
+        T::from_le_bytes(bytes)
+    } else {
+        T::from_be_bytes(bytes)
     }
 }
 
@@ -478,7 +471,7 @@ impl MeshReader for PlyReader {
         reader: &mut BufReader<TBuffer>,
     ) -> Result<TMesh, ReadError>
     where
-        TBuffer: Read,
+        TBuffer: Read + Seek,
         TMesh: Builder<Mesh = TMesh>,
     {
         // Parse header first

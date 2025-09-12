@@ -1,7 +1,7 @@
 use crate::{geometry::traits::*, mesh::traits::*};
 use std::{
     fs::{File, OpenOptions},
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read, Seek, Write},
     path::Path,
     usize,
 };
@@ -140,7 +140,7 @@ pub trait MeshReader {
         reader: &mut BufReader<TBuffer>,
     ) -> Result<TMesh, ReadError>
     where
-        TBuffer: Read,
+        TBuffer: Read + Seek,
         TMesh: Builder<Mesh = TMesh>;
 
     /// Reads mesh from file
@@ -263,5 +263,9 @@ mod tests {
         let mesh = read_from_file::<Mesh>(Path::new("assets/box.ply")).expect("should read mesh");
         assert_eq!(mesh.vertices().count(), 36);
         assert_eq!(mesh.faces().count(), 12);
+
+        let mesh = read_from_file::<Mesh>(Path::new("assets/bunny.ply")).expect("should read mesh");
+        assert_eq!(mesh.vertices().count(), 39_000);
+        assert_eq!(mesh.faces().count(), 13_000);
     }
 }
