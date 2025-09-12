@@ -18,6 +18,7 @@ The library supports reading and writing mesh files in multiple formats with aut
 
 - **STL** (binary only) - Widely used for 3D printing and CAD
 - **OBJ** - Common format for graphics applications
+- **PLY** (ASCII and binary) - Stanford Polygon Format, commonly used for research and 3D scanning
 
 The `read_from_file` and `write_to_file` functions automatically detect the format from the file extension and use the appropriate reader/writer.
 
