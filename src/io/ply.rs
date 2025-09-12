@@ -414,50 +414,46 @@ fn read_binary_value<TBuffer: Read, TTy: FromPrimitive>(
 
     match data_type {
         PlyDataType::Char => {
-            let val = read_from_bytes::<u8>(&[buffer[0]], is_little_endian);
-            TTy::from_u8(val).ok_or(ReadError::Malformed)
+            TTy::from_i8(i8::from_ne_bytes([buffer[0]])).ok_or(ReadError::Malformed)
         }
-        PlyDataType::UChar => {
-            let val = read_from_bytes::<u8>(&[buffer[0]], is_little_endian);
-            TTy::from_u8(val).ok_or(ReadError::Malformed)
-        }
+        PlyDataType::UChar => TTy::from_u8(buffer[0]).ok_or(ReadError::Malformed),
         PlyDataType::Short => {
-            let val = read_from_bytes::<i16>(&[buffer[0], buffer[1]], is_little_endian);
+            let val = from_bytes::<i16>(&[buffer[0], buffer[1]], is_little_endian);
             TTy::from_i16(val).ok_or(ReadError::Malformed)
         }
         PlyDataType::UShort => {
-            let val = read_from_bytes::<u16>(&[buffer[0], buffer[1]], is_little_endian);
+            let val = from_bytes::<u16>(&[buffer[0], buffer[1]], is_little_endian);
             TTy::from_u16(val).ok_or(ReadError::Malformed)
         }
         PlyDataType::Int => {
-            let val = read_from_bytes::<i32>(
+            let val = from_bytes::<i32>(
                 &[buffer[0], buffer[1], buffer[2], buffer[3]],
                 is_little_endian,
             );
             TTy::from_i32(val).ok_or(ReadError::Malformed)
         }
         PlyDataType::UInt => {
-            let val = read_from_bytes::<u32>(
+            let val = from_bytes::<u32>(
                 &[buffer[0], buffer[1], buffer[2], buffer[3]],
                 is_little_endian,
             );
             TTy::from_u32(val).ok_or(ReadError::Malformed)
         }
         PlyDataType::Float => {
-            let val = read_from_bytes::<f32>(
+            let val = from_bytes::<f32>(
                 &[buffer[0], buffer[1], buffer[2], buffer[3]],
                 is_little_endian,
             );
             TTy::from_f32(val).ok_or(ReadError::Malformed)
         }
         PlyDataType::Double => {
-            let val = read_from_bytes::<f64>(&buffer, is_little_endian);
+            let val = from_bytes::<f64>(&buffer, is_little_endian);
             TTy::from_f64(val).ok_or(ReadError::Malformed)
         }
     }
 }
 
-fn read_from_bytes<T: FromBytes>(bytes: &T::Bytes, is_little_endian: bool) -> T {
+fn from_bytes<T: FromBytes>(bytes: &T::Bytes, is_little_endian: bool) -> T {
     if is_little_endian {
         T::from_le_bytes(bytes)
     } else {
@@ -533,10 +529,8 @@ impl MeshWriter for PlyWriter {
         let vertex_count = mesh.vertices().count();
         let face_count = mesh.faces().count();
 
-        // Write header
         self.write_header(writer, vertex_count, face_count)?;
 
-        // Write vertices
         for vertex in mesh.vertices() {
             let position = mesh.position(vertex);
             let x: f64 = position[0].as_();
@@ -554,7 +548,6 @@ impl MeshWriter for PlyWriter {
             .map(|(index, id)| (id, index))
             .collect();
 
-        // Write faces
         for [v1_id, v2_id, v3_id] in mesh.faces() {
             let Ok(v1): Result<u32, _> = vertex_to_index[&v1_id].try_into() else { break };
             let Ok(v2): Result<u32, _> = vertex_to_index[&v2_id].try_into() else { break };
