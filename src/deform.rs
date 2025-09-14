@@ -1,4 +1,6 @@
-use crate::{geometry::traits::RealNumber, helpers::aliases::Vec3, mesh::corner_table::*};
+use crate::{
+    geometry::traits::RealNumber, helpers::aliases::Vec3, mesh::corner_table::*, region_boundary,
+};
 use faer::{
     linalg::solvers::{ShapeCore, Solve},
     sparse as sp,
@@ -44,23 +46,32 @@ pub fn prepare_deform<R: RealNumber + faer::traits::ComplexField>(
         return Err(PrepareDeformError::InvalidRegionOfInterest);
     }
 
-    let handle = Vec::from_iter(handle_region.intersection(region_of_interest).copied());
+    let mut handle = Vec::from_iter(handle_region.intersection(region_of_interest).copied());
 
     if handle.is_empty() || handle.len() == region_of_interest.len() {
         return Err(PrepareDeformError::InvalidHandle);
     }
 
-    let region_of_interest = Vec::from_iter(region_of_interest.difference(handle_region).copied());
+    // Add roi boundary to the handle region to constraint deformation
+    let region_boundary = region_boundary(mesh, region_of_interest);
+    handle.extend(region_boundary.iter());
+
+    // Remove handle vertices from region of interest
+    let cleaned_roi_iter = region_of_interest
+        .iter()
+        .copied()
+        .filter(|vert| !region_boundary.contains(vert) && !handle_region.contains(vert));
+    let region_of_interest = Vec::from_iter(cleaned_roi_iter);
 
     // Compute vertex to row.column map, we will need it to know where to put coefficients in the matrix
     let mut vertex_to_idx = HashMap::with_capacity(region_of_interest.len() + handle.len());
 
-    for vert in &region_of_interest {
-        vertex_to_idx.insert(*vert, vertex_to_idx.len());
+    for &vert in &region_of_interest {
+        vertex_to_idx.insert(vert, vertex_to_idx.len());
     }
 
-    for vert in &handle {
-        vertex_to_idx.insert(*vert, vertex_to_idx.len());
+    for &vert in &handle {
+        vertex_to_idx.insert(vert, vertex_to_idx.len());
     }
 
     let (coeffs, edge_weights) = compute_coeffs(mesh, &handle, &region_of_interest, &vertex_to_idx);
@@ -84,7 +95,7 @@ pub fn prepare_deform<R: RealNumber + faer::traits::ComplexField>(
         region_of_interest,
         edge_weights,
         vertex_to_idx,
-        max_iters: 30,
+        max_iters: DEFAULT_MAX_ITERS,
     })
 }
 
@@ -376,3 +387,5 @@ mod tests {
             .expect("should deform mesh");
     }
 }
+
+const DEFAULT_MAX_ITERS: usize = 64 + 8;
