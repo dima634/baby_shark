@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct PreparedDeform {
-    inner: crate::PreparedDeform,
+    inner: crate::PreparedDeform<f64>,
     handle: Vec<usize>,
 }
 
