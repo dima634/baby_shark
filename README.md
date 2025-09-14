@@ -4,13 +4,14 @@
 ![License](https://img.shields.io/crates/l/baby_shark)
 
 # Features
-- Implicit/voxel/volume modeling
-    - Voxel remeshing
-    - Boolean operations
-    - Offsetting
-- Explicit modeling
-    - Mesh simplification (decimation)
-    - Isotropic remeshing
+- [Implicit/voxel/volume modeling](#implicit-modeling)
+    - [Voxel remeshing](#voxel-remeshing)
+    - [Boolean operations](#boolean-operations)
+    - [Offsetting](#volume-offset)
+- [Explicit modeling](#explicit-modeling)
+    - [Isotropic remeshing](#isotropic-remeshing)
+    - [Mesh simplification (decimation)](#mesh-simplification-decimation)
+    - [Mesh deformation](#mesh-deformation)
 
 # IO
 ## Reading and writing mesh files
@@ -98,19 +99,9 @@ All the vertices of the remeshed patch are reprojected to
 the original surface to keep a good approximation of the input.
 Any of those operations can be turned off using appropriate method (`with_<operation>(false)`).
 
-![image](https://user-images.githubusercontent.com/48240075/191063968-b985b2c1-ab6c-46b4-88ef-fd637fe3323b.png)
+<img width="100%" alt="image" src="assets/readme/remeshing.png">
 
-### Example
-```rust
-let remesher = IncrementalRemesher::new()
-    .with_iterations_count(10)
-    .with_split_edges(true)
-    .with_collapse_edges(true)
-    .with_flip_edges(true)
-    .with_shift_vertices(true)
-    .with_project_vertices(true);
-remesher.remesh(&mut mesh, 0.002f32);
-```
+### [Example](examples/incremental_remeshing.rs)
 
 ## Mesh simplification (decimation)
 This library implements incremental edge decimation algorithm. On each iteration edge with lowest collapse cost is collapsed.
@@ -119,27 +110,22 @@ Several stop condition are supported:
 * *Min faces count* - algorithm stops when faces count drops below given value
 * *Bounding sphere* - adaptive error algorithm based upon distance from a point. Useful for LOD mesh decimation.
 
-![image](https://user-images.githubusercontent.com/48240075/192602743-59d91022-4eb1-4aef-b7af-5f0b3cdcefb5.png)
+<img width="100%" alt="image" src="assets/readme/simplification.png">
 
-### Example
-```rust
-let mut decimator = EdgeDecimator::new()
-    .decimation_criteria(ConstantErrorDecimationCriteria::new(0.0005))
-    .min_faces_count(Some(10000));
-decimator.decimate(&mut mesh);
-```
+### [Example](examples/simplification.rs)
 
-### Bounded Sphere Example
-```rust
-let origin = Point3::<f32>::origin();
-let radii_error_map = vec![
-    (10.0f32, 0.0001f32),
-    (15.0f32, 0.05f32),
-    (40.0f32, 0.8f32),
-];
+### [Bounded Sphere Example](examples/bsphere_simplification.rs)
 
-let criteria = BoundingSphereDecimationCriteria::new(origin, radii_error_map);
+## Mesh deformation
+*Mesh deformation* is a technique for smoothly modifying the shape of 3D meshes by specifying target positions for certain vertices while maintaining the overall structure and quality of the mesh. This library implements a robust deformation system that uses handle regions (vertices with known target positions) and regions of interest (vertices that should be deformed) to create natural-looking deformations.
 
-let mut decimator = EdgeDecimator::new().decimation_criteria(criteria);
-decimator.decimate(&mut mesh);
-```
+The deformation algorithm works by:
+* Defining **handle vertices** - points with known target positions that act as constraints
+* Specifying a **region of interest** - the area of the mesh that should be deformed
+* Computing smooth deformations that satisfy the handle constraints while preserving mesh quality
+
+This is particularly useful for applications like shape morphing, interactive modeling, and mesh editing where you need to maintain surface smoothness while achieving specific shape changes.
+
+<img width="100%" alt="image" src="assets/readme/deformation.png">
+
+### [Example](examples/deform.rs)
