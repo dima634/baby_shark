@@ -14,30 +14,37 @@ pub trait Cast:
     + nt::AsPrimitive<f64>
     + nt::FromPrimitive
 {
+    #[inline]
     fn u8(value: u8) -> Self {
         Self::from_u8(value).unwrap()
     }
 
+    #[inline]
     fn u32(value: u32) -> Self {
         Self::from_u32(value).unwrap()
     }
 
+    #[inline]
     fn i32(value: i32) -> Self {
         Self::from_i32(value).unwrap()
     }
 
+    #[inline]
     fn isize(value: isize) -> Self {
         Self::from_isize(value).unwrap()
     }
 
+    #[inline]
     fn usize(value: usize) -> Self {
         Self::from_usize(value).unwrap()
     }
 
+    #[inline]
     fn f32(value: f32) -> Self {
         Self::from_f32(value).unwrap()
     }
 
+    #[inline]
     fn f64(value: f64) -> Self {
         Self::from_f64(value).unwrap()
     }
@@ -53,12 +60,13 @@ impl<T> Cast for T where
 {
 }
 
-pub trait Number: nalgebra_glm::Number + Cast + ClosedDivAssign {
+pub trait Number: nalgebra_glm::Number + Cast + ClosedDivAssign + Default {
+    #[inline]
     fn two() -> Self {
         Self::one() + Self::one()
     }
 }
-impl<T> Number for T where T: nalgebra_glm::Number + Cast + ClosedDivAssign {}
+impl<T> Number for T where T: nalgebra_glm::Number + Cast + ClosedDivAssign + Default {}
 
 pub trait RealNumber: nalgebra_glm::RealNumber + Number {
     fn inf() -> Self;
@@ -67,28 +75,34 @@ pub trait RealNumber: nalgebra_glm::RealNumber + Number {
 }
 
 impl RealNumber for f32 {
+    #[inline]
     fn inf() -> Self {
         f32::INFINITY
     }
 
+    #[inline]
     fn neg_inf() -> Self {
         f32::NEG_INFINITY
     }
 
+    #[inline]
     fn half() -> Self {
         0.5
     }
 }
 
 impl RealNumber for f64 {
+    #[inline]
     fn inf() -> Self {
         f64::INFINITY
     }
 
+    #[inline]
     fn neg_inf() -> Self {
         f64::NEG_INFINITY
     }
 
+    #[inline]
     fn half() -> Self {
         0.5
     }

@@ -1,7 +1,7 @@
-use crate::{helpers::aliases::Vec3d, mesh::corner_table::*};
+use crate::{geometry::traits::RealNumber, helpers::aliases::Vec3, mesh::corner_table::*};
 use faer::{
     linalg::solvers::{ShapeCore, Solve},
-    sparse::{self as sp},
+    sparse as sp,
 };
 use nalgebra as na;
 use std::collections::{HashMap, HashSet};
@@ -35,11 +35,11 @@ impl ToString for PrepareDeformError {
 /// * `handle_region` - Set of vertices that will be manipulated during deformation.
 ///                     Should be a subset of `region_of_interest`.
 /// * `region_of_interest` - Set of vertices that will be affected by the deformation.
-pub fn prepare_deform(
-    mesh: &CornerTableD,
+pub fn prepare_deform<R: RealNumber + faer::traits::ComplexField>(
+    mesh: &CornerTable<R>,
     handle_region: &HashSet<VertexId>,
     region_of_interest: &HashSet<VertexId>,
-) -> Result<PreparedDeform, PrepareDeformError> {
+) -> Result<PreparedDeform<R>, PrepareDeformError> {
     if region_of_interest.is_empty() {
         return Err(PrepareDeformError::InvalidRegionOfInterest);
     }
@@ -103,7 +103,7 @@ impl ToString for DeformError {
     }
 }
 
-/// Prepared mesh deformation. Can be reused to do interactive/real-time deformation.
+/// Prepared mesh deformation. Can be reused to do interactive real-time deformation.
 ///
 /// # Example
 /// ```ignore
@@ -115,16 +115,16 @@ impl ToString for DeformError {
 /// }
 /// ```
 #[derive(Debug)]
-pub struct PreparedDeform {
-    factorization: faer::sparse::linalg::solvers::Lu<usize, f64>,
+pub struct PreparedDeform<R: RealNumber> {
+    factorization: faer::sparse::linalg::solvers::Lu<usize, R>,
     handle: Vec<VertexId>,
     region_of_interest: Vec<VertexId>,
-    edge_weights: EdgeAttribute<f64>,
+    edge_weights: EdgeAttribute<R>,
     vertex_to_idx: HashMap<VertexId, usize>,
     max_iters: usize,
 }
 
-impl PreparedDeform {
+impl<R: RealNumber + faer::traits::ComplexField> PreparedDeform<R> {
     /// Sets the maximum number of iterations for the deformation process.
     #[inline]
     pub fn with_max_iters(mut self, max_iters: usize) -> Self {
@@ -147,9 +147,9 @@ impl PreparedDeform {
     #[inline(never)]
     pub fn deform(
         &self,
-        mesh: &CornerTableD,
-        target: &HashMap<VertexId, Vec3d>,
-    ) -> Result<CornerTableD, DeformError> {
+        mesh: &CornerTable<R>,
+        target: &HashMap<VertexId, Vec3<R>>,
+    ) -> Result<CornerTable<R>, DeformError> {
         if target.is_empty() {
             return Err(DeformError::InvalidTarget);
         }
@@ -168,16 +168,16 @@ impl PreparedDeform {
         // Ax = b
         let size = self.factorization.nrows();
         let mut b = [
-            faer::Col::<f64>::zeros(size), // x
-            faer::Col::<f64>::zeros(size), // y
-            faer::Col::<f64>::zeros(size), // z
+            faer::Col::zeros(size), // x
+            faer::Col::zeros(size), // y
+            faer::Col::zeros(size), // z
         ];
 
-        let mut rotations = vec![na::Matrix3::<f64>::zeros(); size];
+        let mut rotations = vec![na::Matrix3::zeros(); size];
 
         for _ in 0..self.max_iters {
             for (i, &vert) in self.vertices().enumerate() {
-                let mut s = na::Matrix3::<f64>::zeros();
+                let mut s = na::Matrix3::zeros();
 
                 mesh.edges_around_vertex(vert, |edge| {
                     let (mut v1, mut v2) = mesh.edge_vertices(edge.id());
@@ -197,7 +197,7 @@ impl PreparedDeform {
                     let e1 = vi_deformed - vj_deformed;
                     let weight = self.edge_weights[edge.id()];
 
-                    s += weight * (e0 * e1.transpose());
+                    s += e0 * e1.transpose() * weight;
                 });
 
                 let svd = s.svd_unordered(true, true);
@@ -208,7 +208,7 @@ impl PreparedDeform {
                     return Err(DeformError::InternalError("failed to compute SVD"));
                 };
                 let det = (v * u.transpose()).determinant();
-                let d = na::Vector3::new(1.0, 1.0, det);
+                let d = na::Vector3::new(R::one(), R::one(), det);
 
                 rotations[i] = v * na::Matrix3::from_diagonal(&d) * u.transpose();
             }
@@ -228,7 +228,10 @@ impl PreparedDeform {
                         debug_assert!(vi == v1);
 
                         if let Some(v0_idx) = self.vertex_to_idx.get(&v0) {
-                            bi += weight * 0.5 * ((rotations[i] + rotations[*v0_idx]) * (mesh[v1].position() - mesh[v0].position()));
+                            bi += ((rotations[i] + rotations[*v0_idx])
+                                * (mesh[v1].position() - mesh[v0].position()))
+                                * weight
+                                * R::half();
                         }
                     });
                 }
@@ -257,15 +260,15 @@ impl PreparedDeform {
     }
 }
 
-type Triplet = sp::Triplet<usize, usize, f64>;
+type Triplet<R> = sp::Triplet<usize, usize, R>;
 
 /// Computes cotangent edge weight
-fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
-    let mut edge_weights = mesh.create_edge_attribute::<f64>();
-    edge_weights.fill(f64::INFINITY);
+fn compute_edge_weights<R: RealNumber>(mesh: &CornerTable<R>) -> EdgeAttribute<R> {
+    let mut edge_weights = mesh.create_edge_attribute::<R>();
+    edge_weights.fill(R::inf());
 
     for edge in mesh.edges() {
-        if edge_weights[edge] != f64::INFINITY {
+        if edge_weights[edge] != R::inf() {
             // Already computed for opposite oriented edge
             continue;
         }
@@ -286,10 +289,10 @@ fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
             weight += c.dot(&d) / c.cross(&d).norm();
         }
 
-        edge_weights[edge] = weight * 0.5; // max(weight, 0.0)?
+        edge_weights[edge] = weight * R::half(); // max(weight, 0.0)?
 
         if let Some(opposite) = mesh.opposite_edge(edge) {
-            edge_weights[opposite] = weight * 0.5; // Opposite oriented edge has the same weight
+            edge_weights[opposite] = weight * R::half(); // Opposite oriented edge has the same weight
         }
     }
 
@@ -298,17 +301,17 @@ fn compute_edge_weights(mesh: &CornerTableD) -> EdgeAttribute<f64> {
     edge_weights
 }
 
-fn compute_coeffs(
-    mesh: &CornerTableD,
+fn compute_coeffs<R: RealNumber>(
+    mesh: &CornerTable<R>,
     handle: &[VertexId],
     roi: &[VertexId],
     vertex_to_idx: &HashMap<VertexId, usize>,
-) -> (Vec<Triplet>, EdgeAttribute<f64>) {
+) -> (Vec<Triplet<R>>, EdgeAttribute<R>) {
     let mut coeffs = Vec::with_capacity(handle.len() + roi.len());
     let edge_weights = compute_edge_weights(mesh);
 
     for (i, &vert) in roi.into_iter().enumerate() {
-        let mut total_weight = 0.0;
+        let mut total_weight = R::zero();
 
         mesh.edges_around_vertex(vert, |edge| {
             let (mut v1, mut v2) = mesh.edge_vertices(edge.id());
@@ -326,14 +329,14 @@ fn compute_coeffs(
             total_weight += weight;
         });
 
-        if total_weight > 0.0 {
+        if total_weight > R::zero() {
             coeffs.push(Triplet::new(i, i, total_weight));
         }
     }
 
     for i in 0..handle.len() {
         let row_col = i + roi.len();
-        coeffs.push(Triplet::new(row_col, row_col, 1.0));
+        coeffs.push(Triplet::new(row_col, row_col, R::one()));
     }
 
     (coeffs, edge_weights)
