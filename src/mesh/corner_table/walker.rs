@@ -171,7 +171,8 @@ impl<'a, TScalar: RealNumber> CornerWalker<'a, TScalar> {
 }
 
 impl<S: RealNumber> CornerTable<S> {
-    pub fn walker_from_corner(&self, corner: CornerId) -> CornerWalker<S> {
+    #[inline]
+    pub fn walker_from_corner(&self, corner: CornerId) -> CornerWalker<'_, S> {
         CornerWalker::from_corner(self, corner)
     }
 }

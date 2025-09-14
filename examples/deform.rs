@@ -1,41 +1,50 @@
 use baby_shark::{
     exports::nalgebra as na,
     io::write_to_file,
-    mesh::{builder::cylinder, corner_table::CornerTableD},
+    mesh::{builder::cylinder, corner_table::CornerTable},
     prepare_deform,
 };
 use std::{
     collections::{HashMap, HashSet},
     f64::consts::PI,
     path::Path,
+    time::Instant,
 };
 
 fn main() {
-    let cylinder = cylinder::<CornerTableD>(10.0, 2.0, 4, 15);
-    let handle = HashSet::from_iter(cylinder.vertices().filter(|&v| {
-        cylinder.vertex_position(v).y == 10.0 || cylinder.vertex_position(v).y == 0.0
-    }));
-    let roi = HashSet::from_iter(cylinder.vertices());
+    let height = 20.0;
+    let cylinder = cylinder::<CornerTable<f64>>(height, 2.0, 4, 30);
+    write_to_file(&cylinder, Path::new("original.stl")).expect("should write stl file");
 
-    // Rotate part of the handle
-    let transform = na::Matrix4::new_rotation(na::Vector3::new(0.0, PI / 2.0, 0.0));
-    let mut target = HashMap::new();
+    // Lets twist upper half of the cylinder
+    // Take bottom of the cylinder as handle region
+    let handle_vertices_iter = cylinder
+        .vertices()
+        .filter(|&vert| cylinder[vert].position().y == height);
+    let handle = HashSet::from_iter(handle_vertices_iter);
+
+    // Take the lower half of the cylinder as region of interest
+    let roi_vertices_iter = cylinder
+        .vertices()
+        .filter(|&vert| cylinder[vert].position().y >= height * 0.5);
+    let region_of_interest = HashSet::from_iter(roi_vertices_iter);
+
+    // Rotate handle region around Y axis by 180 degrees
+    let transform = na::Matrix4::new_rotation(na::Vector3::new(0.0, PI, 0.0));
+    let mut target_positions = HashMap::new();
 
     for &vert in &handle {
-        let pos = cylinder.vertex_position(vert).clone();
-        if pos.y != 10.0 {
-            continue; // Skip the bottom vertices
-        }
-
-        let new_pos = transform.transform_point(&pos.into()).coords;
-        target.insert(vert, new_pos);
+        let current_position = cylinder[vert].position().clone();
+        let new_pos = transform.transform_point(&current_position.into()).coords;
+        target_positions.insert(vert, new_pos);
     }
 
-    let deformed_cylinder = prepare_deform(&cylinder, &handle, &roi)
+    let now = Instant::now();
+    let twisted_cylinder = prepare_deform(&cylinder, &handle, &region_of_interest)
         .expect("should prepare deformation")
-        .deform(&cylinder, &target)
+        .deform(&cylinder, &target_positions)
         .expect("should deform mesh");
+    println!("Twisting took {}ms", now.elapsed().as_millis());
 
-    write_to_file(&deformed_cylinder, Path::new("deformed_cylinder.stl"))
-        .expect("should write stl file");
+    write_to_file(&twisted_cylinder, Path::new("twisted.stl")).expect("should write stl file");
 }

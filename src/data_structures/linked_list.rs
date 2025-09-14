@@ -234,7 +234,7 @@ impl<T> LinkedList<T> {
 
     /// Returns iterator over all element in the list. From head to tail
     #[inline]
-    pub fn iter(&self) -> ForwardIter<T> {
+    pub fn iter(&self) -> ForwardIter<'_, T> {
         return LinkedVecIter::from_head(self);
     }
 
@@ -246,13 +246,13 @@ impl<T> LinkedList<T> {
 
     /// Returns iterator over all element before `element` (including it). From `element` to head
     #[inline]
-    pub fn before(&self, element: Link) -> BackwardIter<T> {
+    pub fn before(&self, element: Link) -> BackwardIter<'_, T> {
         return LinkedVecIter::from_node(self, Some(element));
     }
 
     /// Returns iterator over all element after `element` (including it). From `element` to tail
     #[inline]
-    pub fn after(&self, element: Link) -> ForwardIter<T> {
+    pub fn after(&self, element: Link) -> ForwardIter<'_, T> {
         return LinkedVecIter::from_node(self, Some(element));
     }
 

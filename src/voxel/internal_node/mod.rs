@@ -93,7 +93,7 @@ where
     }
 
     #[inline]
-    fn child(&self, offset: usize) -> Option<Child<TChild>> {
+    fn child(&self, offset: usize) -> Option<Child<'_, TChild>> {
         let child = &self.childs[offset];
 
         unsafe {
@@ -108,7 +108,7 @@ where
     }
 
     #[inline]
-    fn child_mut(&mut self, offset: usize) -> Option<ChildMut<TChild>> {
+    fn child_mut(&mut self, offset: usize) -> Option<ChildMut<'_, TChild>> {
         let child = &mut self.childs[offset];
 
         unsafe {
@@ -122,7 +122,7 @@ where
         None
     }
 
-    fn childs(&self) -> impl Iterator<Item = (usize, Child<TChild>)> + '_ {
+    fn childs(&self) -> impl Iterator<Item = (usize, Child<'_, TChild>)> + '_ {
         (0..SIZE).filter_map(|offset| self.child(offset).map(|child| (offset, child)))
     }
 
