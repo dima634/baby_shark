@@ -1,6 +1,6 @@
 [package]
 name = "baby_shark"
-version = "0.3.11"
+version = "0.3.12"
 edition = "2021"
 description="Geometry processing library"
 license="MIT"
