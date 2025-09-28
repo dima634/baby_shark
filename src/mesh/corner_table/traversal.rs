@@ -113,6 +113,7 @@ impl<S: RealNumber> CornerTable<S> {
         }
     }
 
+    // TODO: return control flow
     #[inline]
     pub fn faces_around_vertex<F: FnMut(FaceId)>(&self, vertex_id: VertexId, mut visit: F) {
         let mut walker = CornerWalker::from_vertex(self, vertex_id);

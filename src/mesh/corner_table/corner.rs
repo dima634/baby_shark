@@ -107,12 +107,18 @@ impl Corner {
     pub fn set_deleted(&mut self, deleted: bool) {
         self.flags.set(CornerFlags::IS_DELETED, deleted);
     }
+
+    #[inline]
+    pub fn deleted(mut self) -> Self {
+        self.set_deleted(true);
+        self
+    }
 }
 
 impl PartialEq for Corner {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.opposite_corner == other.opposite_corner && self.vertex == other.vertex
+        self.opposite_corner == other.opposite_corner && self.vertex == other.vertex && self.is_deleted() == other.is_deleted()
     }
 }
 impl Eq for Corner {}

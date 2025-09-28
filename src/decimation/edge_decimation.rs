@@ -229,7 +229,7 @@ where
                 let collapse_at = self.collapse_strategy.get_placement(mesh, best.edge);
 
                 // Skip not safe collapses
-                if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality) {
+                if !edge_collapse::is_safe(mesh, best.edge, &collapse_at, self.min_face_quality, S::f32(0.7)) {
                     continue;
                 }
 

@@ -76,12 +76,18 @@ impl<S: RealNumber> Vertex<S> {
     pub fn set_deleted(&mut self, deleted: bool) {
         self.flags.set(VertexFlags::IS_DELETED, deleted);
     }
+
+    #[inline]
+    pub fn deleted(mut self) -> Self {
+        self.set_deleted(true);
+        self
+    }
 }
 
 impl<S: RealNumber> PartialEq for Vertex<S> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.corner == other.corner && self.position == other.position
+        self.corner == other.corner && self.position == other.position && self.is_deleted() == other.is_deleted()
     }
 }
 impl<S: RealNumber> Eq for Vertex<S> {}

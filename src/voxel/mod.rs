@@ -59,6 +59,7 @@ trait TreeNode: Send + Sync + Sized {
     /// Total number of tiles in one dimension
     const BRANCHING_TOTAL: usize;
     /// Number of childs/voxels in node
+    #[allow(dead_code)]
     const SIZE: usize;
 
     const IS_LEAF: bool; // TODO: remove

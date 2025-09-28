@@ -6,14 +6,21 @@ use crate::{
 use std::collections::BTreeSet;
 
 /// Returns `true` when edge collapse is topologically and geometrically safe, `false` otherwise
+/// # Arguments
+/// * `mesh` - reference to the mesh
+/// * `edge` - edge to check
+/// * `collapse_at` - position where edge will be collapsed
+/// * `min_quality_perc` - minimal quality percentage (0..1) that any face can have after collapse compared to its quality before collapse
+/// * `normal_deviation_thr` - minimal dot product between old and new normals (0..1), if dot product is less then collapse is not safe
 #[inline]
 pub fn is_safe<S: RealNumber>(
     mesh: &CornerTable<S>,
     edge: EdgeId,
     collapse_at: &Vec3<S>,
-    min_quality: S,
+    min_quality_perc: S,
+    normal_deviation_thr: S,
 ) -> bool {
-    is_topologically_safe(mesh, edge) && is_geometrically_safe(mesh, edge, collapse_at, min_quality)
+    is_topologically_safe(mesh, edge) && is_geometrically_safe(mesh, edge, collapse_at, min_quality_perc, normal_deviation_thr)
 }
 
 /// Returns `true` when edge collapse is topologically safe, `false` otherwise
@@ -40,22 +47,28 @@ pub fn is_topologically_safe<S: RealNumber>(mesh: &CornerTable<S>, edge: EdgeId)
     common_neighbors_count == 2
 }
 
-///
 /// Returns `true` when edge collapse is geometrically safe, `false` otherwise.
 /// Collapse is not safe when face normals are flipped or quality faces becomes too bad.
 ///
+/// # Arguments:
+/// * `mesh` - reference to the mesh
+/// * `edge` - edge to check
+/// * `new_position` - position where edge will be collapsed
+/// * `min_quality_perc` - minimal quality percentage (0..1) that any face can have after collapse compared to its quality before collapse
+/// * `normal_deviation_thr` - minimal dot product between old and new normals (0..1), if dot product is less then collapse is not safe
 pub fn is_geometrically_safe<S: RealNumber>(
     mesh: &CornerTable<S>,
     edge: EdgeId,
     new_position: &Vec3<S>,
     min_quality_perc: S,
+    normal_deviation_thr: S,
 ) -> bool {
     // Check new normals (geometrical safety)
     let (e_start, e_end) = mesh.edge_vertices(edge);
     let (f1, f2) = mesh.edge_faces(edge);
 
-    check_faces_after_collapse(mesh, f1, f2, e_start, new_position, min_quality_perc)
-        && check_faces_after_collapse(mesh, f1, f2, e_end, new_position, min_quality_perc)
+    check_faces_after_collapse(mesh, f1, f2, e_start, new_position, min_quality_perc, normal_deviation_thr)
+        && check_faces_after_collapse(mesh, f1, f2, e_end, new_position, min_quality_perc, normal_deviation_thr)
 }
 
 fn check_faces_after_collapse<R: RealNumber>(
@@ -65,6 +78,7 @@ fn check_faces_after_collapse<R: RealNumber>(
     collapsed_vertex: VertexId,
     new_position: &Vec3<R>,
     min_quality_perc: R,
+    normal_deviation_thr: R,
 ) -> bool {
     let mut bad_collapse = false;
 
@@ -113,7 +127,7 @@ fn check_faces_after_collapse<R: RealNumber>(
         };
 
         // Normal flipped?
-        if old_normal.dot(&new_normal) < R::f32(0.7) {
+        if old_normal.dot(&new_normal) < normal_deviation_thr {
             bad_collapse = true;
         }
     });

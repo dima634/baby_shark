@@ -35,6 +35,11 @@ impl<S: RealNumber> CornerTable<S> {
     }
 
     #[inline]
+    pub fn face_exists(&self, face: FaceId) -> bool {
+        !self[face.corner()].is_deleted()
+    }
+
+    #[inline]
     pub fn face_vertices(&self, face: FaceId) -> (VertexId, VertexId, VertexId) {
         let mut walker = CornerWalker::from_corner(self, face.corner());
         (

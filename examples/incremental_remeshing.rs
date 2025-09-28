@@ -8,7 +8,7 @@ fn main() {
         read_from_file(Path::new("./assets/bunny.stl")).expect("should read mesh from file");
 
     let now = std::time::Instant::now();
-    let remesher = IncrementalRemesher::default();
+    let mut remesher = IncrementalRemesher::default();
     remesher.remesh(&mut mesh, 0.5f32);
     println!("Remeshing took: {:?}", now.elapsed());
 

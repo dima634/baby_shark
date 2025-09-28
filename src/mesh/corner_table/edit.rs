@@ -3,9 +3,10 @@ use crate::helpers::aliases::Vec3;
 
 // Topology editing operations
 impl<S: RealNumber> CornerTable<S> {
-    pub fn collapse_edge(&mut self, edge: EdgeId, at: &Vec3<S>) {
+    /// Returns vertex removed during edge collapse, `None` if edge is invalid
+    pub fn collapse_edge(&mut self, edge: EdgeId, at: &Vec3<S>) -> Option<VertexId> {
         if self[edge.corner()].is_deleted() {
-            return;
+            return None;
         }
 
         let mut walker = CornerWalker::from_corner(self, edge.corner());
@@ -77,6 +78,8 @@ impl<S: RealNumber> CornerTable<S> {
         // Setup new opposites
         self.make_corners_opposite(c28_idx, c21_idx);
         self.make_corners_opposite(c6_idx, c13_idx);
+
+        Some(v9_idx)
     }
 
     pub fn flip_edge(&mut self, edge: EdgeId) {
@@ -131,18 +134,20 @@ impl<S: RealNumber> CornerTable<S> {
         self[v3_idx].set_corner(c2_idx);
     }
 
-    pub fn split_edge(&mut self, edge: EdgeId, at: &Vec3<S>) {
+    /// Returns id of vertex inserted to split edge, `None` if edge is invalid
+    pub fn split_edge(&mut self, edge: EdgeId, at: &Vec3<S>) -> Option<VertexId> {
         if self[edge.corner()].is_deleted() {
-            return;
+            return None;
         }
 
         let corner_id = edge.corner();
         let corner = &self[corner_id];
 
-        match corner.opposite_corner() {
+        let new_vertex = match corner.opposite_corner() {
             Some(_) => self.split_inner_edge(corner_id, at),
             None => self.split_boundary_edge(corner_id, at),
-        }
+        };
+        Some(new_vertex)
     }
 
     pub fn split_face(&mut self, face: FaceId, point: Vec3<S>) {
@@ -190,7 +195,7 @@ impl<S: RealNumber> CornerTable<S> {
 // Helper functions
 impl<S: RealNumber> CornerTable<S> {
     /// Splits inner edge opposite to corner at given position
-    fn split_inner_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) {
+    fn split_inner_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) -> VertexId {
         // Existing corners and vertices that needs to be updated
         let mut walker = CornerWalker::from_corner(self, corner_id);
         let c0_idx = walker.previous_corner_id();
@@ -235,10 +240,12 @@ impl<S: RealNumber> CornerTable<S> {
         self.set_opposite_relationship(c0_idx, c7_idx);
         self.set_opposite_relationship(c5_idx, c9_idx);
         self.set_opposite_relationship(c6_idx, c10_idx);
+
+        new_vertex_id
     }
 
     /// Splits boundary edge opposite to corner at given position
-    fn split_boundary_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) {
+    fn split_boundary_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) -> VertexId {
         // Existing corners and vertices that needs to be updated
         let mut walker = CornerWalker::from_corner(self, corner_id);
         let c0_idx = walker.previous_corner_id();
@@ -272,6 +279,8 @@ impl<S: RealNumber> CornerTable<S> {
         }
 
         self.set_opposite_relationship(c0_idx, c4_idx);
+
+        new_vertex_id
     }
 
     /// Makes give corners opposite to each other
@@ -443,7 +452,7 @@ mod tests {
             Vertex::new(CornerId::new(18), Vec3f::new(1.0, 0.5, 0.0)), // 5
             Vertex::new(CornerId::new(21), Vec3f::new(1.0, 1.0, 0.0)), // 6
             Vertex::new(CornerId::new(27), Vec3f::new(0.5, 1.0, 0.0)), // 7
-            Vertex::new(CornerId::new(29), Vec3f::new(0.25, 0.5, 0.0)), // 8
+            Vertex::new(CornerId::new(29), Vec3f::new(0.25, 0.5, 0.0)).deleted(), // 8
             Vertex::new(CornerId::new(23), Vec3f::new(0.5, 0.5, 0.0)), // 9
         ];
 
@@ -458,12 +467,12 @@ mod tests {
             Corner::new(Some(CornerId::new(13)), VertexId::new(2)), // 6
             Corner::new(Some(CornerId::new(3)), VertexId::new(3)), // 7
             Corner::new(None, VertexId::new(9)),                   // 8
-            Corner::new(Some(CornerId::new(24)), VertexId::new(3)), // 9
-            Corner::new(Some(CornerId::new(6)), VertexId::new(9)), // 10
-            Corner::new(Some(CornerId::new(13)), VertexId::new(9)), // 11
+            Corner::new(Some(CornerId::new(24)), VertexId::new(3)).deleted(), // 9
+            Corner::new(Some(CornerId::new(6)), VertexId::new(9)).deleted(),  // 10
+            Corner::new(Some(CornerId::new(13)), VertexId::new(9)).deleted(), // 11
             Corner::new(Some(CornerId::new(16)), VertexId::new(3)), // 12
-            Corner::new(Some(CornerId::new(6)), VertexId::new(4)), // 13
-            Corner::new(None, VertexId::new(9)),                   // 14
+            Corner::new(Some(CornerId::new(6)), VertexId::new(4)),  // 13
+            Corner::new(None, VertexId::new(9)),                    // 14
             Corner::new(Some(CornerId::new(19)), VertexId::new(4)), // 15
             Corner::new(Some(CornerId::new(12)), VertexId::new(5)), // 16
             Corner::new(None, VertexId::new(9)),                   // 17
@@ -473,16 +482,17 @@ mod tests {
             Corner::new(Some(CornerId::new(28)), VertexId::new(6)), // 21
             Corner::new(Some(CornerId::new(18)), VertexId::new(7)), // 22
             Corner::new(None, VertexId::new(9)),                   // 23
-            Corner::new(Some(CornerId::new(9)), VertexId::new(7)), // 24
-            Corner::new(Some(CornerId::new(21)), VertexId::new(9)), // 25
-            Corner::new(Some(CornerId::new(28)), VertexId::new(9)), // 26
+            Corner::new(Some(CornerId::new(9)), VertexId::new(7)).deleted(),  // 24
+            Corner::new(Some(CornerId::new(21)), VertexId::new(9)).deleted(), // 25
+            Corner::new(Some(CornerId::new(28)), VertexId::new(9)).deleted(), // 26
             Corner::new(Some(CornerId::new(1)), VertexId::new(7)), // 27
             Corner::new(Some(CornerId::new(21)), VertexId::new(0)), // 28
             Corner::new(None, VertexId::new(9)),                   // 29
         ];
 
-        mesh.collapse_edge(EdgeId::new(CornerId::new(9)), &Vec3f::new(0.5, 0.5, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(9)), &Vec3f::new(0.5, 0.5, 0.0));
 
+        assert_eq!(removed_vertex, Some(VertexId::new(8)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
@@ -497,7 +507,7 @@ mod tests {
             Vertex::new(CornerId::new(9), Vec3f::new(1.0, 1.0, 0.0)), // 3
             Vertex::new(CornerId::new(10), Vec3f::new(0.5, 1.0, 0.0)), // 4
             Vertex::new(CornerId::new(11), Vec3f::new(0.5, 0.5, 0.0)), // 5
-            Vertex::new(CornerId::new(17), Vec3f::new(0.75, 0.5, 0.0)), // 6
+            Vertex::new(CornerId::new(17), Vec3f::new(0.75, 0.5, 0.0)).deleted(), // 6
         ];
 
         let expected_corners = vec![
@@ -514,16 +524,17 @@ mod tests {
             Corner::new(None, VertexId::new(3)),                   // 9
             Corner::new(Some(CornerId::new(6)), VertexId::new(4)), // 10
             Corner::new(None, VertexId::new(5)),                   // 11
-            Corner::new(Some(CornerId::new(16)), VertexId::new(4)), // 12
-            Corner::new(Some(CornerId::new(9)), VertexId::new(5)), // 13
-            Corner::new(None, VertexId::new(5)),                   // 14
-            Corner::new(Some(CornerId::new(1)), VertexId::new(5)), // 15
-            Corner::new(Some(CornerId::new(12)), VertexId::new(0)), // 16
-            Corner::new(None, VertexId::new(5)),                   // 17
+            Corner::new(Some(CornerId::new(16)), VertexId::new(4)).deleted(), // 12
+            Corner::new(Some(CornerId::new(9)), VertexId::new(5)).deleted(),  // 13
+            Corner::new(None, VertexId::new(5)).deleted(),                    // 14
+            Corner::new(Some(CornerId::new(1)), VertexId::new(5)).deleted(),  // 15
+            Corner::new(Some(CornerId::new(12)), VertexId::new(0)).deleted(), // 16
+            Corner::new(None, VertexId::new(5)).deleted(),                    // 17
         ];
 
-        mesh.collapse_edge(EdgeId::new(CornerId::new(12)), &Vec3f::new(0.5, 0.5, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(12)), &Vec3f::new(0.5, 0.5, 0.0));
 
+        assert_eq!(removed_vertex, Some(VertexId::new(6)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 
@@ -532,11 +543,11 @@ mod tests {
         let mut mesh = create_collapse_edge_sample_mesh3();
 
         let expected_vertices = vec![
-            Vertex::new(CornerId::new(0), Vec3f::new(0.0, 1.0, 0.0)), // 0
-            Vertex::new(CornerId::new(6), Vec3f::new(2.0, 0.0, 0.0)), // 1
-            Vertex::new(CornerId::new(6), Vec3f::new(3.0, 0.0, 0.0)), // 2
-            Vertex::new(CornerId::new(7), Vec3f::new(4.0, 1.0, 0.0)), // 3
-            Vertex::new(CornerId::new(2), Vec3f::new(2.0, 1.0, 0.0)), // 4
+            Vertex::new(CornerId::new(0), Vec3f::new(0.0, 1.0, 0.0)),           // 0
+            Vertex::new(CornerId::new(6), Vec3f::new(2.0, 0.0, 0.0)),           // 1
+            Vertex::new(CornerId::new(6), Vec3f::new(3.0, 0.0, 0.0)).deleted(), // 2
+            Vertex::new(CornerId::new(7), Vec3f::new(4.0, 1.0, 0.0)),           // 3
+            Vertex::new(CornerId::new(2), Vec3f::new(2.0, 1.0, 0.0)),           // 4
         ];
 
         let expected_corners = vec![
@@ -544,16 +555,17 @@ mod tests {
             Corner::new(Some(CornerId::new(7)), VertexId::new(0)), // 0
             Corner::new(None, VertexId::new(1)),                   // 1
             Corner::new(None, VertexId::new(4)),                   // 2
-            Corner::new(Some(CornerId::new(7)), VertexId::new(1)), // 3
-            Corner::new(Some(CornerId::new(0)), VertexId::new(1)), // 4
-            Corner::new(None, VertexId::new(4)),                   // 5
+            Corner::new(Some(CornerId::new(7)), VertexId::new(1)).deleted(), // 3
+            Corner::new(Some(CornerId::new(0)), VertexId::new(1)).deleted(), // 4
+            Corner::new(None, VertexId::new(4)).deleted(),                   // 5
             Corner::new(None, VertexId::new(1)),                   // 6
             Corner::new(Some(CornerId::new(0)), VertexId::new(3)), // 7
             Corner::new(None, VertexId::new(4)),                   // 8
         ];
 
-        mesh.collapse_edge(EdgeId::new(CornerId::new(5)), &Vec3f::new(2.0, 0.0, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(5)), &Vec3f::new(2.0, 0.0, 0.0));
 
+        assert_eq!(removed_vertex, Some(VertexId::new(2)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
 

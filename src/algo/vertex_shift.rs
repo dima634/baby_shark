@@ -4,6 +4,8 @@ use crate::{
     mesh::corner_table::*,
 };
 
+// TODO: move to remesher
+
 pub fn is_vertex_shift_safe<R: RealNumber>(
     vertex: VertexId,
     old_position: &Vec3<R>,

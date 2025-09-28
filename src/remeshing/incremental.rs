@@ -1,7 +1,11 @@
+use core::prelude::v1;
+use std::{collections::HashSet, path};
+
 use crate::{
     algo::{edge_collapse, utils::tangential_relaxation, vertex_shift},
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
-    mesh::{corner_table::*, traits::stats},
+    io::{Builder, SoupBuilder},
+    mesh::{corner_table::*, polygon_soup::data_structure::PolygonSoup, traits::stats},
     spatial_partitioning::grid::Grid,
 };
 
@@ -14,7 +18,7 @@ use crate::{
 ///
 /// ## Example
 /// ```ignore
-/// let remesher = IncrementalRemesher::new()
+/// let remesher = IncrementalRemesher::default()
 ///     .with_iterations_count(10)
 ///     .with_split_edges(true)
 ///     .with_collapse_edges(true)
@@ -24,14 +28,17 @@ use crate::{
 /// remesher.remesh(&mut mesh, 0.002f32);
 /// ```
 ///
+#[derive(Debug, Clone)]
 pub struct IncrementalRemesher {
     split_edges: bool,
     shift_vertices: bool,
     collapse_edges: bool,
     flip_edges: bool,
     project_vertices: bool,
-    iterations: u16,
     keep_boundary: bool,
+    iterations: u16,
+    sharp_edge_angle: Option<f64>,
+    constrained_vertices: HashSet<VertexId>,
 }
 
 impl IncrementalRemesher {
@@ -89,13 +96,19 @@ impl IncrementalRemesher {
         self
     }
 
+    #[inline]
+    pub fn with_sharp_edge_angle(mut self, angle_degrees: Option<f64>) -> Self {
+        self.sharp_edge_angle = angle_degrees;
+        self
+    }
+
     ///
     /// Remesh given `mesh`
     /// ## Arguments
     /// * `mesh` - triangular mesh
     /// * `target_edge_length` - desired length of edge
     ///
-    pub fn remesh<R: RealNumber>(&self, mesh: &mut CornerTable<R>, target_edge_length: R) {
+    pub fn remesh<R: RealNumber>(&mut self, mesh: &mut CornerTable<R>, target_edge_length: R) {
         let max_edge_length = R::f64(4.0 / 3.0) * target_edge_length;
         let min_edge_length = R::f64(4.0 / 5.0) * target_edge_length;
 
@@ -104,14 +117,22 @@ impl IncrementalRemesher {
             reference_mesh = Grid::from_mesh(mesh);
         }
 
-        for _ in 0..self.iterations {
+        self.find_feature_vertices(mesh);
+
+        for i in 0..self.iterations {
             if self.split_edges {
-                self.split_edges(mesh, max_edge_length);
+                self.split_long_edges(mesh, max_edge_length);
             }
 
+            // crate::io::write_to_file(mesh, &std::path::Path::new("before.ply"))
+            //     .expect("should save mesh to file");
+
             if self.collapse_edges {
-                self.collapse_edges(mesh, min_edge_length);
+                self.collapse_short_edges(mesh, min_edge_length);
             }
+
+            // crate::io::write_to_file(mesh, &std::path::Path::new("after.ply"))
+            //     .expect("should save mesh to file");
 
             if self.flip_edges {
                 self.flip_edges(mesh);
@@ -127,19 +148,44 @@ impl IncrementalRemesher {
         }
     }
 
-    fn split_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>, max_edge_length: R) {
-        // Cache all edges, in the case when split edge affects edges iterator
-        let edges: Vec<EdgeId> = mesh.unique_edges().collect();
+    fn split_long_edges<R: RealNumber>(&mut self, mesh: &mut CornerTable<R>, max_edge_length: R) {
         let max_edge_length_squared = max_edge_length * max_edge_length;
 
-        for edge in edges {
-            let edge_length_squared = mesh.edge_length_squared(edge);
+        // Split longest edge of each face.
+        // Iterating over edges does not work well
+        // because sometimes it leads to creation of degenerate faces.
+        // So we split longest edge of each face instead.
+        for face in mesh.faces().collect::<Vec<_>>() {
+            let (e1, e2, e3) = mesh.face_edges(face);
+            let l1 = mesh.edge_length_squared(e1);
+            let l2 = mesh.edge_length_squared(e2);
+            let l3 = mesh.edge_length_squared(e3);
 
-            // Split long edges at the middle
-            if edge_length_squared > max_edge_length_squared {
-                let (v1, v2) = mesh.edge_positions(edge);
-                let split_at = v1 + (v2 - v1).scale(R::half());
-                mesh.split_edge(edge, &split_at);
+            if l1 < max_edge_length_squared
+                && l2 < max_edge_length_squared
+                && l3 < max_edge_length_squared
+            {
+                continue; // All edges are short enough
+            }
+
+            let longest_edge = if l1 >= l2 && l1 >= l3 {
+                e1
+            } else if l2 >= l1 && l2 >= l3 {
+                e2
+            } else {
+                e3
+            };
+
+            let (v1, v2) = mesh.edge_vertices(longest_edge);
+            let (v1_pos, v2_pos) = (mesh[v1].position(), mesh[v2].position());
+            let split_at = v1_pos + (v2_pos - v1_pos).scale(R::half());
+            let Some(inserted_vertex) = mesh.split_edge(longest_edge, &split_at) else {
+                continue;
+            };
+
+            // If we split constrained edge then new edges are also constrained
+            if self.constrained_vertices.contains(&v1) || self.constrained_vertices.contains(&v2) {
+                self.constrained_vertices.insert(inserted_vertex);
             }
         }
     }
@@ -149,66 +195,98 @@ impl IncrementalRemesher {
         mesh: &mut CornerTable<R>,
         target_edge_length_squared: R,
     ) {
-        let vertices: Vec<VertexId> = mesh.vertices().collect();
         let mut one_ring = Vec::with_capacity(stats::MAX_VERTEX_VALENCE);
 
         // Perform laplacian smoothing for each vertex
-        for vertex in vertices {
-            let Some(vertex_normal) = mesh.vertex_normal(vertex) else {
+        for vertex in mesh.vertices().collect::<Vec<_>>() {
+            if self.keep_boundary && mesh.is_vertex_on_boundary(vertex) {
+                // TODO: constrained vertex
                 continue;
-            };
+            }
 
+            if self.constrained_vertices.contains(&vertex) {
+                continue;
+            }
+
+            let Some(vertex_normal) = mesh.vertex_normal(vertex) else { continue };
             let vertex_position = mesh.vertex_position(vertex);
+
             one_ring.clear();
             mesh.vertices_around_vertex(vertex, |v| one_ring.push(*mesh.vertex_position(v)));
             let new_position =
                 tangential_relaxation(one_ring.iter(), vertex_position, &vertex_normal);
 
-            let shift_vertex = !(self.keep_boundary && mesh.is_vertex_on_boundary(vertex))
-                && vertex_shift::is_vertex_shift_safe(
-                    vertex,
-                    vertex_position,
-                    &new_position,
-                    target_edge_length_squared,
-                    mesh,
-                );
+            let is_shift_safe = vertex_shift::is_vertex_shift_safe(
+                vertex,
+                vertex_position,
+                &new_position,
+                target_edge_length_squared,
+                mesh,
+            );
 
-            if shift_vertex {
+            if is_shift_safe {
                 mesh[vertex].set_position(new_position);
             }
         }
     }
 
-    fn collapse_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>, min_edge_length: R) {
-        let edges: Vec<EdgeId> = mesh.unique_edges().collect();
+    fn collapse_short_edges<R: RealNumber>(
+        &mut self,
+        mesh: &mut CornerTable<R>,
+        min_edge_length: R,
+    ) {
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
+        let mut i = 0;
+
         // Collapse long edges
-        for edge in edges {
+        for edge in mesh.unique_edges().collect::<Vec<_>>() {
             if !mesh.edge_exists(edge) {
                 continue;
             }
 
-            // Keep boundary
-            let (v1, v2) = mesh.edge_vertices(edge);
-            if self.keep_boundary
-                && (mesh.is_vertex_on_boundary(v1) || mesh.is_vertex_on_boundary(v2))
-            {
-                continue;
+            if self.keep_boundary && mesh.is_edge_on_boundary(edge) {
+                continue; // TODO: constrained vertex
             }
 
-            // Long edge?
             if mesh.edge_length_squared(edge) >= min_edge_length_squared {
                 continue;
             }
 
+            // println!("{} > {}", mesh.edge_length_squared(edge), min_edge_length_squared);
+
+            let (v1, v2) = mesh.edge_vertices(edge);
+            let is_v1_constrained = self.constrained_vertices.contains(&v1);
+            let is_v2_constrained = self.constrained_vertices.contains(&v2);
+
             let v1_pos = mesh.vertex_position(v1);
             let v2_pos = mesh.vertex_position(v2);
-            let collapse_at = (v1_pos + v2_pos) * R::half();
+            let (collapse_at, normal_deviation_thr) = match (is_v1_constrained, is_v2_constrained) {
+                (true, false) => (*v1_pos, R::one() - R::default_epsilon()),
+                (false, true) => (*v2_pos, R::one() - R::default_epsilon()),
+                (true, true) => (
+                    (v1_pos + v2_pos) * R::half(),
+                    R::one() - R::default_epsilon(),
+                ),
+                (false, false) => ((v1_pos + v2_pos) * R::half(), R::f32(0.7)),
+            };
 
-            if edge_collapse::is_safe(mesh, edge, &collapse_at, R::half()) {
-                mesh.collapse_edge(edge, &collapse_at);
+            if edge_collapse::is_safe(mesh, edge, &collapse_at, R::half(), normal_deviation_thr) {
+                match (is_v1_constrained, is_v2_constrained) {
+                    (true, false) => {
+                        self.constrained_vertices.insert(v2);
+                    }
+                    (false, true) => {
+                        self.constrained_vertices.insert(v1);
+                    }
+                    _ => {}
+                };
+                mesh.collapse_edge(edge, &collapse_at)
+                    .inspect(|removed_vertex| {
+                        self.constrained_vertices.remove(removed_vertex);
+                    });
             }
+            i += 1;
         }
     }
 
@@ -217,7 +295,12 @@ impl IncrementalRemesher {
 
         // Flip edges to improve valence
         for edge in edges {
-            if self.is_flip_safe(mesh, edge) && self.will_flip_improve_quality(mesh, edge) {
+            let (v1, v2) = mesh.edge_vertices(edge);
+            if self.constrained_vertices.contains(&v1) || self.constrained_vertices.contains(&v2) {
+                continue;
+            }
+
+            if Self::is_flip_safe(mesh, edge) && Self::will_flip_improve_quality(mesh, edge) {
                 mesh.flip_edge(edge);
             }
         }
@@ -241,7 +324,7 @@ impl IncrementalRemesher {
         }
     }
 
-    fn is_flip_safe<R: RealNumber>(&self, mesh: &mut CornerTable<R>, edge: EdgeId) -> bool {
+    fn is_flip_safe<R: RealNumber>(mesh: &mut CornerTable<R>, edge: EdgeId) -> bool {
         let corner = &mesh[edge.corner()];
         let Some(opposite_corner) = corner.opposite_corner().map(|c| &mesh[c]) else {
             return false; // Not safe if edge is on boundary
@@ -252,7 +335,7 @@ impl IncrementalRemesher {
         let v2_idx = opposite_corner.vertex();
 
         let mut safe = true;
-        mesh.vertices_around_vertex(v2_idx, |v| safe &= v1_idx != v);
+        mesh.vertices_around_vertex(v2_idx, |v| safe &= v1_idx != v); // TODO: return control flow
 
         if !safe {
             return false;
@@ -269,24 +352,16 @@ impl IncrementalRemesher {
             return false;
         }
 
-        let Some(old_normal1) = Triangle3::normal(&v0, &v1, &v2) else {
-            return false;
-        };
-        let Some(new_normal1) = Triangle3::normal(&v1, &v2, &v3) else {
-            return false;
-        };
-        let threshold = R::f64(5.0) * R::pi() / R::u32(180);
+        let Some(old_normal1) = Triangle3::normal(&v0, &v1, &v2) else { return false };
+        let Some(new_normal1) = Triangle3::normal(&v1, &v2, &v3) else { return false };
+        let threshold = R::f64(5.0_f64.to_radians());
 
         if old_normal1.angle(&new_normal1) > threshold {
             return false;
         }
 
-        let Some(old_normal2) = Triangle3::normal(&v0, &v2, &v3) else {
-            return false;
-        };
-        let Some(new_normal2) = Triangle3::normal(&v0, &v1, &v3) else {
-            return false;
-        };
+        let Some(old_normal2) = Triangle3::normal(&v0, &v2, &v3) else { return false };
+        let Some(new_normal2) = Triangle3::normal(&v0, &v1, &v3) else { return false };
 
         if old_normal2.angle(&new_normal2) > threshold
             || old_normal2.angle(&new_normal1) > threshold
@@ -298,21 +373,17 @@ impl IncrementalRemesher {
         true
     }
 
-    fn will_flip_improve_quality<R: RealNumber>(
-        &self,
-        mesh: &mut CornerTable<R>,
-        edge: EdgeId,
-    ) -> bool {
+    fn will_flip_improve_quality<R: RealNumber>(mesh: &mut CornerTable<R>, edge: EdgeId) -> bool {
         let mut walker = mesh.walker_from_corner(edge.corner());
         let v1 = walker.corner().vertex();
         let v2 = walker.move_to_next().corner().vertex();
         let v0 = walker.move_to_next().corner().vertex();
         let v3 = walker.move_to_next().move_to_opposite().corner().vertex();
 
-        let v0_ideal_val = self.ideal_valence(mesh, v0);
-        let v1_ideal_val = self.ideal_valence(mesh, v1);
-        let v2_ideal_val = self.ideal_valence(mesh, v2);
-        let v3_ideal_val = self.ideal_valence(mesh, v3);
+        let v0_ideal_val = Self::ideal_valence(mesh, v0);
+        let v1_ideal_val = Self::ideal_valence(mesh, v1);
+        let v2_ideal_val = Self::ideal_valence(mesh, v2);
+        let v3_ideal_val = Self::ideal_valence(mesh, v3);
 
         let v0_val = mesh.vertex_degree(v0) as isize;
         let v1_val = mesh.vertex_degree(v1) as isize;
@@ -349,12 +420,40 @@ impl IncrementalRemesher {
     }
 
     #[inline]
-    fn ideal_valence<R: RealNumber>(&self, mesh: &CornerTable<R>, vertex: VertexId) -> isize {
+    fn ideal_valence<R: RealNumber>(mesh: &CornerTable<R>, vertex: VertexId) -> isize {
         if mesh.is_vertex_on_boundary(vertex) {
             stats::IDEAL_BOUNDARY_VERTEX_VALENCE as isize
         } else {
             stats::IDEAL_INTERIOR_VERTEX_VALENCE as isize
         }
+    }
+
+    fn find_feature_vertices<R: RealNumber>(&mut self, mesh: &CornerTable<R>) {
+        let Some(sharp_angle) = self.sharp_edge_angle else { return };
+        self.constrained_vertices.clear();
+        let sharp_threshold_cos = R::f64(sharp_angle).cos();
+
+        for edge in mesh.edges() {
+            let (f1, Some(f2)) = mesh.edge_faces(edge) else { continue };
+            let Some(n1) = mesh.face_normal(f1) else { continue };
+            let Some(n2) = mesh.face_normal(f2) else { continue };
+
+            let angle_cos = n1.dot(&n2).clamp(-R::one(), R::one());
+            if angle_cos < sharp_threshold_cos {
+                let (v1, v2) = mesh.edge_vertices(edge);
+                self.constrained_vertices.insert(v1);
+                self.constrained_vertices.insert(v2);
+            }
+        }
+
+        // let mut ps = PolygonSoup::<R>::default();
+        // for vertex in self.constrained_vertices.iter() {
+        //     let point = crate::mesh::builder::cube::<PolygonSoup<R>>(*mesh[*vertex].position(), R::f32(0.1), R::f32(0.1), R::f32(0.1));
+        //     ps.concat(point);
+        // }
+
+        // crate::io::write_to_file(&ps, std::path::Path::new("constrained.ply"))
+        //     .expect("should save mesh to file");
     }
 }
 
@@ -366,8 +465,10 @@ impl Default for IncrementalRemesher {
             collapse_edges: true,
             flip_edges: true,
             project_vertices: true,
-            iterations: 10,
+            iterations: 15,
             keep_boundary: true,
+            sharp_edge_angle: Some(30.0_f64.to_radians()),
+            constrained_vertices: HashSet::new(),
         }
     }
 }
