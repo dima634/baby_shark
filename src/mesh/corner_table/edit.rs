@@ -3,8 +3,8 @@ use crate::helpers::aliases::Vec3;
 
 // Topology editing operations
 impl<S: RealNumber> CornerTable<S> {
-    /// Returns vertex removed during edge collapse, `None` if edge is invalid
-    pub fn collapse_edge(&mut self, edge: EdgeId, at: &Vec3<S>) -> Option<VertexId> {
+    /// Returns vertex removed during edge collapse (end of the oriented edge), `None` if edge is invalid
+    pub fn collapse_edge(&mut self, edge: EdgeId, at: &Vec3<S>) -> Option<(VertexId, FaceId, Option<FaceId>)> {
         if self[edge.corner()].is_deleted() {
             return None;
         }
@@ -29,6 +29,9 @@ impl<S: RealNumber> CornerTable<S> {
         let mut c6_idx = None;
         let mut c13_idx = None;
 
+        let removed_face_1 = c24_idx.face();
+        let mut removed_face_2 = None;
+
         let is_boundary_edge = walker.corner().opposite_corner().is_none();
 
         if !is_boundary_edge {
@@ -42,7 +45,7 @@ impl<S: RealNumber> CornerTable<S> {
             c13_idx = walker.corner().opposite_corner();
 
             // Update vertex for corners around removed one
-            for corner_index in collect_corners_around_vertex(self, v9_idx) {
+            for corner_index in collect_corners_around_vertex(self, v9_idx) { // TODO: corners_around_vertex_mut
                 self[corner_index].set_vertex(v8_idx);
             }
 
@@ -53,9 +56,11 @@ impl<S: RealNumber> CornerTable<S> {
             self[c9_idx].set_deleted(true);
             self[c10_idx].set_deleted(true);
             self[c11_idx].set_deleted(true);
+
+            removed_face_2 = Some(c9_idx.face());
         } else {
             // Update vertex for corners around removed one
-            for corner_id in collect_corners_around_vertex(self, v9_idx) {
+            for corner_id in collect_corners_around_vertex(self, v9_idx) { // TODO: corners_around_vertex_mut
                 self[corner_id].set_vertex(v8_idx);
             }
         }
@@ -79,7 +84,7 @@ impl<S: RealNumber> CornerTable<S> {
         self.make_corners_opposite(c28_idx, c21_idx);
         self.make_corners_opposite(c6_idx, c13_idx);
 
-        Some(v9_idx)
+        Some((v9_idx, removed_face_1, removed_face_2))
     }
 
     pub fn flip_edge(&mut self, edge: EdgeId) {
@@ -134,8 +139,8 @@ impl<S: RealNumber> CornerTable<S> {
         self[v3_idx].set_corner(c2_idx);
     }
 
-    /// Returns id of vertex inserted to split edge, `None` if edge is invalid
-    pub fn split_edge(&mut self, edge: EdgeId, at: &Vec3<S>) -> Option<VertexId> {
+    /// Returns new edges created during split, `None` if edge is invalid
+    pub fn split_edge(&mut self, edge: EdgeId, at: Vec3<S>) -> Option<(EdgeId, EdgeId)> {
         if self[edge.corner()].is_deleted() {
             return None;
         }
@@ -143,11 +148,11 @@ impl<S: RealNumber> CornerTable<S> {
         let corner_id = edge.corner();
         let corner = &self[corner_id];
 
-        let new_vertex = match corner.opposite_corner() {
+        let new_edges = match corner.opposite_corner() {
             Some(_) => self.split_inner_edge(corner_id, at),
             None => self.split_boundary_edge(corner_id, at),
         };
-        Some(new_vertex)
+        Some(new_edges)
     }
 
     pub fn split_face(&mut self, face: FaceId, point: Vec3<S>) {
@@ -195,92 +200,68 @@ impl<S: RealNumber> CornerTable<S> {
 // Helper functions
 impl<S: RealNumber> CornerTable<S> {
     /// Splits inner edge opposite to corner at given position
-    fn split_inner_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) -> VertexId {
+    fn split_inner_edge(&mut self, corner_id: CornerId, at: Vec3<S>) -> (EdgeId, EdgeId) {
         // Existing corners and vertices that needs to be updated
         let mut walker = CornerWalker::from_corner(self, corner_id);
         let c0_idx = walker.previous_corner_id();
+        let v0_idx = self[c0_idx].vertex();
         let v1_idx = walker.corner().vertex();
         let c2_idx = walker.move_to_next().corner_id();
-        let v2_idx = walker.corner().vertex();
         let c3_idx = walker.swing_right().corner_id();
         let v3_idx = walker.move_to_next().corner().vertex();
         let c5_idx = walker.move_to_next().corner_id();
 
-        // Shift existing vertex
-        let old_vertex_position = *walker.move_to_next().vertex().position();
-        self[v2_idx].set_position(*at);
-        self[v2_idx].set_corner(c2_idx);
-
-        // New vertex, instead of shifted
-        let new_vertex_id = self.create_vertex(None, old_vertex_position);
+        // Insert new vertex at split position on the edge
+        let new_vertex_id = self.create_vertex(Some(c0_idx), at);
+        self[c0_idx].set_vertex(new_vertex_id);
+        self[c5_idx].set_vertex(new_vertex_id);
 
         // Create new faces
-        let (c6_idx, c7_idx, c8_idx) =
-            self.create_isolated_face_from_vertices(v1_idx, new_vertex_id, v2_idx);
-        let (c9_idx, c10_idx, c11_idx) =
-            self.create_isolated_face_from_vertices(new_vertex_id, v3_idx, v2_idx);
-        self[new_vertex_id].set_corner(c7_idx);
-
-        // Update vertex index of existing corners
-        for corner_index in collect_corners_around_vertex(self, v2_idx) {
-            if corner_index != c3_idx && corner_index != c2_idx {
-                self[corner_index].set_vertex(new_vertex_id);
-            }
-        }
+        let (c6_idx, c7_idx, c8_idx) = self.create_isolated_face_from_vertices(v1_idx, new_vertex_id, v0_idx);
+        let (c9_idx, c10_idx, c11_idx) = self.create_isolated_face_from_vertices(new_vertex_id, v3_idx, v0_idx);
+        self[v0_idx].set_corner(c11_idx);
 
         // Update opposites
-        if let Some(c0_opposite_idx) = self[c0_idx].opposite_corner() {
-            self.set_opposite_relationship(c0_opposite_idx, c8_idx);
+        if let Some(c2_opposite_idx) = self[c2_idx].opposite_corner() {
+            self.set_opposite_relationship(c2_opposite_idx, c7_idx);
         }
 
-        if let Some(c5_opposite_idx) = self[c5_idx].opposite_corner() {
-            self.set_opposite_relationship(c5_opposite_idx, c11_idx);
+        if let Some(c3_opposite_idx) = self[c3_idx].opposite_corner() {
+            self.set_opposite_relationship(c3_opposite_idx, c9_idx);
         }
 
-        self.set_opposite_relationship(c0_idx, c7_idx);
-        self.set_opposite_relationship(c5_idx, c9_idx);
+        self.set_opposite_relationship(c11_idx, c3_idx);
+        self.set_opposite_relationship(c8_idx, c2_idx);
         self.set_opposite_relationship(c6_idx, c10_idx);
 
-        new_vertex_id
+        (EdgeId::new(corner_id), EdgeId::new(c6_idx))
     }
 
     /// Splits boundary edge opposite to corner at given position
-    fn split_boundary_edge(&mut self, corner_id: CornerId, at: &Vec3<S>) -> VertexId {
+    fn split_boundary_edge(&mut self, corner_id: CornerId, at: Vec3<S>) -> (EdgeId, EdgeId) {
         // Existing corners and vertices that needs to be updated
         let mut walker = CornerWalker::from_corner(self, corner_id);
         let c0_idx = walker.previous_corner_id();
+        let v0_idx = self[c0_idx].vertex();
         let v1_idx = walker.corner().vertex();
         let c2_idx = walker.move_to_next().corner_id();
-        let v2_idx = walker.corner().vertex();
 
-        // Shift existing vertex
-        let old_vertex_position = *walker.vertex().position();
-        self[v2_idx].set_position(*at);
-        self[v2_idx].set_corner(c2_idx);
-
-        // New vertex, instead of shifted
-        let new_vertex_id = self.create_vertex(None, old_vertex_position);
+        // Insert new vertex at split position on the edge
+        let new_vertex_id = self.create_vertex(Some(c0_idx), at);
+        self[c0_idx].set_vertex(new_vertex_id);
 
         // Create new face
-        let (c3_idx, c4_idx, c5_idx) =
-            self.create_isolated_face_from_vertices(v1_idx, new_vertex_id, v2_idx);
-        self[new_vertex_id].set_corner(c4_idx);
-
-        // Update vertex index of existing corners
-        for corner_id in collect_corners_around_vertex(self, v2_idx) {
-            if corner_id != c3_idx && corner_id != c2_idx {
-                self[corner_id].set_vertex(new_vertex_id);
-            }
-        }
+        let (c3_idx, c4_idx, c5_idx) = self.create_isolated_face_from_vertices(v1_idx, new_vertex_id, v0_idx);
+        self[v0_idx].set_corner(c5_idx);
 
         // Update opposites
-        if let Some(c0_opposite) = self[c0_idx].opposite_corner() {
-            self.set_opposite_relationship(c0_opposite, c5_idx);
+        if let Some(c2_opposite) = self[c2_idx].opposite_corner() {
+            self.set_opposite_relationship(c2_opposite, c4_idx);
         }
 
-        self.set_opposite_relationship(c0_idx, c4_idx);
+        self.set_opposite_relationship(c2_idx, c5_idx);
 
-        new_vertex_id
+        (EdgeId::new(corner_id), EdgeId::new(c3_idx))
     }
 
     /// Makes give corners opposite to each other
@@ -368,7 +349,7 @@ mod tests {
             Corner::new(None, VertexId::new(2)),                   // 11
         ];
 
-        mesh.split_edge(EdgeId::new(CornerId::new(1)), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.split_edge(EdgeId::new(CornerId::new(1)), Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -408,7 +389,7 @@ mod tests {
             Corner::new(None, VertexId::new(3)),                   // 17
         ];
 
-        mesh.split_edge(EdgeId::new(CornerId::new(6)), &Vec3f::new(0.75, 0.75, 0.0));
+        mesh.split_edge(EdgeId::new(CornerId::new(6)), Vec3f::new(0.75, 0.75, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -434,7 +415,7 @@ mod tests {
             Corner::new(None, VertexId::new(2)),                   // 5
         ];
 
-        mesh.split_edge(EdgeId::new(CornerId::new(1)), &Vec3f::new(0.5, 0.5, 0.0));
+        mesh.split_edge(EdgeId::new(CornerId::new(1)), Vec3f::new(0.5, 0.5, 0.0));
 
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
     }
@@ -490,7 +471,7 @@ mod tests {
             Corner::new(None, VertexId::new(9)),                   // 29
         ];
 
-        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(9)), &Vec3f::new(0.5, 0.5, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(9)), &Vec3f::new(0.5, 0.5, 0.0)).map(|v| v.0);
 
         assert_eq!(removed_vertex, Some(VertexId::new(8)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
@@ -532,7 +513,7 @@ mod tests {
             Corner::new(None, VertexId::new(5)).deleted(),                    // 17
         ];
 
-        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(12)), &Vec3f::new(0.5, 0.5, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(12)), &Vec3f::new(0.5, 0.5, 0.0)).map(|v| v.0);
 
         assert_eq!(removed_vertex, Some(VertexId::new(6)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);
@@ -563,7 +544,7 @@ mod tests {
             Corner::new(None, VertexId::new(4)),                   // 8
         ];
 
-        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(5)), &Vec3f::new(2.0, 0.0, 0.0));
+        let removed_vertex = mesh.collapse_edge(EdgeId::new(CornerId::new(5)), &Vec3f::new(2.0, 0.0, 0.0)).map(|v| v.0);
 
         assert_eq!(removed_vertex, Some(VertexId::new(2)));
         assert_mesh_eq(&mesh, &expected_corners, &expected_vertices);

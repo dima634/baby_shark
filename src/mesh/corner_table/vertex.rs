@@ -123,6 +123,10 @@ impl Default for VertexFlags {
 }
 
 impl<S: RealNumber> CornerTable<S> {
+    pub fn vertex_exists(&self, vertex: VertexId) -> bool {
+        vertex.index() < self.vertices.len() && !self[vertex].is_deleted()
+    }
+
     /// Returns the number of vertices in the mesh.
     #[inline]
     pub fn count_vertices(&self) -> usize {

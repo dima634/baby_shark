@@ -45,6 +45,16 @@ impl<TScalar: RealNumber> Basis2<TScalar> {
         }
     }
 
+    #[inline]
+    pub fn u(&self) -> &Vector3<TScalar> {
+        &self.axis_x
+    }
+
+    #[inline]
+    pub fn v(&self) -> &Vector3<TScalar> {
+        &self.axis_y
+    }
+
     /// Project 3d point on this coordinate system
     #[inline]
     pub fn project(&self, point: &Point3<TScalar>) -> Point2<TScalar> {

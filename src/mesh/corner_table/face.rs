@@ -15,6 +15,12 @@ impl FaceId {
         )
     }
 
+    #[inline]
+    pub fn edges(&self) -> (EdgeId, EdgeId, EdgeId) {
+        let (c1, c2, c3) = self.corners();
+        (EdgeId::new(c1), EdgeId::new(c2), EdgeId::new(c3))
+    }
+
     /// Returns the first corner of the face.
     #[inline]
     pub fn corner(&self) -> CornerId {
