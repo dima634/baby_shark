@@ -1,33 +1,13 @@
-use std::{collections::HashSet, path};
-
 use crate::{
     algo::{edge_collapse, utils::tangential_relaxation, vertex_shift},
     geometry::{primitives::triangle3::Triangle3, traits::RealNumber},
     mesh::{corner_table::*, polygon_soup::data_structure::PolygonSoup, traits::stats},
     spatial_partitioning::grid::Grid,
 };
+use std::{collections::HashSet, path};
 
-///
-/// Incremental isotropic remesher.
-/// This algorithm incrementally performs simple operations such as edge splits,
-/// edge collapses, edge flips, and Laplacian smoothing.
-/// All the vertices of the remeshed patch are reprojected to
-/// the original surface to keep a good approximation of the input.
-///
-/// ## Example
-/// ```ignore
-/// let remesher = IncrementalRemesher::default()
-///     .with_iterations_count(10)
-///     .with_split_edges(true)
-///     .with_collapse_edges(true)
-///     .with_flip_edges(true)
-///     .with_shift_vertices(true)
-///     .with_project_vertices(true);
-/// remesher.remesh(&mut mesh, 0.002f32);
-/// ```
-///
 #[derive(Debug, Clone)]
-pub struct IncrementalRemesher {
+pub struct RemeshingOptions {
     split_edges: bool,
     shift_vertices: bool,
     collapse_edges: bool,
@@ -35,17 +15,10 @@ pub struct IncrementalRemesher {
     project_vertices: bool,
     keep_boundary: bool,
     iterations: u16,
-    sharp_edge_angle: Option<f64>,
-    constrained_vertices: HashSet<VertexId>,
-    constrained_edges: HashSet<(VertexId, VertexId)>,
+    constrained_edges: Vec<EdgeId>,
 }
 
-impl IncrementalRemesher {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
+impl RemeshingOptions {
     /// Set flag indicating whether edge split should be performed. Default is `true`
     #[inline]
     pub fn with_split_edges(mut self, split_edges: bool) -> Self {
@@ -96,73 +69,109 @@ impl IncrementalRemesher {
     }
 
     #[inline]
-    pub fn with_sharp_edge_angle(mut self, angle_degrees: Option<f64>) -> Self {
-        self.sharp_edge_angle = angle_degrees;
+    pub fn with_preserve_edges(mut self, edges: Vec<EdgeId>) -> Self {
+        self.constrained_edges = edges;
         self
     }
+}
 
+impl Default for RemeshingOptions {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            split_edges: true,
+            shift_vertices: true,
+            collapse_edges: true,
+            flip_edges: true,
+            project_vertices: true,
+            iterations: 15,
+            keep_boundary: true,
+            constrained_edges: Vec::new(),
+        }
+    }
+}
+
+///
+/// Incremental isotropic remesher.
+/// This algorithm incrementally performs simple operations such as edge splits,
+/// edge collapses, edge flips, and Laplacian smoothing.
+/// All the vertices of the remeshed patch are reprojected to
+/// the original surface to keep a good approximation of the input.
+///
+/// ## Example
+/// ```ignore
+/// let remesher = IncrementalRemesher::default(); // TODO
+/// remesher.remesh(&mut mesh, 0.002f32);
+/// ```
+///
+pub fn remesh<R: RealNumber>(
+    mesh: &mut CornerTable<R>,
+    target_edge_length: R,
+    mut options: RemeshingOptions,
+) {
+    let constrained_edges = core::mem::take(&mut options.constrained_edges);
+    let mut remesher = IncrementalRemesher {
+        opts: options,
+        constraints: Constraints::from_edges(mesh, constrained_edges.into_iter()),
+    };
+
+    remesher.remesh(mesh, target_edge_length);
+}
+
+#[derive(Debug)]
+struct IncrementalRemesher {
+    opts: RemeshingOptions,
+    constraints: Constraints,
+}
+
+impl IncrementalRemesher {
     ///
     /// Remesh given `mesh`
     /// ## Arguments
     /// * `mesh` - triangular mesh
     /// * `target_edge_length` - desired length of edge
     ///
-    pub fn remesh<R: RealNumber>(&mut self, mesh: &mut CornerTable<R>, target_edge_length: R) {
+    fn remesh<R: RealNumber>(&mut self, mesh: &mut CornerTable<R>, target_edge_length: R) {
         let max_edge_length = R::f64(4.0 / 3.0) * target_edge_length;
         let min_edge_length = R::f64(4.0 / 5.0) * target_edge_length;
 
         let mut reference_mesh = Grid::empty();
-        if self.project_vertices {
+        if self.opts.project_vertices {
             reference_mesh = Grid::from_mesh(mesh);
         }
 
-        self.find_feature_vertices(mesh);
-
-        for i in 0..self.iterations as usize {
-            //self.save_constraints(i, "begin", mesh);
-
-            if self.split_edges {
+        for _ in 0..self.opts.iterations as usize {
+            if self.opts.split_edges {
                 self.split_long_edges(mesh, max_edge_length);
             }
 
-            //self.save_constraints(i, "split", mesh);
-
-            // crate::io::write_to_file(mesh, &std::path::Path::new("before.ply"))
-            //     .expect("should save mesh to file");
-
-            if self.collapse_edges {
+            if self.opts.collapse_edges {
                 self.collapse_short_edges(mesh, min_edge_length);
             }
 
-            //self.save_constraints(i, "collapse", mesh);
-
-            // crate::io::write_to_file(mesh, &std::path::Path::new("after.ply"))
-            //     .expect("should save mesh to file");
-
-            if self.flip_edges {
+            if self.opts.flip_edges {
                 self.flip_edges(mesh);
             }
 
-            if self.shift_vertices {
+            if self.opts.shift_vertices {
                 self.shift_vertices(mesh, target_edge_length * target_edge_length);
             }
 
-            if self.project_vertices {
+            if self.opts.project_vertices {
                 self.project_vertices(mesh, &reference_mesh, target_edge_length);
             }
         }
+
+        self.save_constraints(0, "final", mesh);
     }
 
     fn split_long_edges<R: RealNumber>(&mut self, mesh: &mut CornerTable<R>, max_edge_length: R) {
         let max_edge_length_squared = max_edge_length * max_edge_length;
 
-        self.save_constraints(0, "begin", mesh);
-
         // Split longest edge of each face.
         // Iterating over edges does not work well
         // because sometimes it leads to creation of degenerate faces.
         // So we split longest edge of each face instead.
-        let mut i = 0;
         for face in mesh.faces().collect::<Vec<_>>() {
             let (e1, e2, e3) = mesh.face_edges(face);
             let l1 = mesh.edge_length_squared(e1);
@@ -190,30 +199,21 @@ impl IncrementalRemesher {
             let Some((e1, e2)) = mesh.split_edge(longest_edge, split_at) else { continue };
 
             let (new_v1, split_at) = mesh.edge_vertices(e1);
-            if self.constrained_vertices.remove(&v1) {
-                self.constrained_vertices.insert(new_v1);
+            if self.constraints.remove_vertex(&v1) {
+                self.constraints.add_vertex(new_v1);
             }
 
             let (_, new_v2) = mesh.edge_vertices(e2);
-            if self.constrained_vertices.remove(&v2) {
-                self.constrained_vertices.insert(new_v2);
+            if self.constraints.remove_vertex(&v2) {
+                self.constraints.add_vertex(new_v2);
             }
 
             // If we split constrained edge then new edges are also constrained.
-            if self.remove_edge_constraint(v1, v2) {
-                self.constrained_edges.insert((new_v1, split_at));
-                self.constrained_edges.insert((split_at, new_v2));
-
-                self.constrained_vertices.insert(new_v1); // TODO: check if needed
-                self.constrained_vertices.insert(new_v2);
-                self.constrained_vertices.insert(split_at);
+            if self.constraints.remove_edge(v1, v2) {
+                self.constraints.add_edge(new_v1, split_at);
+                self.constraints.add_edge(split_at, new_v2);
             }
-            i+=1;
-
-            self.save_constraints(i, "", mesh);
         }
-
-        println!("Split {} edges", i);
     }
 
     fn shift_vertices<R: RealNumber>(
@@ -225,12 +225,12 @@ impl IncrementalRemesher {
 
         // Perform laplacian smoothing for each vertex
         for vertex in mesh.vertices().collect::<Vec<_>>() {
-            if self.keep_boundary && mesh.is_vertex_on_boundary(vertex) {
+            if self.opts.keep_boundary && mesh.is_vertex_on_boundary(vertex) {
                 // TODO: constrained vertex
                 continue;
             }
 
-            if self.constrained_vertices.contains(&vertex) {
+            if self.constraints.has_vertex(vertex) {
                 continue;
             }
 
@@ -263,15 +263,13 @@ impl IncrementalRemesher {
     ) {
         let min_edge_length_squared = min_edge_length * min_edge_length;
 
-        let mut i = 0;
-
         // Collapse long edges
         for edge in mesh.unique_edges().collect::<Vec<_>>() {
             if !mesh.edge_exists(edge) {
                 continue;
             }
 
-            if self.keep_boundary && mesh.is_edge_on_boundary(edge) {
+            if self.opts.keep_boundary && mesh.is_edge_on_boundary(edge) {
                 continue; // TODO: constrained vertex
             }
 
@@ -279,50 +277,64 @@ impl IncrementalRemesher {
                 continue;
             }
 
-            // println!("{} > {}", mesh.edge_length_squared(edge), min_edge_length_squared);
-
-            let (v1, v2) = mesh.edge_vertices(edge);
-            let is_v1_constrained = self.constrained_vertices.contains(&v1);
-            let is_v2_constrained = self.constrained_vertices.contains(&v2);
-
-            let v1_pos = mesh.vertex_position(v1);
-            let v2_pos = mesh.vertex_position(v2);
-            let constrained_thr = R::one() - R::f32(0.001);
-            let (collapse_at, normal_deviation_thr) = match (is_v1_constrained, is_v2_constrained) {
-                (true, false) => (*v1_pos, constrained_thr),
-                (false, true) => (*v2_pos, constrained_thr),
-                (true, true) => ((v1_pos + v2_pos) * R::half(), constrained_thr),
-                (false, false) => ((v1_pos + v2_pos) * R::half(), R::f32(0.7)),
-            };
-
-            if edge_collapse::is_safe(mesh, edge, &collapse_at, R::half(), normal_deviation_thr) {
-                match (is_v1_constrained, is_v2_constrained) {
-                    (true, false) => self.constrained_vertices.insert(v2),
-                    (false, true) => self.constrained_vertices.insert(v1),
-                    _ => false,
-                };
-
-                let edge_corner = &mesh[edge.corner()];
-              
-                mesh.vertices_around_vertex(v2, |v| {
-                    if v != v1 && self.remove_edge_constraint(v2, v) {
-                        self.constrained_edges.insert((v1, v));
-                    }
-                });
-
-                let (removed_vertex, _, _) = mesh.collapse_edge(edge, &collapse_at).unwrap(); // We already checked that collapse is safe
-                assert!(removed_vertex == v2);
-
-                self.constrained_vertices.remove(&removed_vertex);
-                self.remove_edge_constraint(v1, v2);
-                
-                //self.save_constraints(i, "test", mesh);
-                i += 1;
-
+            if self.constraints.is_empty() {
+                self.collapse_edge(edge, mesh);
+            } else {
+                self.collapse_edge_with_constraints(edge, mesh);
             }
         }
+    }
 
-        
+    fn collapse_edge_with_constraints<R: RealNumber>(
+        &mut self,
+        edge: EdgeId,
+        mesh: &mut CornerTable<R>,
+    ) {
+        let (v1, v2) = mesh.edge_vertices(edge);
+        let is_v1_constrained = self.constraints.has_vertex(v1);
+        let is_v2_constrained = self.constraints.has_vertex(v2);
+
+        let v1_pos = mesh.vertex_position(v1);
+        let v2_pos = mesh.vertex_position(v2);
+
+        let (collapse_at, normal_deviation_thr) = match (is_v1_constrained, is_v2_constrained) {
+            (true, false) => (*v1_pos, collapse_thr_constrained()),
+            (false, true) => (*v2_pos, collapse_thr_constrained()),
+            (true, true) => ((v1_pos + v2_pos) * R::half(), collapse_thr_constrained()),
+            (false, false) => ((v1_pos + v2_pos) * R::half(), collapse_thr()),
+        };
+
+        if !edge_collapse::is_safe(mesh, edge, &collapse_at, R::half(), normal_deviation_thr) {
+            return;
+        }
+
+        match (is_v1_constrained, is_v2_constrained) {
+            (true, false) => self.constraints.add_vertex(v2),
+            (false, true) => self.constraints.add_vertex(v1),
+            _ => {}
+        };
+
+        mesh.vertices_around_vertex(v2, |v| {
+            if v != v1 && self.constraints.remove_edge(v2, v) {
+                self.constraints.add_edge(v1, v);
+            }
+        });
+
+        let (removed_vertex, _, _) = mesh.collapse_edge(edge, &collapse_at).unwrap(); // We already checked that collapse is safe
+        debug_assert!(removed_vertex == v2);
+
+        self.constraints.remove_vertex(&removed_vertex);
+        self.constraints.remove_edge(v1, v2);
+    }
+
+    fn collapse_edge<R: RealNumber>(&mut self, edge: EdgeId, mesh: &mut CornerTable<R>) {
+        let (v1, v2) = mesh.edge_positions(edge);
+        let collapse_at = (v1 + v2) * R::half();
+        let normal_deviation_thr = collapse_thr();
+
+        if edge_collapse::is_safe(mesh, edge, &collapse_at, R::half(), normal_deviation_thr) {
+            mesh.collapse_edge(edge, &collapse_at);
+        }
     }
 
     fn flip_edges<R: RealNumber>(&self, mesh: &mut CornerTable<R>) {
@@ -331,13 +343,8 @@ impl IncrementalRemesher {
         // Flip edges to improve valence
         for edge in edges {
             let (v1, v2) = mesh.edge_vertices(edge);
-            //if self.constrained_vertices.contains(&v1) || self.constrained_vertices.contains(&v2) {
-            if self.constrained_vertices.contains(&v1)
-                || self.constrained_vertices.contains(&v2)
-                || self.is_edge_constrained(v1, v2)
-                // || self.constrained_edges.contains(&edge)
-            {
-                // TODO: check if edge is constrained
+            if self.constraints.has_vertex(v1) || self.constraints.has_vertex(v2) {
+                // no need to check for edge because its vertices should be constrained
                 continue;
             }
 
@@ -469,45 +476,13 @@ impl IncrementalRemesher {
         }
     }
 
-    fn find_feature_vertices<R: RealNumber>(&mut self, mesh: &CornerTable<R>) {
-        let Some(sharp_angle) = self.sharp_edge_angle else { return };
-        self.constrained_vertices.clear();
-        let sharp_threshold_cos = R::f64(sharp_angle).cos();
-
-        for edge in mesh.unique_edges() {
-            let (f1, Some(f2)) = mesh.edge_faces(edge) else { continue };
-            let Some(n1) = mesh.face_normal(f1) else { continue };
-            let Some(n2) = mesh.face_normal(f2) else { continue };
-
-            let angle_cos = n1.dot(&n2).clamp(-R::one(), R::one());
-            if angle_cos < sharp_threshold_cos {
-                let (v1, v2) = mesh.edge_vertices(edge);
-                self.constrained_vertices.insert(v1);
-                self.constrained_vertices.insert(v2);
-                self.constrained_edges.insert((v1, v2));
-            }
-        }
-    }
-
-    #[inline]
-    fn is_edge_constrained(&self, v1: VertexId, v2: VertexId) -> bool {
-        self.constrained_edges.contains(&(v1, v2)) || self.constrained_edges.contains(&(v2, v1))
-    }
-
-    #[inline]
-    fn remove_edge_constraint(&mut self, v1: VertexId, v2: VertexId) -> bool {
-        let r1 = self.constrained_edges.remove(&(v1, v2)); 
-        let r2 = self.constrained_edges.remove(&(v2, v1));
-        r1 || r2
-    }
-
     fn save_constrained_vertices<P: AsRef<path::Path>, R: RealNumber>(
         &self,
         path: P,
         mesh: &CornerTable<R>,
     ) {
         let mut ps = PolygonSoup::<R>::default();
-        for vertex in self.constrained_vertices.iter() {
+        for vertex in self.constraints.constrained_vertices.iter() {
             let size = R::f32(0.05);
             let point = crate::mesh::builder::cube::<PolygonSoup<R>>(
                 *mesh[*vertex].position()
@@ -528,15 +503,9 @@ impl IncrementalRemesher {
         mesh: &CornerTable<R>,
     ) {
         let mut ps = PolygonSoup::<R>::default();
-        for &(v1, v2) in self.constrained_edges.iter() {
-            assert!(
-                mesh.vertex_exists(v1),
-                "v1 deleted"
-            );
-            assert!(
-                mesh.vertex_exists(v2),
-                "v2 deleted"
-            );
+        for &(v1, v2) in self.constraints.constrained_edges.iter() {
+            assert!(mesh.vertex_exists(v1), "v1 deleted");
+            assert!(mesh.vertex_exists(v2), "v2 deleted");
 
             let mut are_neighbors = false;
             mesh.vertices_around_vertex(v1, |v| {
@@ -563,7 +532,6 @@ impl IncrementalRemesher {
     }
 
     fn save_constraints<R: RealNumber>(&self, iter: usize, prefix: &str, mesh: &CornerTable<R>) {
-        return;
         let path = format!("{}_{}_vertices.ply", iter, prefix);
         self.save_constrained_vertices(&path, mesh);
         let path = format!("{}_{}_edges.ply", iter, prefix);
@@ -573,40 +541,91 @@ impl IncrementalRemesher {
     }
 }
 
-impl Default for IncrementalRemesher {
-    fn default() -> Self {
-        Self {
-            split_edges: true,
-            shift_vertices: true,
-            collapse_edges: true,
-            flip_edges: true,
-            project_vertices: true,
-            iterations: 15,
-            keep_boundary: true,
-            sharp_edge_angle: Some(30.0_f64.to_radians()),
-            constrained_vertices: HashSet::new(),
-            constrained_edges: HashSet::new(),
+#[inline]
+fn collapse_thr_constrained<R: RealNumber>() -> R {
+    R::one() - R::f32(0.001)
+}
+
+#[inline]
+fn collapse_thr<R: RealNumber>() -> R {
+    R::f32(0.7)
+}
+
+#[derive(Debug, Default, Clone)]
+struct Constraints {
+    constrained_vertices: HashSet<VertexId>,
+    constrained_edges: HashSet<(VertexId, VertexId)>,
+}
+
+impl Constraints {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.constrained_vertices.is_empty() && self.constrained_edges.is_empty()
+    }
+
+    #[inline]
+    fn has_vertex(&self, v: VertexId) -> bool {
+        self.constrained_vertices.contains(&v)
+    }
+
+    #[inline]
+    fn add_vertex(&mut self, v: VertexId) {
+        self.constrained_vertices.insert(v);
+    }
+
+    #[inline]
+    fn remove_vertex(&mut self, v: &VertexId) -> bool {
+        self.constrained_vertices.remove(v)
+    }
+
+    #[inline]
+    fn add_edge(&mut self, v1: VertexId, v2: VertexId) {
+        self.constrained_edges.insert((v1, v2));
+        self.constrained_vertices.insert(v1);
+        self.constrained_vertices.insert(v2);
+    }
+
+    #[inline]
+    fn remove_edge(&mut self, v1: VertexId, v2: VertexId) -> bool {
+        let r1 = self.constrained_edges.remove(&(v1, v2));
+        let r2 = self.constrained_edges.remove(&(v2, v1));
+        r1 || r2
+    }
+
+    fn from_edges<R: RealNumber>(
+        mesh: &CornerTable<R>,
+        edges: impl Iterator<Item = EdgeId>,
+    ) -> Self {
+        let mut constraints = Constraints::default();
+
+        for edge in edges {
+            let (v1, v2) = mesh.edge_vertices(edge);
+            constraints.add_edge(v1, v2);
         }
+
+        constraints
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::IncrementalRemesher;
-    use crate::{io::*, mesh::corner_table::*};
+    use super::*;
+    use crate::io::*;
     use std::path::Path;
 
     #[test]
     fn should_collapse_short_edges() {
-        let mut mesh: CornerTable<f32> = StlReader::default()
-            .read_from_file(Path::new("./assets/tube.stl"))
-            .expect("Read mesh");
+        let mut mesh: CornerTable<f32> =
+            read_from_file(Path::new("./assets/tube.stl")).expect("Read mesh");
 
-        // Only collapse edges
         let target_edge_length = 0.1f32;
-        IncrementalRemesher::default()
-            .with_iterations_count(5)
-            .remesh(&mut mesh, target_edge_length);
+        let opts = RemeshingOptions::default().with_iterations_count(5);
+        remesh(&mut mesh, target_edge_length, opts);
+
+        for e in mesh.edges() {
+            let length = mesh.edge_length(e);
+            println!("edge length: {}", length);
+        }
 
         let has_short_edges = mesh.edges().any(|edge| {
             let length = mesh.edge_length(edge);
